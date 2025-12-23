@@ -330,19 +330,34 @@ MIT
 
 # English
 
-`tack` is a **single-file build & project tool written in C** (C89/ANSI‑C). It targets projects that want to **avoid Make/CMake/Ninja** while still getting:
+`tack` is a **single‑file build & project tool written in C** (C89/ANSI‑C). It targets projects that intentionally want to **avoid Make/CMake/Ninja** while still having:
 
-- clean multi-target builds (app + tools + custom targets),
-- shared code reuse (core),
-- **data-only** configuration via `tack.ini`,
-- optional “power config” via `tackfile.c` (compile-time),
-- and a smooth workflow with **tcc** (Tiny C Compiler).
+- clean multi‑target builds (app + tools + custom targets),
+- shared code reuse via a “core” (`src/core/`),
+- **data‑only** configuration via `tack.ini` (no executable config required),
+- optional “power config” via `tackfile.c` (compile‑time include),
+- a workflow that plays very well with **tcc** (Tiny C Compiler).
 
 **Core idea:** *Build logic is code.* If your project is C, your build pipeline can be C too.
 
+## Why tack (instead of Make/CMake/Ninja)?
+
+### Why those tools exist
+- **Make**: pragmatic, timestamp‑based rebuild system.
+- **CMake**: a generator (“Makefiles/IDE projects for everything”).
+- **Ninja**: fast executor for large generated build graphs.
+- **jam/b2**: alternative rule/graph models.
+- **mk (Plan 9/9front)**: elegant, but not universally available.
+
+### Why tack can be a better fit
+- you want **no build stack** (generator → executor → toolchain),
+- you want a **thin pipeline**: `tcc -run tack.c ...`,
+- you want to **debug build logic as C code**,
+- you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
+
 ## Features (v0.5.0)
 
-- Single-file build driver (C89)
+- single‑file build driver (C89)
 - No Make/CMake/Ninja
 - Recursive scanning: `src/**/*.c`, `tools/<name>/**/*.c`, `tests/**/*_test.c`
 - Target discovery: `app` + `tool:<name>` (from `tools/`, can be disabled)
@@ -351,15 +366,20 @@ MIT
 - Robust process execution (no `system()` for builds)
 - Parallel compile: `-j N`
 - Depfiles (`-MD -MF`) for incremental builds
-- Strict mode: `--strict` enables `-Wunsupported`
-- Per-target configuration (includes/defines/cflags/ldflags/libs/core)
+- strict mode: `--strict` enables `-Wunsupported` (default suppresses it)
+- real per‑target config: includes/defines/cflags/ldflags/libs/core
 - Shared core code: `src/core/` built once per profile, optionally linked
+- configuration sources (priority):
+  - `tack.ini` (runtime, data‑only, auto‑load; highest priority)
+  - `tackfile.c` (compile‑time include, optional; middle priority)
+  - built‑ins in `tack.c` (fallback)
 
-## Installation / Usage
+## Quickstart
 
 Put `tack.c` into your repo root.
 
 ### Option A: run from source (tcc)
+Windows:
 ```bat
 tcc -run tack.c init
 tcc -run tack.c list
@@ -367,15 +387,220 @@ tcc -run tack.c build debug -v -j 8
 tcc -run tack.c run debug -- --hello "Berlin"
 ```
 
-### Option B: build `tack.exe`
+Linux/BSD:
+```sh
+tcc -run tack.c init
+tcc -run tack.c list
+tcc -run tack.c build debug -v -j 8
+tcc -run tack.c run debug -- --hello Berlin
+```
+
+### Option B: build `tack.exe` (CI/teams)
 ```bat
 tcc tack.c -o tack.exe
 tack.exe init
 tack.exe build debug -j 8 -v
 ```
 
-### Compiler override
-Set `TACK_CC` to pick a different compiler.
+With optional `tackfile.c` (compile‑time):
+```bat
+tcc -DTACK_USE_TACKFILE tack.c -o tack.exe
+```
+
+## Pick a compiler (Env)
+
+Default compiler is `tcc`. Override it with:
+
+- `TACK_CC` → compiler binary (must be in PATH)
+
+## Project layout conventions
+
+- **App**
+  - default: `src/`
+  - optional: `src/app/` (if present, preferred)
+- **Shared core**
+  - `src/core/` (built once per profile)
+- **Tools**
+  - `tools/<name>/` → target `tool:<name>` (one level deep; sources below scanned recursively)
+- **Tests**
+  - `tests/**/*_test.c` (built and executed)
+
+## Commands
+
+### Important rule: global options come **before** the command
+Examples:
+```bat
+tack.exe --no-config build release
+tack.exe --config ci/windows.ini build release
+tack.exe --no-auto-tools list
+```
+
+### help / version / doctor
+```bat
+tack.exe help
+tack.exe version
+tack.exe doctor
+```
+
+### init
+Creates (if missing) a minimal project skeleton + Hello World.
+```bat
+tack.exe init
+```
+
+### list
+Lists targets (id, src, core yes/no, enabled yes/no).
+```bat
+tack.exe list
+```
+
+### build
+```bat
+tack.exe build debug   -j 8 -v
+tack.exe build release --target tool:foo
+```
+
+Options:
+- `-v` / `--verbose` → print compiler/link commands
+- `--rebuild`        → force rebuild
+- `-j N`             → parallel compilation
+- `--strict`         → re-enable `-Wunsupported`
+- `--target NAME`    → select target (name **or** `id`)
+- `--no-core`        → do not link shared core for this invocation
+
+### run
+Everything after `--` is forwarded to the target executable.
+```bat
+tack.exe run debug -- --hello "Berlin"
+```
+
+### test
+Builds and runs `tests/**/*_test.c`.
+```bat
+tack.exe test debug -v
+```
+
+### clean / clobber
+- **clean**: remove contents of `build/`, keep the directory
+- **clobber**: remove `build/` itself
+```bat
+tack.exe clean
+tack.exe clobber
+```
+
+## Why “clean” and “clobber” (instead of distclean)?
+
+`distclean` is a Make‑ism (“also remove generated configuration”). In tack it’s explicit:
+- **clean**: “remove build artefacts, keep structure”
+- **clobber**: “remove everything under build root”
+
+## Configuration: `tack.ini` (data) and `tackfile.c` (code)
+
+### `tack.ini` — data-only (recommended)
+If `tack.ini` exists (or is set via `--config PATH`), tack loads it automatically unless you pass `--no-config`.
+
+Sections:
+- `[project]`
+- `[target "<name>"]` (quotes optional; e.g. `[target tool:foo]`)
+
+Keys in `[project]`:
+- `default_target = app`
+- `disable_auto_tools = yes|no`
+
+Keys in `[target ...]`:
+- `src = <dir>`        (recursive `.c` scan)
+- `bin = <name>`       (executable base name)
+- `id = <id>`          (optional: controls `build/<id>/...`)
+- `enabled = yes|no`
+- `remove = yes|no`
+- `core = yes|no`      (link shared core for this target)
+- `includes = a;b;c`   (without `-I`)
+- `defines  = A=1;B=2` (without `-D`)
+- `cflags   = ...`     (`;`-separated tokens)
+- `ldflags  = ...`     (`;`-separated tokens)
+- `libs     = ...`     (`;`-separated tokens)
+
+**List format:** `;`-separated. Whitespace around tokens is fine; avoid embedded spaces inside a token.
+
+Example `tack.ini`:
+```ini
+[project]
+default_target = app
+disable_auto_tools = no
+
+[target "app"]
+core = yes
+includes = include; src
+defines = FEATURE_X=1
+
+[target "tool:gen"]
+src = tools/gen
+bin = gen
+core = yes
+libs = -lws2_32
+
+[target "tool:old"]
+enabled = no
+
+[target "tool:tmp"]
+remove = yes
+```
+
+### `tackfile.c` — optional code config (compile-time)
+In v0.5.0, `tackfile.c` is **not** a runtime plugin; it’s a compile‑time include.
+
+Enable it with:
+```bat
+tcc -DTACK_USE_TACKFILE tack.c -o tack.exe
+```
+
+Optional definitions inside `tackfile.c`:
+- custom overrides array via `TACKFILE_OVERRIDES`
+- custom targets/upserts/disable/remove via `TACKFILE_TARGETS` (using `TargetDef`)
+- `TACKFILE_DEFAULT_TARGET`
+- `TACKFILE_DISABLE_AUTO_TOOLS` (fully declarative builds)
+
+### Priorities (important)
+- **Overrides/flags:** `tack.ini` → `tackfile.c` → built‑in `tack.c`
+- **Target graph:** discovery → `tackfile.c` → `tack.ini`
+
+## Shared Core (src/core)
+
+**Why?** Apps and tools often share logic (IO, parsers, utilities).  
+`src/core/` gives you a clear split: core is built once per profile and linked into multiple targets.
+
+- core objects live under `build/_core/<profile>/obj/...`
+- targets with `core=yes` (INI) or `use_core=1` (override) link them
+- `--no-core` disables core linking for the current invocation
+
+## Strict mode (`--strict`)
+
+On Windows, system headers may contain GCC-style attributes (`format`, `nonnull`). With `-Werror` this can break builds. Default behaviour is:
+- suppress unsupported warnings (`-Wno-unsupported`)
+
+Use `--strict` to intentionally re-enable them:
+```bat
+tack.exe build debug --strict
+```
+
+## Troubleshooting
+
+- warnings from `stdio.h` and missing `.exe`: don’t enable `--strict` unless you want those warnings.
+- strange compile errors like `... undeclared`: often a comment accidentally ended early.
+- paths with spaces: tack uses spawn/exec rather than shell `system()`, so quoting issues are reduced.
+
+## Roadmap (v0.6.0+): tackfile.c runtime plugin (DLL/SO)
+
+In **v0.5.0**, `tackfile.c` is **compile‑time** only (`-DTACK_USE_TACKFILE`).  
+For **v0.6.0+**, the next step is a runtime plugin model:
+
+- `tack.exe` compiles `tackfile.c` into a plugin (Windows: **DLL**, POSIX: **SO**)
+- loads it automatically and registers targets/overrides through a host API
+- changes take effect **without rebuilding** `tack.exe` (great for CI/dev workflows)
+
+**Security/CI:** add `--no-code-config` so teams can enforce INI‑only policies.
+
+(Default recommendation remains: **INI first**, code config only when explicitly desired.)
 
 ## License
 MIT
