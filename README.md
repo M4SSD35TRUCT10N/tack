@@ -2,8 +2,6 @@
 
 > **DE/EN README**
 
----
-
 # Deutsch
 
 `tack` ist ein **Build- und Projekt-Werkzeug in einer einzigen C-Datei** (C89/ANSI‑C). Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und trotzdem:
@@ -30,8 +28,6 @@
 - Du willst Build-Logik **wie C-Code debuggen**.
 - Du willst **Portabilität** (C89) und einfache Verteilung (eine Datei).
 
----
-
 ## Features (v0.4.3)
 
 - Single-file Build Driver (C89)
@@ -50,8 +46,6 @@
   - Targets hinzufügen/ändern (Upsert)
   - Targets deaktivieren/entfernen
   - Auto Tool Discovery abschaltbar (voll deklarativ)
-
----
 
 ## Installation / Verwendung
 
@@ -73,8 +67,6 @@ tcc -run tack.c build debug -v -j 8
 tcc -run tack.c run debug -- --hello Berlin
 ```
 
----
-
 ## Projektstruktur (Konventionen)
 
 - **App**
@@ -86,8 +78,6 @@ tcc -run tack.c run debug -- --hello Berlin
   - `tools/<name>/` → Target `tool:<name>`
 - **Tests**
   - `tests/**/*_test.c` → wird gebaut und ausgeführt
-
----
 
 ## Kommandos
 
@@ -143,15 +133,11 @@ tcc -run tack.c clean
 tcc -run tack.c clobber
 ```
 
----
-
 ## Warum “clean” und “clobber” (statt distclean)?
 
 `distclean` stammt aus Make-Welten („putze auch generierte Konfig“). Bei tack ist es klar getrennt:
 - **clean**: „Baureste weg, Struktur bleibt“
 - **clobber**: „alles weg“
-
----
 
 ## Echte Target-Konfiguration (Overrides)
 
@@ -173,8 +159,6 @@ static const TargetOverride g_overrides[] = {
 };
 ```
 
----
-
 ## Shared Core (src/core)
 
 **Wofür?** App und Tools teilen sich oft Logik (Parser/IO/Protokolle/Utilities).  
@@ -183,8 +167,6 @@ Mit `src/core/` gibt’s eine klare Trennung: Core wird einmal gebaut und mehrfa
 **Wie?**  
 - Objekte landen unter `build/_core/<profile>/obj/...`
 - Targets mit `use_core=1` linken diese Objekte dazu
-
----
 
 ## tackfile.c (optional, empfohlen für Projekte)
 
@@ -255,8 +237,6 @@ static const TargetOverride my_overrides[] = {
 };
 ```
 
----
-
 ## Strict Mode (`--strict`)
 
 Unter Windows enthalten System-Header oft GCC-Attribute (`format`, `nonnull`).  
@@ -268,15 +248,11 @@ Mit `-Werror` können solche Warnungen Builds abbrechen. Darum ist Default:
 tcc -run tack.c build debug --strict
 ```
 
----
-
 ## Troubleshooting (kurz)
 
 - **Warnungen aus stdio.h** + kein `.exe`: `--strict` aus lassen (Default ist korrekt).
 - **`keep undeclared`** o.ä.: oft Kommentar versehentlich beendet (`*/` in `build/*/*` etc.).
 - **Pfade mit Leerzeichen**: tack nutzt `spawn/exec`, daher deutlich weniger Quoting-Probleme.
-
----
 
 ## Lizenz
 Wähle eine Lizenz, die zu deinem Projekt passt (z.B. MIT/ISC/BSD-2-Clause).
@@ -309,8 +285,6 @@ Wähle eine Lizenz, die zu deinem Projekt passt (z.B. MIT/ISC/BSD-2-Clause).
 - You want to **debug build logic as C code**.
 - You want **portability** (C89) and easy distribution (one file).
 
----
-
 ## Features (v0.4.3)
 
 - Single-file build driver (C89)
@@ -329,8 +303,6 @@ Wähle eine Lizenz, die zu deinem Projekt passt (z.B. MIT/ISC/BSD-2-Clause).
   - add/modify targets (upsert)
   - disable/remove targets
   - disable auto tool discovery (fully declarative builds)
-
----
 
 ## Install / Use
 
@@ -352,8 +324,6 @@ tcc -run tack.c build debug -v -j 8
 tcc -run tack.c run debug -- --hello Berlin
 ```
 
----
-
 ## Project layout conventions
 
 - **App**
@@ -365,8 +335,6 @@ tcc -run tack.c run debug -- --hello Berlin
   - `tools/<name>/` → target `tool:<name>`
 - **Tests**
   - `tests/**/*_test.c` → built and executed
-
----
 
 ## Commands
 
@@ -422,16 +390,12 @@ tcc -run tack.c clean
 tcc -run tack.c clobber
 ```
 
----
-
 ## Why “clean” and “clobber” (instead of distclean)?
 
 `distclean` is a Make-era convention (“also remove generated configuration”).  
 `tack` uses clearer semantics:
 - **clean**: remove build artifacts, keep structure
 - **clobber**: remove everything (fresh start)
-
----
 
 ## Real per-target configuration (Overrides)
 
@@ -453,8 +417,6 @@ static const TargetOverride g_overrides[] = {
 };
 ```
 
----
-
 ## Shared core (src/core)
 
 **Why?** Apps and tools often share logic (parsers/IO/protocol/utilities).  
@@ -463,8 +425,6 @@ Place it in `src/core/` so it is compiled once and linked into multiple executab
 **How?**
 - objects end up under `build/_core/<profile>/obj/...`
 - targets with `use_core=1` link those objects
-
----
 
 ## tackfile.c (optional, recommended for real projects)
 
@@ -532,8 +492,6 @@ static const TargetOverride my_overrides[] = {
 };
 ```
 
----
-
 ## Strict mode (`--strict`)
 
 On Windows, system headers may contain GCC attributes (`format`, `nonnull`).  
@@ -547,15 +505,11 @@ Enable strict explicitly:
 tcc -run tack.c build debug --strict
 ```
 
----
-
 ## Troubleshooting (short)
 
 - **Warnings from stdio.h** + no `.exe`: don’t enable strict (default is correct).
 - **`keep undeclared`** and similar: usually a block comment accidentally ended (`*/` inside `build/*/*` etc.).
 - **Paths with spaces**: tack uses `spawn/exec`, much less quoting pain than `system()`.
-
----
 
 ## License
 Pick a license that matches your project (MIT/ISC/BSD-2-Clause are common choices).
