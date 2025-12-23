@@ -254,6 +254,45 @@ tcc -run tack.c build debug --strict
 - **`keep undeclared`** o.ä.: oft Kommentar versehentlich beendet (`*/` in `build/*/*` etc.).
 - **Pfade mit Leerzeichen**: tack nutzt `spawn/exec`, daher deutlich weniger Quoting-Probleme.
 
+## Konfiguration: `tack.ini` (Data) und `tackfile.c` (Code)
+
+`tack` kann in zwei „Konfigurations-Modi“ betrieben werden – je nachdem, wie viel Flexibilität du brauchst und was in deinem Umfeld akzeptabel ist.
+
+### `tack.ini` — Data-only Konfiguration (empfohlen, v0.5.0+)
+Wenn `tack.ini` vorhanden ist, kann `tack.exe` (oder der entsprechende Modus) die Projekt-Konfiguration daraus laden:
+- Targets deklarativ definieren/ändern
+- pro Target: includes/defines/cflags/ldflags/libs/core/enabled/remove
+- Auto-Tool-Discovery ein-/ausschalten
+- Default-Target setzen
+
+**Warum INI?** Klein, robust, leicht auditierbar – und ohne „ausführbaren Konfigurations-Code“ im Repo.
+
+### `tackfile.c` — Code-Konfiguration (optional, Power-Feature)
+Neben INI ist eine Code-Konfiguration denkbar/gewünscht, wenn du Dinge brauchst, die in INI unhandlich sind:
+- OS-/Arch-spezifische Logik (`#ifdef _WIN32`)
+- wiederverwendbare Flag-Sets als C-Arrays
+- programmatische Target-Erzeugung (viele Demos/Tools aus Listen)
+
+**Wichtig:** Nicht jeder möchte fremden C-Code als Konfigurationsdatei im Projekt – deshalb bleibt `tack.ini` der akzeptanzfreundliche Standard.
+
+#### Zwei Wege, `tackfile.c` zu nutzen
+**A) Statisch (einfach, aber erfordert Neubau von tack.exe)**  
+`tackfile.c` wird beim Bauen von `tack.exe` eingebunden (z.B. via `#include`/Link).  
+✅ simpel  
+❌ Änderungen an `tackfile.c` erfordern einen Neubau von `tack.exe`
+
+**B) Dynamisch als Plugin (empfohlen, keine Neubauten nötig; Roadmap v0.6.0+)**  
+`tack.exe` kompiliert `tackfile.c` automatisch zu einem Plugin (DLL/SO) und lädt es.  
+✅ Änderungen wirken sofort  
+✅ tack.exe bleibt stabil  
+✅ funktioniert als „TOML-Ersatz, aber in C“
+
+#### CI/Security-Schalter (empfohlen)
+- `--no-config` → ignoriert **alle** Konfigurationen
+- `--config <pfad>` → nutzt eine bestimmte INI-Datei
+- `--no-auto-tools` → Discovery zur Laufzeit abschalten
+- `--no-code-config` → nutzt INI, ignoriert `tackfile.c` *(wenn/ sobald implementiert)*
+
 ## Lizenz
 MIT
 
@@ -510,6 +549,46 @@ tcc -run tack.c build debug --strict
 - **Warnings from stdio.h** + no `.exe`: don’t enable strict (default is correct).
 - **`keep undeclared`** and similar: usually a block comment accidentally ended (`*/` inside `build/*/*` etc.).
 - **Paths with spaces**: tack uses `spawn/exec`, much less quoting pain than `system()`.
+
+
+## Configuration: `tack.ini` (data) and `tackfile.c` (code)
+
+`tack` can be used in two configuration styles — depending on how much flexibility you need and what your environment accepts.
+
+### `tack.ini` — data-only config (recommended, v0.5.0+)
+When `tack.ini` is present, `tack.exe` (or the corresponding mode) can load project configuration from it:
+- declaratively define/modify targets
+- per target: includes/defines/cflags/ldflags/libs/core/enabled/remove
+- enable/disable auto tool discovery
+- set the default target
+
+**Why INI?** Small, robust, easy to audit — and it does not require executable “config code” in the repo.
+
+### `tackfile.c` — code config (optional, power feature)
+In addition to INI, a code-based configuration can be useful when INI becomes limiting:
+- OS/arch logic (`#ifdef _WIN32`)
+- reusable flag sets as C arrays
+- programmatically generating many targets
+
+**Important:** not everyone wants executable config code in their repo — that’s why `tack.ini` remains the acceptance-friendly default.
+
+#### Two ways to use `tackfile.c`
+**A) Static (simple, but requires rebuilding tack.exe)**  
+`tackfile.c` is compiled/linked into `tack.exe`.  
+✅ simple  
+❌ changes require rebuilding `tack.exe`
+
+**B) Dynamic plugin (recommended, no rebuilds; roadmap v0.6.0+)**  
+`tack.exe` compiles `tackfile.c` into a plugin (DLL/SO) and loads it automatically.  
+✅ changes take effect immediately  
+✅ `tack.exe` stays stable  
+✅ works as a “TOML replacement, but in C”
+
+#### CI/Security switches (recommended)
+- `--no-config` → ignores all configuration
+- `--config <path>` → uses a specific INI file
+- `--no-auto-tools` → disable discovery at runtime
+- `--no-code-config` → use INI, ignore `tackfile.c` *(if/when implemented)*
 
 ## License
 MIT
