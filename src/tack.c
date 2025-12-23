@@ -1,5 +1,6 @@
+
 /* tack.c - Tiny ANSI-C Kit
- * v0.4.3
+ * v0.5.0
  *
  * Adds:
  * - Real target configuration overrides (includes/defines/libs per target)
@@ -55,9 +56,28 @@
   #define STAT_ST struct stat
 #endif
 
-/* ----------------------------- CONFIG ----------------------------- */
+#define TACK_VERSION "0.5.0"
 
-#define TACK_VERSION "0.4.3"
+
+/* --------------------------- runtime config (globals) --------------------------- */
+/* Optional project configuration (data-only, no code execution):
+ * - auto-loads tack.ini if present
+ * - CLI may override with --config / disable with --no-config
+ *
+ * Global options (must appear before the command):
+ *   --no-config        ignore all config files (legacy mode)
+ *   --config <path>    use explicit INI file
+ *   --no-auto-tools    disable tool discovery at runtime
+ */
+static int g_no_config = 0;
+static const char *g_config_path_cli = 0;
+static int g_no_auto_tools_cli = 0;
+
+static int g_config_loaded = 0;
+static char g_config_path[512] = {0};
+static char *g_config_default_target = 0; /* owned; freed at exit */
+static int g_config_disable_auto_tools = 0;
+
 
 static const char *g_cc_default = "tcc";
 static const char *g_build_dir  = "build";
@@ -72,6 +92,7 @@ static const char *g_app_dir    = "src/app";
 static const char *g_default_target = "app";
 
 static const char *default_target_name(void) {
+  if (g_config_default_target) return g_config_default_target;
 #ifdef TACKFILE_DEFAULT_TARGET
   return TACKFILE_DEFAULT_TARGET;
 #else
@@ -635,6 +656,9 @@ typedef struct {
   int use_core;                     /* 1 = link src/core into this target */
 } TargetOverride;
 
+/* runtime INI overrides (higher priority than tackfile/built-ins) */
+static const TargetOverride *find_ini_override(const char *name);
+
 typedef struct {
   const char *name;      /* CLI name (e.g. "app" or "tool:foo") */
   const char *src_dir;   /* directory to scan recursively for .c files (upsert if non-0) */
@@ -661,7 +685,7 @@ typedef struct {
  *     { 0,0,0,0,0,0,0 }
  *   };
  *
-   2) Declarative target graph (add/modify/remove/disable):
+ *   2) Declarative target graph (add/modify/remove/disable):
  *      #define TACKFILE_TARGETS my_targets
  *      static const TargetDef my_targets[] = {
  *        { "app", "src/app", "app", 0, 1, 0 },            // upsert (enabled by default)
@@ -706,6 +730,10 @@ static const TargetOverride g_overrides[] = {
 
 static const TargetOverride *find_override(const char *name) {
   int i;
+  {
+    const TargetOverride *io = find_ini_override(name);
+    if (io) return io;
+  }
 
 #ifdef TACKFILE_OVERRIDES
   /* user overrides (from tackfile.c) take precedence */
@@ -770,8 +798,8 @@ static void tv_push(TargetVec *v, const char *name, const char *src_dir, const c
   t->enabled = 1;
 }
 
-/* tackfile.c target graph (optional) */
-#ifdef TACKFILE_TARGETS
+/* --------------------------- target graph helpers --------------------------- */
+/* Used by tackfile targets (compile-time) and tack.ini targets (runtime). */
 
 static int tv_find_index_by_name(TargetVec *v, const char *name) {
   int i;
@@ -795,95 +823,506 @@ static void tv_remove_at(TargetVec *v, int idx) {
 }
 
 static void tv_update_at_fields(TargetVec *v, int idx, const TargetDef *d) {
-  Target *t;
-  char idbuf[256];
-  const char *id_src;
+  if (idx < 0 || idx >= v->count) return;
 
-  t = &v->items[idx];
-
-  /* name */
-  if (d->name) {
-    free(t->name);
-    t->name = xstrdup(d->name);
-  }
-
-  /* id: prefer explicit id if provided, else derive from (new) name */
-  id_src = d->id ? d->id : d->name;
-  sanitize_name_to_id(idbuf, sizeof(idbuf), id_src ? id_src : "target");
-  free(t->id);
-  t->id = xstrdup(idbuf);
-
-  /* src_dir / bin_base */
   if (d->src_dir) {
-    free(t->src_dir);
-    t->src_dir = xstrdup(d->src_dir);
+    free(v->items[idx].src_dir);
+    v->items[idx].src_dir = xstrdup(d->src_dir);
   }
   if (d->bin_base) {
-    free(t->bin_base);
-    t->bin_base = xstrdup(d->bin_base);
+    free(v->items[idx].bin_base);
+    v->items[idx].bin_base = xstrdup(d->bin_base);
+  }
+  if (d->id) {
+    free(v->items[idx].id);
+    v->items[idx].id = xstrdup(d->id);
   }
 }
 
 static void tv_apply_targetdef(TargetVec *v, const TargetDef *d) {
   int idx;
-  int is_action;
 
   if (!d || !d->name) return;
 
-  is_action = (d->src_dir == 0 && d->bin_base == 0 && d->id == 0);
-
-  /* remove action */
-  if (d->remove) {
     idx = tv_find_index_by_name(v, d->name);
+
+  /* remove wins */
+  if (d->remove) {
     if (idx >= 0) tv_remove_at(v, idx);
     return;
   }
 
-  idx = tv_find_index_by_name(v, d->name);
-
-  /* enable/disable action */
-  if (is_action) {
+  /* action-only: enable/disable existing */
+  if (!d->src_dir && !d->bin_base && !d->id) {
     if (idx >= 0) v->items[idx].enabled = d->enabled ? 1 : 0;
     return;
   }
 
-  /* upsert (add/modify). Definitions are enabled by default. */
-  if (idx >= 0) {
-    tv_update_at_fields(v, idx, d);
-    v->items[idx].enabled = 1;
-    if (d->enabled) v->items[idx].enabled = 1; /* explicit enable */
-  } else {
-    /* add */
-    tv_push(v,
-            d->name,
-            d->src_dir ? d->src_dir : "",
-            d->bin_base ? d->bin_base : d->name);
-    /* set id if explicitly provided */
-  if (d->id && d->id[0]) {
-      TargetDef dd;
-      dd.name = d->name;
-      dd.src_dir = d->src_dir;
-      dd.bin_base = d->bin_base;
-      dd.id = d->id;
-      dd.enabled = 1;
-      dd.remove = 0;
-      tv_update_at_fields(v, v->count - 1, &dd);
-    }
-    v->items[v->count - 1].enabled = 1;
-    if (d->enabled) v->items[v->count - 1].enabled = 1;
+  /* upsert */
+  if (idx < 0) {
+    /* create with best-effort defaults, then apply upserts */
+    tv_push(v, d->name, d->src_dir ? d->src_dir : "src", d->bin_base ? d->bin_base : "app");
+    idx = v->count - 1;
   }
+
+    tv_update_at_fields(v, idx, d);
+
+  /* enabled defaults to 1; if explicitly 0, allow disabling */
+  v->items[idx].enabled = (d->enabled ? 1 : 0);
 }
 
+/* --------------------------- tackfile.c targets --------------------------- */
+#ifdef TACKFILE_TARGETS
 static void apply_tackfile_targets(TargetVec *out) {
   int i;
   for (i = 0; TACKFILE_TARGETS[i].name; i++) {
     tv_apply_targetdef(out, &TACKFILE_TARGETS[i]);
   }
 }
-
 #else
 static void apply_tackfile_targets(TargetVec *out) { (void)out; }
 #endif
+
+
+/* --------------------------- tack.ini (INI config) --------------------------- */
+
+typedef struct {
+  char *name; /* target name key */
+  char *src_dir;
+  char *bin_base;
+  char *id;
+  int enabled_set, enabled;
+  int remove_set, remove;
+  int core_set, core;
+
+  StrVec includes;
+  StrVec defines;
+  StrVec cflags;
+  StrVec ldflags;
+  StrVec libs;
+} IniTargetCfg;
+
+typedef struct {
+  IniTargetCfg *items;
+  int count;
+  int cap;
+} IniTargetVec;
+
+typedef struct {
+  TargetOverride *items;
+  int count;
+  int cap;
+} IniOverrideVec;
+
+static IniTargetVec g_ini_targets;
+static IniOverrideVec g_ini_overrides;
+
+static void ini_targets_init(void) { g_ini_targets.items = 0; g_ini_targets.count = 0; g_ini_targets.cap = 0; }
+static void ini_overrides_init(void) { g_ini_overrides.items = 0; g_ini_overrides.count = 0; g_ini_overrides.cap = 0; }
+
+static void free_strlist(char **lst) {
+  int i;
+  if (!lst) return;
+  for (i = 0; lst[i]; i++) free(lst[i]);
+  free(lst);
+}
+
+static void ini_targets_free(void) {
+  int i;
+  for (i = 0; i < g_ini_targets.count; i++) {
+    IniTargetCfg *t = &g_ini_targets.items[i];
+    free(t->name);
+    free(t->src_dir);
+    free(t->bin_base);
+    free(t->id);
+    sv_free(&t->includes);
+    sv_free(&t->defines);
+    sv_free(&t->cflags);
+    sv_free(&t->ldflags);
+    sv_free(&t->libs);
+  }
+  free(g_ini_targets.items);
+  g_ini_targets.items = 0; g_ini_targets.count = 0; g_ini_targets.cap = 0;
+}
+
+static void ini_overrides_free(void) {
+  int i;
+  for (i = 0; i < g_ini_overrides.count; i++) {
+    TargetOverride *ov = &g_ini_overrides.items[i];
+    free((char*)ov->name);
+    free_strlist((char**)ov->includes);
+    free_strlist((char**)ov->defines);
+    free_strlist((char**)ov->cflags);
+    free_strlist((char**)ov->ldflags);
+    free_strlist((char**)ov->libs);
+  }
+  free(g_ini_overrides.items);
+  g_ini_overrides.items = 0; g_ini_overrides.count = 0; g_ini_overrides.cap = 0;
+}
+
+/* tiny trimming helpers */
+static char *ltrim(char *s) { while (*s && isspace((unsigned char)*s)) s++; return s; }
+static void rtrim_inplace(char *s) {
+  size_t n = strlen(s);
+  while (n > 0 && isspace((unsigned char)s[n - 1])) { s[n - 1] = '\0'; n--; }
+}
+static char *trim(char *s) { s = ltrim(s); rtrim_inplace(s); return s; }
+
+static int strieq(const char *a, const char *b) {
+  unsigned char ca, cb;
+  while (*a && *b) {
+    ca = (unsigned char)*a++;
+    cb = (unsigned char)*b++;
+    if (tolower(ca) != tolower(cb)) return 0;
+  }
+  return *a == '\0' && *b == '\0';
+}
+
+static int parse_bool(const char *v, int *out) {
+  if (!v) return 0;
+  if (strieq(v, "1") || strieq(v, "yes") || strieq(v, "true") || strieq(v, "on")) { *out = 1; return 1; }
+  if (strieq(v, "0") || strieq(v, "no")  || strieq(v, "false")|| strieq(v, "off")) { *out = 0; return 1; }
+  return 0;
+}
+
+static void split_list_semicolon(StrVec *out, const char *v) {
+  const char *p = v;
+  while (p && *p) {
+    const char *q;
+    char tmp[1024];
+    size_t n;
+
+    while (*p && (*p == ';' || isspace((unsigned char)*p))) p++;
+    if (!*p) break;
+
+    q = p;
+    while (*q && *q != ';') q++;
+
+    n = (size_t)(q - p);
+    if (n >= sizeof(tmp)) n = sizeof(tmp) - 1;
+    memcpy(tmp, p, n);
+    tmp[n] = '\0';
+    {
+      char *t = trim(tmp);
+      if (t[0]) sv_push(out, t);
+    }
+
+    p = q;
+    if (*p == ';') p++;
+  }
+}
+
+static IniTargetCfg *ini_get_or_add_target(const char *name) {
+  int i;
+  for (i = 0; i < g_ini_targets.count; i++) {
+    if (streq(g_ini_targets.items[i].name, name)) return &g_ini_targets.items[i];
+  }
+  if (g_ini_targets.count + 1 > g_ini_targets.cap) {
+    int ncap = g_ini_targets.cap ? g_ini_targets.cap * 2 : 8;
+    g_ini_targets.items = (IniTargetCfg*)xrealloc(g_ini_targets.items, (size_t)ncap * sizeof(IniTargetCfg));
+    g_ini_targets.cap = ncap;
+  }
+  {
+    IniTargetCfg *t = &g_ini_targets.items[g_ini_targets.count++];
+    memset(t, 0, sizeof(*t));
+    t->name = xstrdup(name);
+    sv_init(&t->includes);
+    sv_init(&t->defines);
+    sv_init(&t->cflags);
+    sv_init(&t->ldflags);
+    sv_init(&t->libs);
+    t->enabled_set = 0; t->enabled = 1;
+    t->remove_set = 0; t->remove = 0;
+    t->core_set = 0; t->core = 0;
+    return t;
+  }
+}
+
+static char **sv_to_strlist_own(StrVec *v) {
+  char **lst;
+  int i;
+  lst = (char**)xmalloc((size_t)(v->count + 1) * sizeof(char*));
+  for (i = 0; i < v->count; i++) lst[i] = v->items[i]; /* transfer */
+  lst[v->count] = 0;
+  free(v->items);
+  v->items = 0; v->count = 0; v->cap = 0;
+  return lst;
+}
+
+static TargetOverride *ini_get_or_add_override(const char *name) {
+  int i;
+  for (i = 0; i < g_ini_overrides.count; i++) {
+    if (streq(g_ini_overrides.items[i].name, name)) return &g_ini_overrides.items[i];
+  }
+  if (g_ini_overrides.count + 1 > g_ini_overrides.cap) {
+    int ncap = g_ini_overrides.cap ? g_ini_overrides.cap * 2 : 8;
+    g_ini_overrides.items = (TargetOverride*)xrealloc(g_ini_overrides.items, (size_t)ncap * sizeof(TargetOverride));
+    g_ini_overrides.cap = ncap;
+  }
+  {
+    TargetOverride *ov = &g_ini_overrides.items[g_ini_overrides.count++];
+    memset(ov, 0, sizeof(*ov));
+    ov->name = xstrdup(name);
+    ov->includes = 0;
+    ov->defines = 0;
+    ov->cflags = 0;
+    ov->ldflags = 0;
+    ov->libs = 0;
+    ov->use_core = 0;
+    return ov;
+  }
+}
+
+/* INI override lookup (used by find_override) */
+static const TargetOverride *find_ini_override(const char *name) {
+  int i;
+  for (i = 0; i < g_ini_overrides.count; i++) {
+    if (streq(g_ini_overrides.items[i].name, name)) return &g_ini_overrides.items[i];
+  }
+  return 0;
+}
+
+/* read tack.ini into g_ini_targets/g_ini_overrides + project globals */
+static int ini_load_file(const char *path) {
+  FILE *f;
+  char line[2048];
+  int lineno = 0;
+
+  enum { SEC_NONE = 0, SEC_PROJECT = 1, SEC_TARGET = 2 } sec = SEC_NONE;
+  IniTargetCfg *cur_t = 0;
+
+  f = fopen(path, "rb");
+  if (!f) return 1;
+
+  ini_targets_init();
+  ini_overrides_init();
+
+  while (fgets(line, sizeof(line), f)) {
+    char *s, *eq;
+    lineno++;
+
+    s = line;
+    s = trim(s);
+    if (!s[0]) continue;
+    if (s[0] == ';' || s[0] == '#') continue;
+
+    if (s[0] == '[') {
+      char *end = strchr(s, ']');
+      if (!end) continue;
+      *end = '\0';
+      s++;
+      s = trim(s);
+
+      cur_t = 0;
+      sec = SEC_NONE;
+
+      if (strieq(s, "project")) {
+        sec = SEC_PROJECT;
+        continue;
+      }
+
+      if ((tolower((unsigned char)s[0])=='t') && (tolower((unsigned char)s[1])=='a') && (tolower((unsigned char)s[2])=='r') && (tolower((unsigned char)s[3])=='g') && (tolower((unsigned char)s[4])=='e') && (tolower((unsigned char)s[5])=='t')) {
+        char *p = s + 6;
+        char namebuf[512];
+        p = trim(p);
+        if (*p == '"') {
+          char *q = strchr(p + 1, '"');
+          if (!q) continue;
+          *q = '\0';
+          strncpy(namebuf, p + 1, sizeof(namebuf) - 1);
+          namebuf[sizeof(namebuf) - 1] = '\0';
+        } else {
+          strncpy(namebuf, p, sizeof(namebuf) - 1);
+          namebuf[sizeof(namebuf) - 1] = '\0';
+          rtrim_inplace(namebuf);
+        }
+        if (namebuf[0]) {
+          sec = SEC_TARGET;
+          cur_t = ini_get_or_add_target(namebuf);
+        }
+        continue;
+      }
+
+      continue;
+    }
+
+    eq = strchr(s, '=');
+    if (!eq) continue;
+    *eq = '\0';
+    {
+      char *key = trim(s);
+      char *val = trim(eq + 1);
+
+      if (sec == SEC_PROJECT) {
+        if (strieq(key, "default_target")) {
+          free(g_config_default_target);
+          g_config_default_target = xstrdup(val);
+        } else if (strieq(key, "disable_auto_tools")) {
+          int b;
+          if (parse_bool(val, &b)) g_config_disable_auto_tools = b;
+        }
+        continue;
+      }
+
+      if (sec == SEC_TARGET && cur_t) {
+        if (strieq(key, "src")) {
+          free(cur_t->src_dir);
+          cur_t->src_dir = xstrdup(val);
+        } else if (strieq(key, "bin")) {
+          free(cur_t->bin_base);
+          cur_t->bin_base = xstrdup(val);
+        } else if (strieq(key, "id")) {
+          free(cur_t->id);
+          cur_t->id = xstrdup(val);
+        } else if (strieq(key, "enabled")) {
+          int b;
+          if (parse_bool(val, &b)) { cur_t->enabled_set = 1; cur_t->enabled = b; }
+        } else if (strieq(key, "remove")) {
+          int b;
+          if (parse_bool(val, &b)) { cur_t->remove_set = 1; cur_t->remove = b; }
+        } else if (strieq(key, "core")) {
+          int b;
+          if (parse_bool(val, &b)) { cur_t->core_set = 1; cur_t->core = b; }
+        } else if (strieq(key, "includes")) {
+          split_list_semicolon(&cur_t->includes, val);
+        } else if (strieq(key, "defines")) {
+          split_list_semicolon(&cur_t->defines, val);
+        } else if (strieq(key, "cflags")) {
+          split_list_semicolon(&cur_t->cflags, val);
+        } else if (strieq(key, "ldflags")) {
+          split_list_semicolon(&cur_t->ldflags, val);
+        } else if (strieq(key, "libs")) {
+          split_list_semicolon(&cur_t->libs, val);
+        }
+      }
+    }
+  }
+
+  fclose(f);
+  return 0;
+}
+
+/* materialize override arrays from ini target cfg lists */
+static void ini_materialize_overrides(void) {
+  int i;
+  for (i = 0; i < g_ini_targets.count; i++) {
+    IniTargetCfg *t = &g_ini_targets.items[i];
+    int need = 0;
+    if (t->includes.count) need = 1;
+    if (t->defines.count) need = 1;
+    if (t->cflags.count) need = 1;
+    if (t->ldflags.count) need = 1;
+    if (t->libs.count) need = 1;
+    if (t->core_set) need = 1;
+
+    if (need) {
+      TargetOverride *ov = ini_get_or_add_override(t->name);
+      if (t->includes.count) ov->includes = (const char * const *)sv_to_strlist_own(&t->includes);
+      if (t->defines.count) ov->defines = (const char * const *)sv_to_strlist_own(&t->defines);
+      if (t->cflags.count) ov->cflags = (const char * const *)sv_to_strlist_own(&t->cflags);
+      if (t->ldflags.count) ov->ldflags = (const char * const *)sv_to_strlist_own(&t->ldflags);
+      if (t->libs.count) ov->libs = (const char * const *)sv_to_strlist_own(&t->libs);
+      if (t->core_set) ov->use_core = t->core ? 1 : 0;
+    }
+  }
+}
+
+static void apply_ini_targets(TargetVec *out) {
+  int i;
+  if (!g_config_loaded) return;
+
+  /* ensure overrides are ready */
+  ini_materialize_overrides();
+
+  for (i = 0; i < g_ini_targets.count; i++) {
+    IniTargetCfg *t = &g_ini_targets.items[i];
+    TargetDef d;
+    memset(&d, 0, sizeof(d));
+    d.name = t->name;
+
+    if (t->remove_set && t->remove) {
+      d.remove = 1;
+      tv_apply_targetdef(out, &d);
+      continue;
+    }
+
+    /* action-only enable/disable */
+    if (!t->src_dir && !t->bin_base && !t->id && t->enabled_set) {
+      d.enabled = t->enabled ? 1 : 0;
+      tv_apply_targetdef(out, &d);
+      continue;
+    }
+
+    /* upsert */
+    d.src_dir = t->src_dir;
+    d.bin_base = t->bin_base;
+    d.id = t->id;
+
+    /* if enabled not specified, default to 1 for created/updated targets */
+    d.enabled = t->enabled_set ? (t->enabled ? 1 : 0) : 1;
+    d.remove = 0;
+
+    tv_apply_targetdef(out, &d);
+
+    /* If target exists and enabled_set was specified, we already applied it.
+     * If enabled_set was not specified and target existed disabled, leave it as-is?
+     * For safety, we keep the existing enabled state in that case.
+     */
+    if (!t->enabled_set) {
+      int idx = tv_find_index_by_name(out, t->name);
+      if (idx >= 0) {
+        /* keep existing enabled state if it was disabled by other config */
+        /* (do nothing) */
+      }
+    }
+  }
+}
+
+/* config glue (called from main) */
+static int config_load_ini(const char *path) {
+  if (!path || !path[0]) return 0;
+  if (!file_exists(path)) return 0;
+
+  /* reset project globals for this load */
+  g_config_disable_auto_tools = 0;
+  free(g_config_default_target);
+  g_config_default_target = 0;
+
+  ini_targets_free();
+  ini_overrides_free();
+  ini_targets_init();
+  ini_overrides_init();
+
+  if (ini_load_file(path) != 0) return 1;
+
+  strncpy(g_config_path, path, sizeof(g_config_path) - 1);
+  g_config_path[sizeof(g_config_path) - 1] = '\0';
+  g_config_loaded = 1;
+  return 0;
+}
+
+static int config_auto_load(void) {
+  if (g_no_config) return 0;
+
+  if (g_config_path_cli && g_config_path_cli[0]) {
+    return config_load_ini(g_config_path_cli);
+  }
+
+  if (file_exists("tack.ini")) {
+    return config_load_ini("tack.ini");
+  }
+
+  return 0;
+}
+
+static void config_free(void) {
+  ini_targets_free();
+  ini_overrides_free();
+  free(g_config_default_target);
+  g_config_default_target = 0;
+  g_config_loaded = 0;
+  g_config_path[0] = '\0';
+}
 
 
 static const Target *find_target(TargetVec *v, const char *name_or_id) {
@@ -896,7 +1335,7 @@ static const Target *find_target(TargetVec *v, const char *name_or_id) {
   return 0;
 }
 
-static void discover_targets(TargetVec *out) {
+static void discover_targets(TargetVec *out, int disable_auto_tools) {
   /* app: prefer src/app if it exists, otherwise src */
   if (file_exists(g_app_dir) && is_dir_path(g_app_dir)) {
     tv_push(out, "app", g_app_dir, "app");
@@ -904,8 +1343,12 @@ static void discover_targets(TargetVec *out) {
     tv_push(out, "app", g_src_dir, "app");
   }
 
-#ifndef TACKFILE_DISABLE_AUTO_TOOLS
+#ifdef TACKFILE_DISABLE_AUTO_TOOLS
+  disable_auto_tools = 1;
+#endif
+
   /* tools/<name> */
+  if (!disable_auto_tools) {
   if (file_exists(g_tools_dir) && is_dir_path(g_tools_dir)) {
 
 #ifdef _WIN32
@@ -969,16 +1412,12 @@ static void discover_targets(TargetVec *out) {
   }
 #endif
   }
-#endif
-
-  /* tackfile.c may add/modify/remove/disable targets */
-  apply_tackfile_targets(out);
+  }
 }
 
 
 /* --------------------------- build paths --------------------------- */
 
-/* build/<target>/<profile>/{obj,dep,bin} */
 static void build_paths(char *root, char *objd, char *depd, char *bind,
                         const char *target_id, Profile p) {
   char tdir[512];
@@ -1560,22 +1999,26 @@ static void cmd_doctor(void) {
   printf("Build dir : %s\n", g_build_dir);
   printf("Dirs      : src=%s include=%s tests=%s tools=%s core=%s\n",
          g_src_dir, g_inc_dir, g_tests_dir, g_tools_dir, g_core_dir);
-  printf("Overrides : edit g_overrides[] in tack.c or use tackfile.c\n");
-#ifdef TACK_USE_TACKFILE
-  printf("tackfile  : enabled (TACK_USE_TACKFILE)\n");
-#else
-  printf("tackfile  : disabled (compile with -DTACK_USE_TACKFILE)\n");
-#endif
+
+  if (g_no_config) {
+    printf("Config    : disabled (legacy mode)\n");
+  } else if (g_config_loaded) {
+    printf("Config    : %s\n", g_config_path);
+  } else {
+    printf("Config    : none\n");
+  }
+
+  printf("Default target: %s\n", default_target_name());
+
 #ifdef TACKFILE_DISABLE_AUTO_TOOLS
-  printf("Auto tool discovery: disabled (tackfile)\n");
+  printf("Auto tool discovery: disabled (tackfile compile-time)\n");
 #else
-  printf("Auto tool discovery: enabled\n");
+  if (g_no_auto_tools_cli) printf("Auto tool discovery: disabled (CLI)\n");
+  else if (g_config_loaded && g_config_disable_auto_tools) printf("Auto tool discovery: disabled (config)\n");
+  else printf("Auto tool discovery: enabled\n");
 #endif
-#ifdef TACKFILE_TARGETS
-  printf("Target graph: tackfile targets applied\n");
-#else
-  printf("Target graph: auto + built-in\n");
-#endif
+
+  printf("Overrides : built-ins + optional tackfile.c + optional tack.ini\n");
 }
 
 static int cmd_init(void) {
@@ -1683,28 +2126,72 @@ static int parse_int(const char *s) {
 int main(int argc, char **argv) {
   TargetVec tv;
   const char *cmd;
+  int argi;
+  int disable_auto_tools;
+
+  /* parse global options (must precede command) */
+  argi = 1;
+  while (argi < argc) {
+    if (streq(argv[argi], "--no-config")) { g_no_config = 1; argi++; continue; }
+    if (streq(argv[argi], "--config")) {
+      if (argi + 1 >= argc) { fprintf(stderr, "tack: --config needs PATH\n"); return 2; }
+      g_config_path_cli = argv[argi + 1];
+      argi += 2;
+      continue;
+    }
+    if (streq(argv[argi], "--no-auto-tools")) { g_no_auto_tools_cli = 1; argi++; continue; }
+    break;
+  }
+
+  /* load config (tack.ini) unless disabled */
+  if (config_auto_load() != 0) {
+    fprintf(stderr, "tack: config: failed to load\n");
+    config_free();
+    return 2;
+  }
+
+  disable_auto_tools = 0;
+#ifdef TACKFILE_DISABLE_AUTO_TOOLS
+  disable_auto_tools = 1;
+#else
+  if (g_no_auto_tools_cli) disable_auto_tools = 1;
+  else if (g_config_loaded && g_config_disable_auto_tools) disable_auto_tools = 1;
+#endif
 
   tv_init(&tv);
-  discover_targets(&tv);
+  discover_targets(&tv, disable_auto_tools);
 
-  if (argc < 2) {
+  /* tackfile.c may add/modify/remove/disable targets (compile-time) */
+  apply_tackfile_targets(&tv);
+
+  /* tack.ini may add/modify/remove/disable targets (runtime) */
+  apply_ini_targets(&tv);
+
+  /* no command -> default build debug default target */
+  if (argi >= argc) {
     const Target *t = find_target(&tv, default_target_name());
     int rc;
-    if (!t) { fprintf(stderr, "tack: default target missing\n"); tv_free(&tv); return 2; }
+    if (!t) { fprintf(stderr, "tack: default target missing\n"); tv_free(&tv); config_free(); return 2; }
     rc = build_one_target(t, PROF_DEBUG, 0, 0, 1, 0, 0);
     tv_free(&tv);
+    config_free();
     return rc;
   }
 
-  cmd = argv[1];
+  cmd = argv[argi++];
 
-  if (streq(cmd, "help"))    { print_help(); tv_free(&tv); return 0; }
-  if (streq(cmd, "version")) { cmd_version(); tv_free(&tv); return 0; }
-  if (streq(cmd, "doctor"))  { cmd_doctor(); tv_free(&tv); return 0; }
-  if (streq(cmd, "init"))    { int rc = cmd_init(); tv_free(&tv); return rc; }
-  if (streq(cmd, "clean"))   { int rc = cmd_clean(); tv_free(&tv); return rc; }
-  if (streq(cmd, "clobber")) { int rc = cmd_clobber(); tv_free(&tv); return rc; }
-  if (streq(cmd, "list"))    { int rc = cmd_list_targets(&tv); tv_free(&tv); return rc; }
+  if (streq(cmd, "help"))    { print_help(); tv_free(&tv); config_free(); return 0; }
+  if (streq(cmd, "version")) { cmd_version(); tv_free(&tv); config_free(); return 0; }
+  if (streq(cmd, "doctor"))  { cmd_doctor(); tv_free(&tv); config_free(); return 0; }
+  if (streq(cmd, "init"))    { int rc = cmd_init(); tv_free(&tv); config_free(); return rc; }
+  if (streq(cmd, "clean"))   { int rc = cmd_clean(); tv_free(&tv); config_free(); return rc; }
+  if (streq(cmd, "clobber")) { int rc = cmd_clobber(); tv_free(&tv); config_free(); return rc; }
+  if (streq(cmd, "list"))    {
+    if (g_no_config) printf("config: disabled (legacy mode)\n");
+    else if (g_config_loaded) printf("config: %s\n", g_config_path);
+    else printf("config: none\n");
+    { int rc = cmd_list_targets(&tv); tv_free(&tv); config_free(); return rc; }
+  }
 
   if (streq(cmd, "build") || streq(cmd, "run") || streq(cmd, "test")) {
     int verbose = 0;
@@ -1713,32 +2200,33 @@ int main(int argc, char **argv) {
     int strict = 0;
     int no_core = 0;
 
-    int i = 2;
-    Profile p = parse_profile(&i, argc, argv);
+    Profile p = parse_profile(&argi, argc, argv);
 
     const char *target_name = default_target_name();
     const Target *t = 0;
 
-    for (; i < argc; i++) {
-      if (streq(argv[i], "--")) break;
-      if (streq(argv[i], "-v") || streq(argv[i], "--verbose")) verbose = 1;
-      else if (streq(argv[i], "--rebuild")) force = 1;
-      else if (streq(argv[i], "--strict")) strict = 1;
-      else if (streq(argv[i], "--no-core")) no_core = 1;
-      else if (streq(argv[i], "--target")) {
-        if (i + 1 >= argc) { fprintf(stderr, "tack: --target needs NAME\n"); tv_free(&tv); return 2; }
-        target_name = argv[++i];
-      } else if (streq(argv[i], "-j") || streq(argv[i], "--jobs")) {
+    /* parse options; for run, args may follow '--' */
+    for (; argi < argc; argi++) {
+      if (streq(argv[argi], "--")) break;
+      if (streq(argv[argi], "-v") || streq(argv[argi], "--verbose")) verbose = 1;
+      else if (streq(argv[argi], "--rebuild")) force = 1;
+      else if (streq(argv[argi], "--strict")) strict = 1;
+      else if (streq(argv[argi], "--no-core")) no_core = 1;
+      else if (streq(argv[argi], "--target")) {
+        if (argi + 1 >= argc) { fprintf(stderr, "tack: --target needs NAME\n"); tv_free(&tv); config_free(); return 2; }
+        target_name = argv[++argi];
+      } else if (streq(argv[argi], "-j") || streq(argv[argi], "--jobs")) {
         int v;
-        if (i + 1 >= argc) { fprintf(stderr, "tack: -j needs N\n"); tv_free(&tv); return 2; }
-        v = parse_int(argv[++i]);
-        if (v < 1) { fprintf(stderr, "tack: invalid -j %s\n", argv[i]); tv_free(&tv); return 2; }
+        if (argi + 1 >= argc) { fprintf(stderr, "tack: -j needs N\n"); tv_free(&tv); config_free(); return 2; }
+        v = parse_int(argv[++argi]);
+        if (v < 1) { fprintf(stderr, "tack: invalid -j %s\n", argv[argi]); tv_free(&tv); config_free(); return 2; }
         jobs = v;
       } else {
         /* run: allow args without -- (best effort) */
         if (streq(cmd, "run")) break;
-        fprintf(stderr, "tack: %s: unknown arg: %s\n", cmd, argv[i]);
+        fprintf(stderr, "tack: %s: unknown arg: %s\n", cmd, argv[argi]);
         tv_free(&tv);
+        config_free();
         return 2;
       }
     }
@@ -1746,31 +2234,34 @@ int main(int argc, char **argv) {
     if (streq(cmd, "test")) {
       int rc = build_and_run_tests(p, verbose, force, strict);
       tv_free(&tv);
+      config_free();
       return rc;
     }
 
     t = find_target(&tv, target_name);
     if (!t) {
-      fprintf(stderr, "tack: unknown target: %s\n", target_name);
+      fprintf(stderr, "tack: unknown or disabled target: %s\n", target_name);
       fprintf(stderr, "tack: hint: use 'tack list'\n");
       tv_free(&tv);
+      config_free();
       return 2;
     }
 
     if (streq(cmd, "build")) {
       int rc = build_one_target(t, p, verbose, force, jobs, strict, no_core);
       tv_free(&tv);
+      config_free();
       return rc;
     }
 
     /* run */
     {
-      int argi = i;
+      int run_argi = argi;
       char exe[512];
 
-      if (argi < argc && streq(argv[argi], "--")) argi++;
+      if (run_argi < argc && streq(argv[run_argi], "--")) run_argi++;
 
-      if (build_one_target(t, p, verbose, force, jobs, strict, no_core) != 0) { tv_free(&tv); return 1; }
+      if (build_one_target(t, p, verbose, force, jobs, strict, no_core) != 0) { tv_free(&tv); config_free(); return 1; }
       exe_path(exe, t->id, p, t->bin_base);
 
       /* build argv: exe + rest args */
@@ -1781,12 +2272,13 @@ int main(int argc, char **argv) {
 
         av_init(&av);
         av_push(&av, exe);
-        for (k = argi; k < argc; k++) av_push(&av, argv[k]);
+        for (k = run_argi; k < argc; k++) av_push(&av, argv[k]);
         av_terminate(&av);
 
         rc = run_argv_wait(av.a, verbose);
         av_free(&av);
         tv_free(&tv);
+        config_free();
         return rc;
       }
     }
@@ -1795,5 +2287,6 @@ int main(int argc, char **argv) {
   fprintf(stderr, "tack: unknown command: %s\n\n", cmd);
   print_help();
   tv_free(&tv);
+  config_free();
   return 2;
 }
