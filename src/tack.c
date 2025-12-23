@@ -1,5 +1,5 @@
 /* tack.c - Tiny ANSI-C Kit
- * v0.4.0
+ * v0.4.1
  *
  * Adds:
  * - Real target configuration overrides (includes/defines/libs per target)
@@ -11,6 +11,7 @@
  *   shared core    : sources under src/core/
  *   tools          : sources under tools/<name>/
  *   tests          : sources under tests/ (recursive _test.c files)
+ *
  * Features:
  * - single file build driver (C89)
  * - no make/cmake/ninja
@@ -23,6 +24,7 @@
  *
  * Env:
  *   TACK_CC: override compiler (default "tcc")
+ *
  * Quickstart (Windows):
  *   tcc -run tack.c init
  *   tcc -run tack.c list
@@ -55,7 +57,7 @@
 
 /* ----------------------------- CONFIG ----------------------------- */
 
-#define TACK_VERSION "0.4.0"
+#define TACK_VERSION "0.4.1"
 
 static const char *g_cc_default = "tcc";
 static const char *g_build_dir  = "build";
@@ -623,6 +625,27 @@ typedef struct {
   const char * const *libs;         /* extra libs/flags, e.g. "-lws2_32" */
   int use_core;                     /* 1 = link src/core into this target */
 } TargetOverride;
+/* Optional external configuration:
+ * If you want to keep project-specific settings out of tack.c, create a file
+ * named "tackfile.c" next to this file and compile tack with:
+ *   tcc -DTACK_USE_TACKFILE -run tack.c build debug
+ * or (for a standalone tack.exe):
+ *   tcc -DTACK_USE_TACKFILE tack.c -o tack.exe
+ *
+ * In tackfile.c you can define an additional override table and expose it via:
+ *   #define TACKFILE_OVERRIDES my_overrides
+ *   static const TargetOverride my_overrides[] = {
+ *     { "app", 0, 0, 0, 0, 0, 1 },
+ *     { "tool:foo", 0, (const char*[]){"TOOL_FOO=1",0}, 0, 0, 0, 1 },
+ *     { 0,0,0,0,0,0,0 }
+ *   };
+ *
+ * tack will search TACKFILE_OVERRIDES first, then its built-in g_overrides[].
+ */
+#ifdef TACK_USE_TACKFILE
+#include "tackfile.c"
+#endif
+
 
 /* Example overrides (edit as needed) */
 static const char *app_includes[] = { "src", 0 };
@@ -645,6 +668,14 @@ static const TargetOverride g_overrides[] = {
 
 static const TargetOverride *find_override(const char *name) {
   int i;
+
+#ifdef TACKFILE_OVERRIDES
+  /* user overrides (from tackfile.c) take precedence */
+  for (i = 0; TACKFILE_OVERRIDES[i].name; i++) {
+    if (streq(TACKFILE_OVERRIDES[i].name, name)) return &TACKFILE_OVERRIDES[i];
+  }
+#endif
+
   for (i = 0; g_overrides[i].name; i++) {
     if (streq(g_overrides[i].name, name)) return &g_overrides[i];
   }
@@ -1082,7 +1113,7 @@ static int build_core(Profile p, int verbose, int force, int jobs, int strict, S
   return 0;
 }
 
-static int build_one_target(const Target *t, Profile p, int verbose, int force, int jobs, int strict) {
+static int build_one_target(const Target *t, Profile p, int verbose, int force, int jobs, int strict, int no_core) {
   const char *cc;
   const TargetOverride *ov;
   int use_core;
@@ -1102,6 +1133,7 @@ static int build_one_target(const Target *t, Profile p, int verbose, int force, 
 
   use_core = 0;
   if (ov) use_core = ov->use_core;
+  if (no_core) use_core = 0;
 
   /* prepare dirs */
   ensure_dir(g_build_dir);
@@ -1336,8 +1368,8 @@ static void print_help(void) {
          "  tack doctor\n"
          "  tack init\n"
          "  tack list\n"
-         "  tack build [debug|release] [--target NAME] [-v] [--rebuild] [-j N] [--strict]\n"
-         "  tack run  [debug|release] [--target NAME] [-v] [--rebuild] [-j N] [--strict] [-- <args...>]\n"
+         "  tack build [debug|release] [--target NAME] [-v] [--rebuild] [-j N] [--strict] [--no-core]\n"
+         "  tack run  [debug|release] [--target NAME] [-v] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]\n"
          "  tack test [debug|release] [-v] [--rebuild] [--strict]\n"
          "  tack clean\n"
          "  tack clobber\n");
@@ -1366,6 +1398,11 @@ static void cmd_doctor(void) {
   printf("Dirs      : src=%s include=%s tests=%s tools=%s core=%s\n",
          g_src_dir, g_inc_dir, g_tests_dir, g_tools_dir, g_core_dir);
   printf("Overrides : edit g_overrides[] in tack.c\n");
+#ifdef TACK_USE_TACKFILE
+  printf("tackfile  : enabled (TACK_USE_TACKFILE)\n");
+#else
+  printf("tackfile  : disabled (compile with -DTACK_USE_TACKFILE)\n");
+#endif
 }
 
 static int cmd_init(void) {
@@ -1480,7 +1517,7 @@ int main(int argc, char **argv) {
     const Target *t = find_target(&tv, g_default_target);
     int rc;
     if (!t) { fprintf(stderr, "tack: default target missing\n"); tv_free(&tv); return 2; }
-    rc = build_one_target(t, PROF_DEBUG, 0, 0, 1, 0);
+    rc = build_one_target(t, PROF_DEBUG, 0, 0, 1, 0, 0);
     tv_free(&tv);
     return rc;
   }
@@ -1500,6 +1537,7 @@ int main(int argc, char **argv) {
     int force = 0;
     int jobs = 1;
     int strict = 0;
+    int no_core = 0;
 
     int i = 2;
     Profile p = parse_profile(&i, argc, argv);
@@ -1513,6 +1551,7 @@ int main(int argc, char **argv) {
       if (streq(argv[i], "-v") || streq(argv[i], "--verbose")) verbose = 1;
       else if (streq(argv[i], "--rebuild")) force = 1;
       else if (streq(argv[i], "--strict")) strict = 1;
+      else if (streq(argv[i], "--no-core")) no_core = 1;
       else if (streq(argv[i], "--target")) {
         if (i + 1 >= argc) { fprintf(stderr, "tack: --target needs NAME\n"); tv_free(&tv); return 2; }
         target_name = argv[++i];
@@ -1546,7 +1585,7 @@ int main(int argc, char **argv) {
     }
 
     if (streq(cmd, "build")) {
-      int rc = build_one_target(t, p, verbose, force, jobs, strict);
+      int rc = build_one_target(t, p, verbose, force, jobs, strict, no_core);
       tv_free(&tv);
       return rc;
     }
@@ -1558,7 +1597,7 @@ int main(int argc, char **argv) {
 
       if (argi < argc && streq(argv[argi], "--")) argi++;
 
-      if (build_one_target(t, p, verbose, force, jobs, strict) != 0) { tv_free(&tv); return 1; }
+      if (build_one_target(t, p, verbose, force, jobs, strict, no_core) != 0) { tv_free(&tv); return 1; }
       exe_path(exe, t->id, p, t->bin_base);
 
       /* build argv: exe + rest args */
