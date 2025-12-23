@@ -1,5 +1,5 @@
 /* tack.c - Tiny ANSI-C Kit
- * v0.4.1
+ * v0.4.2
  *
  * Adds:
  * - Real target configuration overrides (includes/defines/libs per target)
@@ -57,7 +57,7 @@
 
 /* ----------------------------- CONFIG ----------------------------- */
 
-#define TACK_VERSION "0.4.1"
+#define TACK_VERSION "0.4.2"
 
 static const char *g_cc_default = "tcc";
 static const char *g_build_dir  = "build";
@@ -625,6 +625,14 @@ typedef struct {
   const char * const *libs;         /* extra libs/flags, e.g. "-lws2_32" */
   int use_core;                     /* 1 = link src/core into this target */
 } TargetOverride;
+
+typedef struct {
+  const char *name;      /* CLI name (e.g. "app" or "tool:foo") */
+  const char *src_dir;   /* directory to scan recursively for .c files */
+  const char *bin_base;  /* output executable base name (no extension) */
+  const char *id;        /* optional filesystem-safe id (if 0, derived from name) */
+} TargetDef;
+
 /* Optional external configuration:
  * If you want to keep project-specific settings out of tack.c, create a file
  * named "tackfile.c" next to this file and compile tack with:
@@ -730,6 +738,79 @@ static void tv_push(TargetVec *v, const char *name, const char *src_dir, const c
   t->bin_base = xstrdup(bin_base);
 }
 
+#ifdef TACKFILE_TARGETS
+static void tv_update_at(TargetVec *v, int idx, const TargetDef *d) {
+  Target *t;
+  char idbuf[256];
+  const char *id_src;
+
+  t = &v->items[idx];
+
+  /* name */
+  if (d->name) {
+    free(t->name);
+    t->name = xstrdup(d->name);
+  }
+
+  /* id: prefer explicit id if provided, else derive from (new) name */
+  id_src = d->id ? d->id : d->name;
+  sanitize_name_to_id(idbuf, sizeof(idbuf), id_src ? id_src : "target");
+  free(t->id);
+  t->id = xstrdup(idbuf);
+
+  /* src_dir / bin_base */
+  if (d->src_dir) {
+    free(t->src_dir);
+    t->src_dir = xstrdup(d->src_dir);
+  }
+  if (d->bin_base) {
+    free(t->bin_base);
+    t->bin_base = xstrdup(d->bin_base);
+  }
+}
+
+static void tv_upsert(TargetVec *v, const TargetDef *d) {
+  int i;
+  if (!d || !d->name) return;
+
+  for (i = 0; i < v->count; i++) {
+    if (streq(v->items[i].name, d->name)) {
+      tv_update_at(v, i, d);
+      return;
+    }
+  }
+
+  /* not found -> add */
+  if (d->id && d->id[0]) {
+    /* push with derived id from explicit d->id by temporarily using name, then update id */
+    tv_push(v, d->name, d->src_dir ? d->src_dir : "", d->bin_base ? d->bin_base : d->name);
+    {
+      TargetDef dd;
+      dd.name = d->name;
+      dd.src_dir = d->src_dir;
+      dd.bin_base = d->bin_base;
+      dd.id = d->id;
+      tv_update_at(v, v->count - 1, &dd);
+    }
+  } else {
+    tv_push(v, d->name, d->src_dir ? d->src_dir : "", d->bin_base ? d->bin_base : d->name);
+  }
+}
+
+#endif
+
+static void apply_tackfile_targets(TargetVec *out) {
+#ifdef TACKFILE_TARGETS
+  int i;
+  for (i = 0; TACKFILE_TARGETS[i].name; i++) {
+    tv_upsert(out, &TACKFILE_TARGETS[i]);
+  }
+#else
+  (void)out;
+#endif
+}
+
+
 static const Target *find_target(TargetVec *v, const char *name_or_id) {
   int i;
   for (i = 0; i < v->count; i++) {
@@ -748,8 +829,7 @@ static void discover_targets(TargetVec *out) {
   }
 
   /* tools/<name> */
-  if (!file_exists(g_tools_dir) || !is_dir_path(g_tools_dir)) return;
-
+  if (file_exists(g_tools_dir) && is_dir_path(g_tools_dir)) {
 #ifdef _WIN32
   {
     char pattern[1024];
@@ -767,8 +847,7 @@ static void discover_targets(TargetVec *out) {
     strcat(pattern, "*");
 
     h = FindFirstFileA(pattern, &fd);
-    if (h == INVALID_HANDLE_VALUE) return;
-
+      if (h != INVALID_HANDLE_VALUE) {
     do {
       if (streq(fd.cFileName, ".") || streq(fd.cFileName, "..")) continue;
       if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
@@ -785,8 +864,8 @@ static void discover_targets(TargetVec *out) {
         tv_push(out, tname, src, name);
       }
     } while (FindNextFileA(h, &fd));
-
-    FindClose(h);
+        FindClose(h);
+      }
   }
 #else
   {
@@ -794,8 +873,7 @@ static void discover_targets(TargetVec *out) {
     struct dirent *e;
 
     d = opendir(g_tools_dir);
-    if (!d) return;
-
+      if (d) {
     while ((e = readdir(d)) != 0) {
       char full[1024];
       if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
@@ -809,8 +887,14 @@ static void discover_targets(TargetVec *out) {
     }
     closedir(d);
   }
+    }
 #endif
+  }
+
+  /* tackfile.c may add or modify targets */
+  apply_tackfile_targets(out);
 }
+
 
 /* --------------------------- build paths --------------------------- */
 
@@ -1397,7 +1481,7 @@ static void cmd_doctor(void) {
   printf("Build dir : %s\n", g_build_dir);
   printf("Dirs      : src=%s include=%s tests=%s tools=%s core=%s\n",
          g_src_dir, g_inc_dir, g_tests_dir, g_tools_dir, g_core_dir);
-  printf("Overrides : edit g_overrides[] in tack.c\n");
+  printf("Overrides : edit g_overrides[] in tack.c or use tackfile.c\n");
 #ifdef TACK_USE_TACKFILE
   printf("tackfile  : enabled (TACK_USE_TACKFILE)\n");
 #else
@@ -1506,6 +1590,16 @@ static int parse_int(const char *s) {
   return v;
 }
 
+
+static const char *default_target_name(void) {
+#ifdef TACKFILE_DEFAULT_TARGET
+  return TACKFILE_DEFAULT_TARGET;
+#else
+  return g_default_target;
+#endif
+}
+
+
 int main(int argc, char **argv) {
   TargetVec tv;
   const char *cmd;
@@ -1514,7 +1608,7 @@ int main(int argc, char **argv) {
   discover_targets(&tv);
 
   if (argc < 2) {
-    const Target *t = find_target(&tv, g_default_target);
+    const Target *t = find_target(&tv, default_target_name());
     int rc;
     if (!t) { fprintf(stderr, "tack: default target missing\n"); tv_free(&tv); return 2; }
     rc = build_one_target(t, PROF_DEBUG, 0, 0, 1, 0, 0);
@@ -1542,10 +1636,9 @@ int main(int argc, char **argv) {
     int i = 2;
     Profile p = parse_profile(&i, argc, argv);
 
-    const char *target_name = g_default_target;
+    const char *target_name = default_target_name();
     const Target *t = 0;
 
-    /* parse options; for run, args may follow '--' */
     for (; i < argc; i++) {
       if (streq(argv[i], "--")) break;
       if (streq(argv[i], "-v") || streq(argv[i], "--verbose")) verbose = 1;
