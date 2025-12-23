@@ -255,7 +255,7 @@ tcc -run tack.c build debug --strict
 - **Pfade mit Leerzeichen**: tack nutzt `spawn/exec`, daher deutlich weniger Quoting-Probleme.
 
 ## Lizenz
-Wähle eine Lizenz, die zu deinem Projekt passt (z.B. MIT/ISC/BSD-2-Clause).
+MIT
 
 ---
 
@@ -512,4 +512,4 @@ tcc -run tack.c build debug --strict
 - **Paths with spaces**: tack uses `spawn/exec`, much less quoting pain than `system()`.
 
 ## License
-Pick a license that matches your project (MIT/ISC/BSD-2-Clause are common choices).
+MIT
