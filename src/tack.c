@@ -1,5 +1,5 @@
 /* tack.c - Tiny ANSI-C Kit
- * v0.4.2
+ * v0.4.3
  *
  * Adds:
  * - Real target configuration overrides (includes/defines/libs per target)
@@ -57,7 +57,7 @@
 
 /* ----------------------------- CONFIG ----------------------------- */
 
-#define TACK_VERSION "0.4.2"
+#define TACK_VERSION "0.4.3"
 
 static const char *g_cc_default = "tcc";
 static const char *g_build_dir  = "build";
@@ -70,6 +70,15 @@ static const char *g_core_dir   = "src/core";
 static const char *g_app_dir    = "src/app";
 
 static const char *g_default_target = "app";
+
+static const char *default_target_name(void) {
+#ifdef TACKFILE_DEFAULT_TARGET
+  return TACKFILE_DEFAULT_TARGET;
+#else
+  return g_default_target;
+#endif
+}
+
 
 /* Warnings: keep strict, but avoid killing builds due to GCC attributes in system headers */
 static const char *g_warn_flags_base[] = {
@@ -628,9 +637,11 @@ typedef struct {
 
 typedef struct {
   const char *name;      /* CLI name (e.g. "app" or "tool:foo") */
-  const char *src_dir;   /* directory to scan recursively for .c files */
-  const char *bin_base;  /* output executable base name (no extension) */
-  const char *id;        /* optional filesystem-safe id (if 0, derived from name) */
+  const char *src_dir;   /* directory to scan recursively for .c files (upsert if non-0) */
+  const char *bin_base;  /* output executable base name (no extension; upsert if non-0) */
+  const char *id;        /* optional filesystem-safe id (upsert if non-0) */
+  int enabled;           /* action-only: if src_dir/bin_base/id are all 0 -> 0 disable, 1 enable */
+  int remove;            /* action: 1 remove target from graph */
 } TargetDef;
 
 /* Optional external configuration:
@@ -640,13 +651,32 @@ typedef struct {
  * or (for a standalone tack.exe):
  *   tcc -DTACK_USE_TACKFILE tack.c -o tack.exe
  *
- * In tackfile.c you can define an additional override table and expose it via:
+* In tackfile.c you may define:
+ *
+ *   1) Overrides (includes/defines/libs per target):
  *   #define TACKFILE_OVERRIDES my_overrides
  *   static const TargetOverride my_overrides[] = {
  *     { "app", 0, 0, 0, 0, 0, 1 },
  *     { "tool:foo", 0, (const char*[]){"TOOL_FOO=1",0}, 0, 0, 0, 1 },
  *     { 0,0,0,0,0,0,0 }
  *   };
+ *
+   2) Declarative target graph (add/modify/remove/disable):
+ *      #define TACKFILE_TARGETS my_targets
+ *      static const TargetDef my_targets[] = {
+ *        { "app", "src/app", "app", 0, 1, 0 },            // upsert (enabled by default)
+ *        { "demo:hello", "demos/hello", "hello", "demo_hello", 1, 0 },
+ *        { "tool:gen", "extras/gen", "gen", 0, 1, 0 },
+ *        { "tool:old", 0, 0, 0, 0, 0 },                   // action: disable existing
+ *        { "tool:tmp", 0, 0, 0, 0, 1 },                   // action: remove existing
+ *        { 0,0,0,0,0,0 }
+ *      };
+ *
+ *   3) Default target:
+ *      #define TACKFILE_DEFAULT_TARGET "app"
+ *
+ *   4) Disable auto tool discovery (for fully declarative builds):
+ *      #define TACKFILE_DISABLE_AUTO_TOOLS 1
  *
  * tack will search TACKFILE_OVERRIDES first, then its built-in g_overrides[].
  */
@@ -697,6 +727,7 @@ typedef struct {
   char *id;       /* filesystem-safe id */
   char *src_dir;  /* directory to scan */
   char *bin_base; /* output base name */
+  int enabled;    /* 1=active, 0=disabled */
 } Target;
 
 typedef struct {
@@ -736,10 +767,34 @@ static void tv_push(TargetVec *v, const char *name, const char *src_dir, const c
   t->id = xstrdup(idbuf);
   t->src_dir = xstrdup(src_dir);
   t->bin_base = xstrdup(bin_base);
+  t->enabled = 1;
 }
 
+/* tackfile.c target graph (optional) */
 #ifdef TACKFILE_TARGETS
-static void tv_update_at(TargetVec *v, int idx, const TargetDef *d) {
+
+static int tv_find_index_by_name(TargetVec *v, const char *name) {
+  int i;
+  for (i = 0; i < v->count; i++) {
+    if (streq(v->items[i].name, name)) return i;
+  }
+  return -1;
+}
+
+static void tv_remove_at(TargetVec *v, int idx) {
+  int i;
+  if (idx < 0 || idx >= v->count) return;
+
+  free(v->items[idx].name);
+  free(v->items[idx].id);
+  free(v->items[idx].src_dir);
+  free(v->items[idx].bin_base);
+
+  for (i = idx + 1; i < v->count; i++) v->items[i - 1] = v->items[i];
+  v->count--;
+}
+
+static void tv_update_at_fields(TargetVec *v, int idx, const TargetDef *d) {
   Target *t;
   char idbuf[256];
   const char *id_src;
@@ -769,51 +824,72 @@ static void tv_update_at(TargetVec *v, int idx, const TargetDef *d) {
   }
 }
 
-static void tv_upsert(TargetVec *v, const TargetDef *d) {
-  int i;
+static void tv_apply_targetdef(TargetVec *v, const TargetDef *d) {
+  int idx;
+  int is_action;
+
   if (!d || !d->name) return;
 
-  for (i = 0; i < v->count; i++) {
-    if (streq(v->items[i].name, d->name)) {
-      tv_update_at(v, i, d);
-      return;
-    }
+  is_action = (d->src_dir == 0 && d->bin_base == 0 && d->id == 0);
+
+  /* remove action */
+  if (d->remove) {
+    idx = tv_find_index_by_name(v, d->name);
+    if (idx >= 0) tv_remove_at(v, idx);
+    return;
   }
 
-  /* not found -> add */
+  idx = tv_find_index_by_name(v, d->name);
+
+  /* enable/disable action */
+  if (is_action) {
+    if (idx >= 0) v->items[idx].enabled = d->enabled ? 1 : 0;
+    return;
+  }
+
+  /* upsert (add/modify). Definitions are enabled by default. */
+  if (idx >= 0) {
+    tv_update_at_fields(v, idx, d);
+    v->items[idx].enabled = 1;
+    if (d->enabled) v->items[idx].enabled = 1; /* explicit enable */
+  } else {
+    /* add */
+    tv_push(v,
+            d->name,
+            d->src_dir ? d->src_dir : "",
+            d->bin_base ? d->bin_base : d->name);
+    /* set id if explicitly provided */
   if (d->id && d->id[0]) {
-    /* push with derived id from explicit d->id by temporarily using name, then update id */
-    tv_push(v, d->name, d->src_dir ? d->src_dir : "", d->bin_base ? d->bin_base : d->name);
-    {
       TargetDef dd;
       dd.name = d->name;
       dd.src_dir = d->src_dir;
       dd.bin_base = d->bin_base;
       dd.id = d->id;
-      tv_update_at(v, v->count - 1, &dd);
+      dd.enabled = 1;
+      dd.remove = 0;
+      tv_update_at_fields(v, v->count - 1, &dd);
     }
-  } else {
-    tv_push(v, d->name, d->src_dir ? d->src_dir : "", d->bin_base ? d->bin_base : d->name);
+    v->items[v->count - 1].enabled = 1;
+    if (d->enabled) v->items[v->count - 1].enabled = 1;
   }
 }
-
-#endif
 
 static void apply_tackfile_targets(TargetVec *out) {
-#ifdef TACKFILE_TARGETS
   int i;
   for (i = 0; TACKFILE_TARGETS[i].name; i++) {
-    tv_upsert(out, &TACKFILE_TARGETS[i]);
+    tv_apply_targetdef(out, &TACKFILE_TARGETS[i]);
   }
-#else
-  (void)out;
-#endif
 }
+
+#else
+static void apply_tackfile_targets(TargetVec *out) { (void)out; }
+#endif
 
 
 static const Target *find_target(TargetVec *v, const char *name_or_id) {
   int i;
   for (i = 0; i < v->count; i++) {
+    if (!v->items[i].enabled) continue;
     if (streq(v->items[i].name, name_or_id)) return &v->items[i];
     if (streq(v->items[i].id, name_or_id)) return &v->items[i];
   }
@@ -828,8 +904,10 @@ static void discover_targets(TargetVec *out) {
     tv_push(out, "app", g_src_dir, "app");
   }
 
+#ifndef TACKFILE_DISABLE_AUTO_TOOLS
   /* tools/<name> */
   if (file_exists(g_tools_dir) && is_dir_path(g_tools_dir)) {
+
 #ifdef _WIN32
   {
     char pattern[1024];
@@ -847,7 +925,8 @@ static void discover_targets(TargetVec *out) {
     strcat(pattern, "*");
 
     h = FindFirstFileA(pattern, &fd);
-      if (h != INVALID_HANDLE_VALUE) {
+    if (h == INVALID_HANDLE_VALUE) return;
+
     do {
       if (streq(fd.cFileName, ".") || streq(fd.cFileName, "..")) continue;
       if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
@@ -864,8 +943,8 @@ static void discover_targets(TargetVec *out) {
         tv_push(out, tname, src, name);
       }
     } while (FindNextFileA(h, &fd));
-        FindClose(h);
-      }
+
+    FindClose(h);
   }
 #else
   {
@@ -873,7 +952,8 @@ static void discover_targets(TargetVec *out) {
     struct dirent *e;
 
     d = opendir(g_tools_dir);
-      if (d) {
+    if (!d) return;
+
     while ((e = readdir(d)) != 0) {
       char full[1024];
       if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
@@ -887,11 +967,11 @@ static void discover_targets(TargetVec *out) {
     }
     closedir(d);
   }
-    }
 #endif
   }
+#endif
 
-  /* tackfile.c may add or modify targets */
+  /* tackfile.c may add/modify/remove/disable targets */
   apply_tackfile_targets(out);
 }
 
@@ -1375,7 +1455,6 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict) {
     const char *base = path_base(src);
     char out_exe[1024];
 
-    /* build test exe name */
 #ifdef _WIN32
     {
       char tmp[512];
@@ -1487,6 +1566,16 @@ static void cmd_doctor(void) {
 #else
   printf("tackfile  : disabled (compile with -DTACK_USE_TACKFILE)\n");
 #endif
+#ifdef TACKFILE_DISABLE_AUTO_TOOLS
+  printf("Auto tool discovery: disabled (tackfile)\n");
+#else
+  printf("Auto tool discovery: enabled\n");
+#endif
+#ifdef TACKFILE_TARGETS
+  printf("Target graph: tackfile targets applied\n");
+#else
+  printf("Target graph: auto + built-in\n");
+#endif
 }
 
 static int cmd_init(void) {
@@ -1562,9 +1651,10 @@ static int cmd_list_targets(TargetVec *tv) {
   for (i = 0; i < tv->count; i++) {
     const TargetOverride *ov = find_override(tv->items[i].name);
     int use_core = ov ? ov->use_core : 0;
-    printf("  %-16s  id=%-12s  src=%s  core=%s\n",
+    printf("  %-16s  id=%-12s  src=%s  core=%s  enabled=%s\n",
            tv->items[i].name, tv->items[i].id, tv->items[i].src_dir,
-           use_core ? "yes" : "no");
+           use_core ? "yes" : "no",
+           tv->items[i].enabled ? "yes" : "no");
   }
   return 0;
 }
@@ -1589,16 +1679,6 @@ static int parse_int(const char *s) {
   }
   return v;
 }
-
-
-static const char *default_target_name(void) {
-#ifdef TACKFILE_DEFAULT_TARGET
-  return TACKFILE_DEFAULT_TARGET;
-#else
-  return g_default_target;
-#endif
-}
-
 
 int main(int argc, char **argv) {
   TargetVec tv;
