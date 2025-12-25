@@ -287,6 +287,26 @@ Darum ist Default: `-Wno-unsupported`
 tcc -run src/tack.c build debug --strict
 ```
 
+## Sicherheitslage (Security posture)
+
+`tack` ist bewusst **minimalistisch** und primär als **Developer-Tool** gedacht – nicht als
+gehärtetes Security-Produkt.
+
+Was das praktisch bedeutet:
+
+- **Trust boundary:** `tack` verarbeitet Pfade, `tack.ini`-Inhalte und optional `tackfile.c`.
+  Wenn du ein fremdes Repository baust, betrachte diese Inputs als **untrusted**.
+- **String-/Pfad-Handling:** Der Code setzt an vielen Stellen klassische C-Strings und feste
+  Buffer ein. Sehr lange oder manipulierte Pfade/Konfigwerte können zu Fehlverhalten führen.
+- **`tack.ini` ist data-only:** Es wird kein Code ausgeführt – aber die Werte beeinflussen
+  Compiler-/Linker-Argumente. In Team-/CI-Setups sollte die INI aus einer kontrollierten Quelle kommen.
+- **`tackfile.c` ist Code:** Im Runtime-Modus kompiliert und **führt tack** ein kleines
+  Generator-Programm aus, das eine INI-Schicht erzeugt. Das ist funktional „Code aus dem Repo ausführen“.
+  Nutze `tackfile.c` daher nur, wenn du dem Projekt/Repo **bewusst vertraust** (oder es auditierst).
+- **CI/Lockdown-Empfehlung (heute):** Wenn du Code-Konfiguration nicht willst, **committe kein**
+  `tackfile.c` (oder entferne/renenne es in CI vor dem Build). Ein dedizierter Schalter wie
+  `--no-code-config` ist als Hardening-Option sinnvoll (siehe ROADMAP).
+
 ## ROADMAP
 Weitere Infos, wie es mit tack weitergehen wird, stehen [hier](ROADMAP.md).
 
@@ -466,6 +486,26 @@ Use `--strict` to intentionally re-enable them:
 ```bat
 tack.exe build debug --strict
 ```
+
+## Security posture
+
+`tack` is intentionally **minimal** and designed as a **developer tool** — not a hardened
+security product.
+
+What this means in practice:
+
+- **Trust boundary:** `tack` processes file paths, `tack.ini` content, and optionally `tackfile.c`.
+  If you build third‑party repositories, treat these inputs as **untrusted**.
+- **String/path handling:** the code uses classic C string APIs and fixed buffers in many places.
+  Extremely long or crafted paths/config values may cause failures or undefined behaviour.
+- **`tack.ini` is data‑only:** no executable code is run — but values still affect compiler/linker
+  arguments. In team/CI setups, keep the INI under strict control.
+- **`tackfile.c` is code:** in runtime mode `tack` compiles and **executes** a small generator
+  that emits a generated INI layer. That is effectively “execute code from the repo”.
+  Only use `tackfile.c` when you **explicitly trust** (or audit) the repository.
+- **CI/lockdown recommendation (today):** if you don’t want code configuration, **do not**
+  commit `tackfile.c` (or remove/rename it in CI before invoking `tack`). A dedicated
+  flag like `--no-code-config` would be a useful hardening option (see ROADMAP).
 
 ## Troubleshooting
 
