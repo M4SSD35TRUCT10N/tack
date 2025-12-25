@@ -1,109 +1,108 @@
-# tack FAQ
+# tack FAQ / FQA (DE/EN) — v0.6.6
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md)
 
 ---
 
-## Deutsch
+## Deutsch (FAQ)
 
-### Ist tack „Cargo für C“?
-**Vom Workflow her: ja (DX‑Ziel).**  
-**Vom Umfang her: nein.** Cargo bringt Paketverwaltung/Registry/Lockfiles mit. tack fokussiert auf **build/run/test** und **Target‑Konfiguration**.
+### Ist tack ein Ersatz für CMake/make?
+tack ersetzt für viele Projekte das klassische Build-Skript (Makefile/CMakeLists), indem es eine feste, simple Konvention nutzt und die üblichen Tasks (`build/run/test/clean`) anbietet. Für extrem komplexe Toolchains ist make/cmake weiterhin besser geeignet.
 
-### Unterstützt tack Paket-/Abhängigkeitsmanagement?
-Aktuell: **nein**.
+### Welche Compiler funktionieren?
+Standard ist **tcc**. Über `TACK_CC` kannst du z.B. `gcc` oder `clang` nutzen, solange sie „klassische“ C‑Kommandozeilen verstehen.  
+**Wichtig:** `TACK_CC` ist der **Compiler**, nicht „Compiler + Flags“. Flags gehören in `tack.ini`.
 
-tack kann externe Libraries einbinden über:
-- `libs` / `ldflags` in `tack.ini`
-- Systempakete (z.B. SDL2 via Paketmanager)
-- Vendoring (Library‑Code direkt im Repo)
-- optional ein “Bridge‑Ansatz” über `pkg-config` (liefert CFLAGS/LIBS), wenn du das in `tackfile.c` automatisieren willst.
+### Warum lehnt tack `TACK_CC="clang -std=c89"` ab?
+Weil tack den Compiler als argv[0] startet. Flags würden als Teil des Programnamens verstanden.  
+Lösung: `TACK_CC=clang` und `cflags = -std=c89` in `tack.ini`.
 
-### Warum C89/ANSI‑C?
-Portabilität und geringe Abhängigkeiten. C89 ist alt, aber auf sehr vielen Systemen verfügbar (tcc, alte Toolchains, exotische Targets).
+### Was ist der Unterschied zwischen `--no-config` und `--no-code-config`?
+- `--no-config`: ignoriert **INI + tackfile.c** (alles aus)
+- `--no-code-config`: ignoriert **nur tackfile.c**, INI bleibt aktiv (CI/Team‑Modus)
 
-### „tack.ini“ oder „tackfile.c“?
-**Standard: `tack.ini`.**  
-Nimm `tackfile.c`, wenn du Logik brauchst, z.B.:
-- Plattform‑Weichen (Windows vs. Linux)
-- Feature‑Matrix (Debug‑Flags, optionale Libs)
-- automatische Ableitung von Includes/Defines
+### Wie deaktiviere ich Auto-Tool-Discovery?
+- CLI: `--no-auto-tools`
+- INI: `[project] disable_auto_tools = yes`
+- tackfile.c (Makro): `#define TACKFILE_DISABLE_AUTO_TOOLS 1`
 
-### Wie funktioniert tackfile.c in v0.6.0 genau?
-Wenn `tackfile.c` im Projekt‑Root liegt (und du nicht `--no-config` nutzt), dann:
+### Wie kann ich Targets deaktivieren oder entfernen?
+In INI oder tackfile.c (als generierte INI):
+```ini
+[target "tool:foo"]
+enabled = no
+```
+oder
+```ini
+[target "tool:foo"]
+remove = yes
+```
+`enabled=no` lässt das Target existieren, aber „aus“. `remove=yes` entfernt es aus dem Graph.
 
-1) tack baut einen kleinen Generator unter `build/_tackfile/`  
-2) dieser Generator erzeugt `build/_tackfile/tackfile.generated.ini`  
-3) tack lädt die generated INI als **Konfig‑Layer** (unter `tack.ini`, über Built‑ins)
+### Wie aktiviere/deaktiviere ich `src/core/`?
+- Pro Target in INI: `core = yes|no`
+- Für einen Lauf per CLI: `--no-core`
 
-**Fail‑fast:** Wenn `tackfile.c` existiert, aber das Generieren fehlschlägt, bricht tack ab. Das macht Pipelines deterministisch.
+### Was bedeutet „fail-fast“ in tack?
+tack bricht bewusst ab, wenn:
+- Pfade/Strings zu lang werden
+- INI‑Zeilen abgeschnitten wären (zu lang)
+- Rekursionstiefe überschritten wird (Scan/RM)
+- Token-/Listen-Limits überschritten werden
+- tackfile.c Generator fehlschlägt
 
-### Was ist der Unterschied zwischen clean und clobber?
-- **clean:** löscht Inhalte unter `build/`, lässt `build/` selbst stehen  
-- **clobber:** löscht `build/` komplett
+Das ist Absicht: lieber **klarer Fehler** statt undefiniertes Verhalten.
 
-### Welche Projekte passen besonders gut zu tack?
-- kleine bis mittlere C‑Repos
-- “single repo, simple targets”
-- Tools/Utilities + gemeinsame `src/core/`
-- Projekte, die bewusst keine Generator‑Toolchain wollen
-
-### Wo sind die Grenzen?
-- keine Paketverwaltung (noch)
-- keine IDE‑Projektgenerierung
-- komplexe Plattform‑Abhängigkeiten bedeuten weiterhin: Libs/Flags kennen und sauber dokumentieren
-
----
-
-## English
-
-### Is tack “Cargo for C”?
-**Workflow-wise: yes (DX goal).**  
-**Scope-wise: no.** Cargo includes package management/registry/lockfiles. tack focuses on **build/run/test** and **target configuration**.
-
-### Does tack do dependency/package management?
-Currently: **no**.
-
-You can still use external libraries via:
-- `libs` / `ldflags` in `tack.ini`
-- system packages (e.g. SDL2 from your OS package manager)
-- vendoring (keep sources in the repo)
-- optionally `pkg-config` as a bridge (CFLAGS/LIBS), automated via `tackfile.c` if you want
-
-### Why C89/ANSI-C?
-Portability and minimal dependencies. C89 runs on many compilers and niche systems.
-
-### Should I use tack.ini or tackfile.c?
-**Default: `tack.ini`.**  
-Use `tackfile.c` when you need logic, e.g.:
-- platform switches (Windows vs Linux)
-- feature matrix (debug flags, optional libs)
-- automatically deriving includes/defines
-
-### How does tackfile.c work in v0.6.0?
-If `tackfile.c` exists in the project root (and you don’t use `--no-config`):
-
-1) tack builds a small generator under `build/_tackfile/`  
-2) the generator writes `build/_tackfile/tackfile.generated.ini`  
-3) tack loads that generated INI as a **config layer** (below `tack.ini`, above built-ins)
-
-**Fail-fast:** if `tackfile.c` exists but generation fails, tack exits non-zero (deterministic pipelines).
-
-### clean vs clobber?
-- **clean:** delete contents under `build/`, keep the directory  
-- **clobber:** delete `build/` entirely
-
-### What projects are a good fit?
-- small to medium C repos
-- simple target graphs
-- tools/utilities + a shared `src/core/`
-- projects that want to avoid generator toolchains
-
-### What are current limitations?
-- no package manager (yet)
-- no IDE project generator
-- complex platform dependencies still require knowing/recording correct flags/libs
+### Windows: Was ist mit langen Pfaden?
+tack baut Pfade dynamisch, nutzt aber trotzdem harte Limits (fail-fast). Wenn dein Windows Setup Long-Paths unterstützt, hilft das. Bei extrem langen Repo-Pfaden bekommst du eine klare Fehlermeldung.
 
 ---
 
-**Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md)
+## English (FAQ)
+
+### Is tack a replacement for CMake/make?
+For many projects, yes: tack replaces custom build scripts by using conventions and providing `build/run/test/clean`. For very complex toolchains, make/cmake may still be the better fit.
+
+### Which compilers work?
+Default is **tcc**. You can set `TACK_CC` to `gcc`/`clang` etc. as long as they behave like classic C compilers.  
+Important: `TACK_CC` is the compiler program, not “compiler + flags”. Put flags into `tack.ini`.
+
+### Why does tack reject `TACK_CC="clang -std=c89"`?
+Because tack starts the compiler as argv[0]. Flags would be part of the program name.  
+Fix: `TACK_CC=clang` and `cflags = -std=c89` in `tack.ini`.
+
+### `--no-config` vs `--no-code-config`?
+- `--no-config`: ignore **INI + tackfile.c**
+- `--no-code-config`: ignore **only tackfile.c**, still load INI
+
+### How do I disable auto tool discovery?
+- CLI: `--no-auto-tools`
+- INI: `[project] disable_auto_tools = yes`
+- tackfile.c macro: `#define TACKFILE_DISABLE_AUTO_TOOLS 1`
+
+### Disable/remove targets?
+```ini
+[target "tool:foo"]
+enabled = no
+```
+or
+```ini
+[target "tool:foo"]
+remove = yes
+```
+
+### Enable/disable `src/core/`?
+- Per target: `core = yes|no`
+- Per run: `--no-core`
+
+### What does “fail-fast” mean?
+tack intentionally aborts on:
+- overly long paths/strings
+- truncated INI lines
+- recursion depth limits (scan/rm)
+- token/list limits
+- tackfile.c generator failures
+
+---
+
+Back: **[README](README.md)** · Next: **[ROADMAP](ROADMAP.md)**
