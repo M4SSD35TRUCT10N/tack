@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.6.2
+ * v0.6.3
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -40,6 +40,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
 #include <sys/stat.h>
 
 #ifdef _WIN32
@@ -58,7 +59,15 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.6.1"
+#define TACK_VERSION "0.6.3"
+
+/* Hard limits for untrusted inputs (fail-fast) */
+#define TACK_MAX_LINE        8192
+#define TACK_MAX_TOKEN       4096
+#define TACK_MAX_LIST_ITEMS   512
+#define TACK_MAX_NAME         512
+#define TACK_MAX_CC          1024
+#define TACK_MAX_CONFIG_PATH 4096
 
 
 /* --------------------------- runtime config (globals) --------------------------- */
@@ -78,7 +87,7 @@ static const char *g_config_path_cli = 0;
 static int g_no_auto_tools_cli = 0;
 
 static int g_config_loaded = 0;
-static char g_config_path[512] = {0};
+static char g_config_path[TACK_MAX_CONFIG_PATH + 1] = {0};
 static char *g_config_default_target = 0; /* owned; freed at exit */
 static int g_config_disable_auto_tools = 0;
 
@@ -171,10 +180,27 @@ static void tack_cat(char *dst, size_t cap, const char *src) {
   memcpy(dst + d, src, s + 1);
 }
 
-static const char *env_or_default(const char *key, const char *defv) {
-  const char *v = getenv(key);
-  if (v && v[0]) return v;
-  return defv;
+static void tack_check_len(const char *what, const char *s, size_t maxlen) {
+  size_t n;
+  if (!s) return;
+  n = strlen(s);
+  if (n > maxlen) {
+    fprintf(stderr, "tack: %s too long (max %lu)\n", what, (unsigned long)maxlen);
+    exit(2);
+  }
+}
+
+static const char *get_cc(void) {
+  static int inited = 0;
+  static char ccbuf[TACK_MAX_CC + 1];
+  const char *v;
+  if (inited) return ccbuf;
+  v = getenv("TACK_CC");
+  if (!v || !v[0]) v = g_cc_default;
+  tack_check_len("TACK_CC", v, TACK_MAX_CC);
+  tack_copy(ccbuf, sizeof(ccbuf), v);
+  inited = 1;
+  return ccbuf;
 }
 
 static int file_exists(const char *path) {
@@ -1045,8 +1071,8 @@ static void split_list_semicolon(StrVec *out, const char *v) {
   const char *p = v;
   while (p && *p) {
     const char *q;
-    char tmp[1024];
     size_t n;
+    char *tmp;
 
     while (*p && (*p == ';' || isspace((unsigned char)*p))) p++;
     if (!*p) break;
@@ -1055,13 +1081,18 @@ static void split_list_semicolon(StrVec *out, const char *v) {
     while (*q && *q != ';') q++;
 
     n = (size_t)(q - p);
-    if (n >= sizeof(tmp)) n = sizeof(tmp) - 1;
+    if (n > TACK_MAX_TOKEN) tack_die("ini token too long");
+    tmp = (char*)xmalloc(n + 1);
     memcpy(tmp, p, n);
     tmp[n] = '\0';
     {
       char *t = trim(tmp);
-      if (t[0]) sv_push(out, t);
+      if (t[0]) {
+        if (out->count >= TACK_MAX_LIST_ITEMS) { free(tmp); tack_die("ini list too long"); }
+        sv_push(out, t);
+      }
     }
+    free(tmp);
 
     p = q;
     if (*p == ';') p++;
@@ -1141,7 +1172,7 @@ static const TargetOverride *find_ini_override(const char *name) {
 /* read tack.ini into g_ini_targets/g_ini_overrides + project globals */
 static int ini_load_file(const char *path) {
   FILE *f;
-  char line[2048];
+  char line[TACK_MAX_LINE];
   int lineno = 0;
 
   enum { SEC_NONE = 0, SEC_PROJECT = 1, SEC_TARGET = 2 } sec = SEC_NONE;
@@ -1156,6 +1187,14 @@ static int ini_load_file(const char *path) {
   while (fgets(line, sizeof(line), f)) {
     char *s, *eq;
     lineno++;
+
+    /* fail-fast on truncated lines */
+    if (!strchr(line, '\n') && !feof(f)) {
+      int ch;
+      while ((ch = fgetc(f)) != EOF && ch != '\n') { /* discard */ }
+      fclose(f);
+      tack_die("ini line too long");
+    }
 
     s = line;
     s = trim(s);
@@ -1178,24 +1217,29 @@ static int ini_load_file(const char *path) {
       }
 
       if ((tolower((unsigned char)s[0])=='t') && (tolower((unsigned char)s[1])=='a') && (tolower((unsigned char)s[2])=='r') && (tolower((unsigned char)s[3])=='g') && (tolower((unsigned char)s[4])=='e') && (tolower((unsigned char)s[5])=='t')) {
-        char *p = s + 6;
-        char namebuf[512];
+        char *p;
+        char *tname;
+        size_t tn;
+
+        p = s + 6;
+        tname = 0;
+        tn = 0;
         p = trim(p);
         if (*p == '"') {
           char *q = strchr(p + 1, '"');
           if (!q) continue;
-          *q = '\0';
-          strncpy(namebuf, p + 1, sizeof(namebuf) - 1);
-          namebuf[sizeof(namebuf) - 1] = '\0';
+          tn = (size_t)(q - (p + 1));
+          if (tn > TACK_MAX_NAME) tack_die("target name too long");
+          tname = (char*)xmalloc(tn + 1);
+          memcpy(tname, p + 1, tn);
+          tname[tn] = '\0';
         } else {
-          strncpy(namebuf, p, sizeof(namebuf) - 1);
-          namebuf[sizeof(namebuf) - 1] = '\0';
-          rtrim_inplace(namebuf);
+          tn = strlen(p);
+          if (tn > TACK_MAX_NAME) tack_die("target name too long");
+          tname = xstrdup(p);
         }
-        if (namebuf[0]) {
-          sec = SEC_TARGET;
-          cur_t = ini_get_or_add_target(namebuf);
-        }
+        cur_t = ini_get_or_add_target(tname);
+        free(tname);
         continue;
       }
 
@@ -1212,6 +1256,7 @@ static int ini_load_file(const char *path) {
       if (sec == SEC_PROJECT) {
         if (strieq(key, "default_target")) {
           free(g_config_default_target);
+          tack_check_len("default_target", val, TACK_MAX_NAME);
           g_config_default_target = xstrdup(val);
         } else if (strieq(key, "disable_auto_tools")) {
           int b;
@@ -1351,7 +1396,8 @@ static void apply_ini_targets(TargetVec *out) {
  */
 
 #ifndef TACK_USE_TACKFILE
-static char g_tackfile_generated_ini[512] = {0};
+static char g_tackfile_generated_ini[TACK_MAX_CONFIG_PATH + 1] = {0};
+
 
 static void tackfile_gen_paths(char *dir, size_t dir_cap,
                                char *gen_c, size_t gen_c_cap,
@@ -1487,7 +1533,7 @@ static int tackfile_prepare_generated_ini(void) {
 
   if (!file_exists("tackfile.c")) return 0;
 
-  cc = env_or_default("TACK_CC", g_cc_default);
+  cc = get_cc();
   tf_t = file_mtime("tackfile.c");
 
   ensure_dir(g_build_dir);
@@ -1570,8 +1616,8 @@ static int config_add_ini_layer(const char *path) {
   if (ini_load_file(path) != 0) return 1;
 
   /* record last loaded path (highest priority) */
-  strncpy(g_config_path, path, sizeof(g_config_path) - 1);
-  g_config_path[sizeof(g_config_path) - 1] = '\0';
+  tack_check_len("config path", path, TACK_MAX_CONFIG_PATH);
+  tack_copy(g_config_path, sizeof(g_config_path), path);
   g_config_loaded = 1;
   return 0;
 }
@@ -1972,7 +2018,7 @@ static int build_core(Profile p, int verbose, int force, int jobs, int strict, S
   char root[512], objd[512], depd[512], bind[512];
   const char *inc_common[4];
 
-  cc = env_or_default("TACK_CC", g_cc_default);
+  cc = get_cc();
 
   sv_init(&core_srcs);
 
@@ -2037,7 +2083,7 @@ static int build_one_target(const Target *t, Profile p, int verbose, int force, 
 
   const char *inc_common[5];
 
-  cc = env_or_default("TACK_CC", g_cc_default);
+  cc = get_cc();
 
   ov = find_override(t->name);
 
@@ -2173,7 +2219,7 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict) {
 
   const char *inc_common[4];
 
-  cc = env_or_default("TACK_CC", g_cc_default);
+  cc = get_cc();
 
   sv_init(&tests);
   scan_dir_recursive_suffix(&tests, g_tests_dir, "_test.c");
@@ -2423,8 +2469,11 @@ static int parse_int(const char *s) {
   int v = 0;
   if (!s || !*s) return -1;
   while (*s) {
+    int digit;
     if (!isdigit((unsigned char)*s)) return -1;
-    v = v * 10 + (*s - '0');
+    digit = (*s - '0');
+    if (v > (INT_MAX - digit) / 10) return -1;
+    v = v * 10 + digit;
     s++;
   }
   return v;
@@ -2443,6 +2492,7 @@ int main(int argc, char **argv) {
     if (streq(argv[argi], "--config")) {
       if (argi + 1 >= argc) { fprintf(stderr, "tack: --config needs PATH\n"); return 2; }
       g_config_path_cli = argv[argi + 1];
+      tack_check_len("--config path", g_config_path_cli, TACK_MAX_CONFIG_PATH);
       argi += 2;
       continue;
     }
