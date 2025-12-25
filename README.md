@@ -45,7 +45,7 @@
 - Shared Core Code: `src/core/` wird 1× pro Profil gebaut und optional gelinkt
 - **Konfiguration**
   - `tack.ini` (runtime, data-only, auto-load; Highest Priority)
-  - `tackfile.c` (compile-time include, optional; Middle Priority)
+  - `tackfile.c` (runtime auto-load (compiled on the fly), optional; Middle Priority)
   - Built-ins in `tack.c` (Fallback)
 
 ## Installation / Verwendung
@@ -237,44 +237,39 @@ remove = yes
 ```
 
 ### `tackfile.c` — Code-Konfiguration (optional)
-`tackfile.c` ist **kein** Runtime-Plugin in v0.5.0, sondern wird compile-time eingebunden.
 
-Aktivieren:
+Ab **v0.6.0** kann tack ein `tackfile.c` im Projekt-Root **automatisch verwenden**:
+tack kompiliert beim Start (sofern `--no-config` nicht gesetzt ist) einen kleinen Generator
+nach `build/_tackfile/`, führt ihn aus und lädt die erzeugte Datei
+`build/_tackfile/tackfile.generated.ini` als **Config-Layer mit niedriger Priorität**.
+
+- Compiler für diesen Schritt: `TACK_CC` (Default: `tcc`)
+- Wenn `tackfile.c` existiert, aber nicht kompiliert/ausgeführt werden kann, bricht tack ab
+  (damit eine Pipeline nicht „aus Versehen“ mit Defaults weiterläuft).
+- Wer das nicht möchte, nutzt nur `tack.ini` oder startet tack mit `--no-config`.
+
+Optional (Embed/Single-File): Wenn du `tackfile.c` **compile-time** einbetten willst
+(z.B. wenn du kein On-the-fly-Compile möchtest), kompiliere tack mit:
+
 ```bat
-tcc -DTACK_USE_TACKFILE -run tack.c list
+tcc -DTACK_USE_TACKFILE -run src/tack.c list
 ```
 
-In `tackfile.c` kannst du (optional) definieren:
+Standard (ohne Embed): `tackfile.c` wird automatisch erkannt und verarbeitet:
 
-1) Overrides (höhere Priorität als built-ins):
-```c
-#define TACKFILE_OVERRIDES my_overrides
-static const char *gen_defines[] = { "TOOL_GEN=1", 0 };
-static const TargetOverride my_overrides[] = {
-  { "tool:gen", 0, gen_defines, 0, 0, 0, 1 },
-  { 0,0,0,0,0,0,0 }
-};
+```bat
+tcc -run src/tack.c list
 ```
 
-2) Targets add/modify/disable/remove:
-```c
-#define TACKFILE_TARGETS my_targets
-static const TargetDef my_targets[] = {
-  { "demo:hi", "demos/hi", "hi", "demo_hi", 1, 0 }, /* upsert */
-  { "tool:old", 0,0,0, 0, 0 },                      /* disable action */
-  { "tool:tmp", 0,0,0, 0, 1 },                      /* remove action */
-  { 0,0,0,0,0,0 }
-};
-```
+Beispiel-Layout:
 
-3) Default Target:
-```c
-#define TACKFILE_DEFAULT_TARGET "app"
 ```
-
-4) Auto Tool Discovery deaktivieren (voll deklarativ):
-```c
-#define TACKFILE_DISABLE_AUTO_TOOLS 1
+project/
+  src/
+  include/
+  tack.ini (optional, highest priority)
+  tackfile.c (optional, used automatically)
+  build/_tackfile/tackfile.generated.ini (auto-generated, do not edit)
 ```
 
 ### Prioritäten (wichtig)
@@ -546,19 +541,40 @@ enabled = no
 remove = yes
 ```
 
-### `tackfile.c` — optional code config (compile-time)
-In v0.5.0, `tackfile.c` is **not** a runtime plugin; it’s a compile‑time include.
+### `tackfile.c` — optional code config (runtime auto-load in v0.6.0+)
 
-Enable it with:
+Starting with **v0.6.0**, tack will automatically use a `tackfile.c` in the project root:
+on startup (unless `--no-config` is used) tack compiles a tiny generator into
+`build/_tackfile/`, runs it to emit `build/_tackfile/tackfile.generated.ini`,
+and loads that file as a **low-priority config layer**.
+
+- Compiler for this step: `TACK_CC` (default: `tcc`)
+- If `tackfile.c` exists but cannot be compiled/executed, tack exits with an error
+  (so your pipeline does not silently fall back to defaults).
+- If you don’t want to execute project code, just use `tack.ini` (or `--no-config`).
+
+Optional compile-time embedding (no on-the-fly compile):
+
 ```bat
-tcc -DTACK_USE_TACKFILE tack.c -o tack.exe
+tcc -DTACK_USE_TACKFILE -run src/tack.c list
 ```
 
-Optional definitions inside `tackfile.c`:
-- custom overrides array via `TACKFILE_OVERRIDES`
-- custom targets/upserts/disable/remove via `TACKFILE_TARGETS` (using `TargetDef`)
-- `TACKFILE_DEFAULT_TARGET`
-- `TACKFILE_DISABLE_AUTO_TOOLS` (fully declarative builds)
+Default (no embedding): `tackfile.c` is detected and processed automatically:
+
+```bat
+tcc -run src/tack.c list
+```
+
+Example layout:
+
+```
+project/
+  src/
+  include/
+  tack.ini (optional, highest priority)
+  tackfile.c (optional, auto-loaded)
+  build/_tackfile/tackfile.generated.ini (auto-generated, do not edit)
+```
 
 ### Priorities (important)
 - **Overrides/flags:** `tack.ini` → `tackfile.c` → built‑in `tack.c`
