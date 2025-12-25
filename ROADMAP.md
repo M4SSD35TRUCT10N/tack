@@ -15,7 +15,7 @@
 - **Bessere Doku für Real‑World Ports**: Matrix + Port‑Reports als “offizieller” Prozess (Schema‑F).
 - **Optionale `pkg-config` Bridge** (nicht Pflicht): tackfile.c kann bei Bedarf CFLAGS/LIBS abfragen und in generated INI schreiben.
 
-### Ideas / Research (mittelfristig)
+### Ideen / Untersuchungen (mittelfristig)
 #### Package Management (USP, aber nur mit Supply-Chain-Fokus)
 Ein möglicher tack‑Ansatz wäre **Source‑Vendoring + Lockfile**:
 - `deps.lock` (oder `deps.ini`): URL + Version/Tag + Hash
