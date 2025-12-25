@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.6.0
+ * v0.6.1
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -58,7 +58,8 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.6.0"
+#define TACK_VERSION "0.6.1"
+
 
 /* --------------------------- runtime config (globals) --------------------------- */
 /* Optional project configuration:
@@ -144,6 +145,32 @@ static char *xstrdup(const char *s) {
   return p;
 }
 
+/* --------------------------- safe strings (fail-fast) --------------------------- */
+
+static void tack_die(const char *msg) {
+  fprintf(stderr, "tack: %s\n", msg);
+  exit(2);
+}
+
+static void tack_copy(char *dst, size_t cap, const char *src) {
+  size_t n;
+  if (!dst || cap == 0) tack_die("internal error: bad buffer");
+  if (!src) src = "";
+  n = strlen(src);
+  if (n >= cap) tack_die("string too long");
+  memcpy(dst, src, n + 1);
+}
+
+static void tack_cat(char *dst, size_t cap, const char *src) {
+  size_t d, s;
+  if (!dst || cap == 0) tack_die("internal error: bad buffer");
+  if (!src) src = "";
+  d = strlen(dst);
+  s = strlen(src);
+  if (d + s >= cap) tack_die("string too long");
+  memcpy(dst + d, src, s + 1);
+}
+
 static const char *env_or_default(const char *key, const char *defv) {
   const char *v = getenv(key);
   if (v && v[0]) return v;
@@ -179,14 +206,28 @@ static void ensure_dir(const char *path) {
 #endif
 }
 
-static void path_join(char *out, const char *a, const char *b) {
-  size_t la = strlen(a);
-  strcpy(out, a);
-  if (la > 0 && out[la - 1] != PATH_SEP) {
-    out[la] = PATH_SEP;
-    out[la + 1] = '\0';
+static void path_join(char *out, size_t cap, const char *a, const char *b) {
+  size_t la, lb, need;
+  int need_sep;
+
+  if (!out || cap == 0) tack_die("internal error: bad buffer");
+  if (!a) a = "";
+  if (!b) b = "";
+
+  la = strlen(a);
+  lb = strlen(b);
+  need_sep = (la > 0 && a[la - 1] != PATH_SEP) ? 1 : 0;
+  need = la + (size_t)need_sep + lb + 1;
+
+  if (need > cap) tack_die("path too long");
+
+  tack_copy(out, cap, a);
+  if (need_sep) {
+    size_t l = strlen(out);
+    out[l] = PATH_SEP;
+    out[l + 1] = '\0';
   }
-  strcat(out, b);
+  tack_cat(out, cap, b);
 }
 
 static const char *path_base(const char *p) {
@@ -269,7 +310,7 @@ static void scan_dir_recursive_suffix_skip(StrVec *out, const char *dir, const c
   WIN32_FIND_DATAA fd;
   HANDLE h;
 
-  strcpy(pattern, dir);
+  tack_copy(pattern, sizeof(pattern), dir);
   {
     size_t ld = strlen(pattern);
     if (ld > 0 && pattern[ld - 1] != '\\' && pattern[ld - 1] != '/') {
@@ -277,7 +318,7 @@ static void scan_dir_recursive_suffix_skip(StrVec *out, const char *dir, const c
       pattern[ld + 1] = '\0';
     }
   }
-  strcat(pattern, "*");
+  tack_cat(pattern, sizeof(pattern), "*");
 
   h = FindFirstFileA(pattern, &fd);
   if (h == INVALID_HANDLE_VALUE) return;
@@ -291,7 +332,7 @@ static void scan_dir_recursive_suffix_skip(StrVec *out, const char *dir, const c
       if (streq(fd.cFileName, "build")) continue;
     }
 
-    path_join(full, dir, fd.cFileName);
+    path_join(full, sizeof(full), dir, fd.cFileName);
 
     if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
       scan_dir_recursive_suffix_skip(out, full, suffix, skip_dirname);
@@ -315,7 +356,7 @@ static void scan_dir_recursive_suffix_skip(StrVec *out, const char *dir, const c
     if (skip_dirname && streq(e->d_name, skip_dirname)) continue;
     if (streq(e->d_name, "build")) continue;
 
-    path_join(full, dir, e->d_name);
+    path_join(full, sizeof(full), dir, e->d_name);
 
     if (is_dir_path(full)) {
       scan_dir_recursive_suffix_skip(out, full, suffix, skip_dirname);
@@ -353,7 +394,7 @@ static int rm_rf(const char *path) {
     WIN32_FIND_DATAA fd;
     HANDLE h;
 
-    strcpy(pattern, path);
+    tack_copy(pattern, sizeof(pattern), path);
     {
       size_t lp = strlen(pattern);
       if (lp > 0 && pattern[lp - 1] != '\\' && pattern[lp - 1] != '/') {
@@ -361,14 +402,14 @@ static int rm_rf(const char *path) {
         pattern[lp + 1] = '\0';
       }
     }
-    strcat(pattern, "*");
+    tack_cat(pattern, sizeof(pattern), "*");
 
     h = FindFirstFileA(pattern, &fd);
     if (h != INVALID_HANDLE_VALUE) {
       do {
         char child[1024];
         if (streq(fd.cFileName, ".") || streq(fd.cFileName, "..")) continue;
-        path_join(child, path, fd.cFileName);
+        path_join(child, sizeof(child), path, fd.cFileName);
 
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
           if (rm_rf(child) != 0) { FindClose(h); return 1; }
@@ -391,7 +432,7 @@ static int rm_rf(const char *path) {
     while ((e = readdir(d)) != 0) {
       char child[1024];
       if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
-      path_join(child, path, e->d_name);
+      path_join(child, sizeof(child), path, e->d_name);
       if (rm_rf(child) != 0) { closedir(d); return 1; }
     }
     closedir(d);
@@ -410,7 +451,7 @@ static int rm_rf_contents(const char *dir) {
     WIN32_FIND_DATAA fd;
     HANDLE h;
 
-    strcpy(pattern, dir);
+    tack_copy(pattern, sizeof(pattern), dir);
     {
       size_t lp = strlen(pattern);
       if (lp > 0 && pattern[lp - 1] != '\\' && pattern[lp - 1] != '/') {
@@ -418,7 +459,7 @@ static int rm_rf_contents(const char *dir) {
         pattern[lp + 1] = '\0';
       }
     }
-    strcat(pattern, "*");
+    tack_cat(pattern, sizeof(pattern), "*");
 
     h = FindFirstFileA(pattern, &fd);
     if (h == INVALID_HANDLE_VALUE) return 0;
@@ -426,7 +467,7 @@ static int rm_rf_contents(const char *dir) {
     do {
       char child[1024];
       if (streq(fd.cFileName, ".") || streq(fd.cFileName, "..")) continue;
-      path_join(child, dir, fd.cFileName);
+      path_join(child, sizeof(child), dir, fd.cFileName);
 
       if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
         if (rm_rf(child) != 0) { FindClose(h); return 1; }
@@ -449,7 +490,7 @@ static int rm_rf_contents(const char *dir) {
     while ((e = readdir(d)) != 0) {
       char child[1024];
       if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
-      path_join(child, dir, e->d_name);
+      path_join(child, sizeof(child), dir, e->d_name);
       if (rm_rf(child) != 0) { closedir(d); return 1; }
     }
     closedir(d);
@@ -1296,18 +1337,18 @@ static void apply_ini_targets(TargetVec *out) {
 #ifndef TACK_USE_TACKFILE
 static char g_tackfile_generated_ini[512] = {0};
 
-static void tackfile_gen_paths(char *dir, char *gen_c, char *gen_exe, char *gen_ini) {
-  char tmp[512];
-
-  path_join(dir, g_build_dir, "_tackfile");
-  path_join(gen_c, dir, "tackfile_gen.c");
+static void tackfile_gen_paths(char *dir, size_t dir_cap,
+                               char *gen_c, size_t gen_c_cap,
+                               char *gen_exe, size_t gen_exe_cap,
+                               char *gen_ini, size_t gen_ini_cap) {
+  path_join(dir, dir_cap, g_build_dir, "_tackfile");
+  path_join(gen_c, gen_c_cap, dir, "tackfile_gen.c");
 #ifdef _WIN32
-  path_join(tmp, dir, "tackfile_gen.exe");
+  path_join(gen_exe, gen_exe_cap, dir, "tackfile_gen.exe");
 #else
-  path_join(tmp, dir, "tackfile_gen");
+  path_join(gen_exe, gen_exe_cap, dir, "tackfile_gen");
 #endif
-  strcpy(gen_exe, tmp);
-  path_join(gen_ini, dir, "tackfile.generated.ini");
+  path_join(gen_ini, gen_ini_cap, dir, "tackfile.generated.ini");
 }
 
 static int tackfile_write_generator_source(const char *gen_c_path) {
@@ -1434,10 +1475,10 @@ static int tackfile_prepare_generated_ini(void) {
   tf_t = file_mtime("tackfile.c");
 
   ensure_dir(g_build_dir);
-  path_join(dir, g_build_dir, "_tackfile");
+  path_join(dir, sizeof(dir), g_build_dir, "_tackfile");
   ensure_dir(dir);
 
-  tackfile_gen_paths(dir, gen_c, gen_exe, gen_ini);
+  tackfile_gen_paths(dir, sizeof(dir), gen_c, sizeof(gen_c), gen_exe, sizeof(gen_exe), gen_ini, sizeof(gen_ini));
 
   strncpy(g_tackfile_generated_ini, gen_ini, sizeof(g_tackfile_generated_ini) - 1);
   g_tackfile_generated_ini[sizeof(g_tackfile_generated_ini) - 1] = '\0';
@@ -1588,7 +1629,7 @@ static void discover_targets(TargetVec *out, int disable_auto_tools) {
     WIN32_FIND_DATAA fd;
     HANDLE h;
 
-    strcpy(pattern, g_tools_dir);
+    tack_copy(pattern, sizeof(pattern), g_tools_dir);
     {
       size_t ld = strlen(pattern);
       if (ld > 0 && pattern[ld - 1] != '\\' && pattern[ld - 1] != '/') {
@@ -1596,7 +1637,7 @@ static void discover_targets(TargetVec *out, int disable_auto_tools) {
         pattern[ld + 1] = '\0';
       }
     }
-    strcat(pattern, "*");
+    tack_cat(pattern, sizeof(pattern), "*");
 
     h = FindFirstFileA(pattern, &fd);
     if (h == INVALID_HANDLE_VALUE) return;
@@ -1608,11 +1649,11 @@ static void discover_targets(TargetVec *out, int disable_auto_tools) {
         char src[512];
         char tname[512];
 
-        strcpy(name, fd.cFileName);
-        path_join(src, g_tools_dir, name);
+        tack_copy(name, sizeof(name), fd.cFileName);
+        path_join(src, sizeof(src), g_tools_dir, name);
 
-        strcpy(tname, "tool:");
-        strcat(tname, name);
+        tack_copy(tname, sizeof(tname), "tool:");
+        tack_cat(tname, sizeof(tname), name);
 
         tv_push(out, tname, src, name);
       }
@@ -1631,11 +1672,11 @@ static void discover_targets(TargetVec *out, int disable_auto_tools) {
     while ((e = readdir(d)) != 0) {
       char full[1024];
       if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
-      path_join(full, g_tools_dir, e->d_name);
+      path_join(full, sizeof(full), g_tools_dir, e->d_name);
       if (is_dir_path(full)) {
         char tname[512];
-        strcpy(tname, "tool:");
-        strcat(tname, e->d_name);
+        tack_copy(tname, sizeof(tname), "tool:");
+        tack_cat(tname, sizeof(tname), e->d_name);
         tv_push(out, tname, full, e->d_name);
       }
     }
@@ -1648,33 +1689,41 @@ static void discover_targets(TargetVec *out, int disable_auto_tools) {
 
 /* --------------------------- build paths --------------------------- */
 
-static void build_paths(char *root, char *objd, char *depd, char *bind,
+/* build/<target>/<profile>/{obj,dep,bin} */
+static void build_paths(char *root, size_t root_cap,
+                        char *objd, size_t objd_cap,
+                        char *depd, size_t depd_cap,
+                        char *bind, size_t bind_cap,
                         const char *target_id, Profile p) {
   char tdir[512];
   char pdir[512];
 
-  path_join(tdir, g_build_dir, target_id);
-  path_join(pdir, tdir, profile_name(p));
+  path_join(tdir, sizeof(tdir), g_build_dir, target_id);
+  path_join(pdir, sizeof(pdir), tdir, profile_name(p));
 
-  strcpy(root, pdir);
-  path_join(objd, root, "obj");
-  path_join(depd, root, "dep");
-  path_join(bind, root, "bin");
+  tack_copy(root, root_cap, pdir);
+  path_join(objd, objd_cap, root, "obj");
+  path_join(depd, depd_cap, root, "dep");
+  path_join(bind, bind_cap, root, "bin");
 }
 
-static void exe_path(char *out, const char *target_id, Profile p, const char *bin_base) {
+static void exe_path(char *out, size_t out_cap, const char *target_id, Profile p, const char *bin_base) {
   char root[512], objd[512], depd[512], bind[512];
   char fn[256];
 
-  build_paths(root, objd, depd, bind, target_id, p);
+  build_paths(root, sizeof(root),
+              objd, sizeof(objd),
+              depd, sizeof(depd),
+              bind, sizeof(bind),
+              target_id, p);
 
 #ifdef _WIN32
-  strcpy(fn, bin_base);
-  strcat(fn, ".exe");
+  tack_copy(fn, sizeof(fn), bin_base);
+  tack_cat(fn, sizeof(fn), ".exe");
 #else
-  strcpy(fn, bin_base);
+  tack_copy(fn, sizeof(fn), bin_base);
 #endif
-  path_join(out, bind, fn);
+  path_join(out, out_cap, bind, fn);
 }
 
 /* --------------------------- compilation helpers --------------------------- */
@@ -1718,11 +1767,11 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
     char obj_path[1024], dep_path[1024];
 
     sanitize_path_to_id(sid, sizeof(sid), src);
-    strcpy(obj_name, sid); strcat(obj_name, ".o");
-    strcpy(dep_name, sid); strcat(dep_name, ".d");
+    tack_copy(obj_name, sizeof(obj_name), sid); tack_cat(obj_name, sizeof(obj_name), ".o");
+    tack_copy(dep_name, sizeof(dep_name), sid); tack_cat(dep_name, sizeof(dep_name), ".d");
 
-    path_join(obj_path, objd, obj_name);
-    path_join(dep_path, depd, dep_name);
+    path_join(obj_path, sizeof(obj_path), objd, obj_name);
+    path_join(dep_path, sizeof(dep_path), depd, dep_name);
 
     sv_push(out_objs, obj_path);
 
@@ -1762,8 +1811,8 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
           size_t n;
           n = strlen(def_extra[k]) + 3;
           d = (char*)xmalloc(n);
-          strcpy(d, "-D");
-          strcat(d, def_extra[k]);
+          tack_copy(d, n, "-D");
+          tack_cat(d, n, def_extra[k]);
           sv_push_own(&tmp_defs, d);
           av_push(&av, d);
         }
@@ -1861,8 +1910,8 @@ static int link_executable(const char *cc, const char *out_exe,
       size_t n;
       n = strlen(def_extra[k]) + 3;
       d = (char*)xmalloc(n);
-      strcpy(d, "-D");
-      strcat(d, def_extra[k]);
+      tack_copy(d, n, "-D");
+      tack_cat(d, n, def_extra[k]);
       sv_push_own(&tmp_defs, d);
       av_push(&av, d);
     }
@@ -1914,16 +1963,16 @@ static int build_core(Profile p, int verbose, int force, int jobs, int strict, S
   ensure_dir(g_build_dir);
   {
     char cdir[512];
-    path_join(cdir, g_build_dir, "_core");
+    path_join(cdir, sizeof(cdir), g_build_dir, "_core");
     ensure_dir(cdir);
   }
   {
     char cdir[512], pdir[512];
-    path_join(cdir, g_build_dir, "_core");
-    path_join(pdir, cdir, profile_name(p));
+    path_join(cdir, sizeof(cdir), g_build_dir, "_core");
+    path_join(pdir, sizeof(pdir), cdir, profile_name(p));
     ensure_dir(pdir);
   }
-  build_paths(root, objd, depd, bind, "_core", p);
+  build_paths(root, sizeof(root), objd, sizeof(objd), depd, sizeof(depd), bind, sizeof(bind), "_core", p);
   ensure_dir(objd);
   ensure_dir(depd);
   ensure_dir(bind);
@@ -1972,21 +2021,21 @@ static int build_one_target(const Target *t, Profile p, int verbose, int force, 
   ensure_dir(g_build_dir);
   {
     char tdir[512];
-    path_join(tdir, g_build_dir, t->id);
+    path_join(tdir, sizeof(tdir), g_build_dir, t->id);
     ensure_dir(tdir);
   }
   {
     char tdir[512], pdir[512];
-    path_join(tdir, g_build_dir, t->id);
-    path_join(pdir, tdir, profile_name(p));
+    path_join(tdir, sizeof(tdir), g_build_dir, t->id);
+    path_join(pdir, sizeof(pdir), tdir, profile_name(p));
     ensure_dir(pdir);
   }
-  build_paths(root, objd, depd, bind, t->id, p);
+  build_paths(root, sizeof(root), objd, sizeof(objd), depd, sizeof(depd), bind, sizeof(bind), t->id, p);
   ensure_dir(objd);
   ensure_dir(depd);
   ensure_dir(bind);
 
-  exe_path(out_exe, t->id, p, t->bin_base);
+  exe_path(out_exe, sizeof(out_exe), t->id, p, t->bin_base);
 
   /* scan sources:
    * - if app is using src/ (not src/app), skip "core" dir so we don't compile shared code twice
@@ -2107,11 +2156,11 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict) {
   }
 
   ensure_dir(g_build_dir);
-  path_join(tests_root, g_build_dir, "tests");
+  path_join(tests_root, sizeof(tests_root), g_build_dir, "tests");
   ensure_dir(tests_root);
-  path_join(tests_root, tests_root, profile_name(p));
+  path_join(tests_root, sizeof(tests_root), tests_root, profile_name(p));
   ensure_dir(tests_root);
-  path_join(tests_bin, tests_root, "bin");
+  path_join(tests_bin, sizeof(tests_bin), tests_root, "bin");
   ensure_dir(tests_bin);
 
   inc_common[0] = g_inc_dir;
@@ -2128,20 +2177,20 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict) {
     {
       char tmp[512];
       char *dot;
-      strcpy(tmp, base);
+      tack_copy(tmp, sizeof(tmp), base);
       dot = strrchr(tmp, '.');
       if (dot) *dot = '\0';
-      strcat(tmp, ".exe");
-      path_join(out_exe, tests_bin, tmp);
+      tack_cat(tmp, sizeof(tmp), ".exe");
+      path_join(out_exe, sizeof(out_exe), tests_bin, tmp);
     }
 #else
     {
       char tmp[512];
       char *dot;
-      strcpy(tmp, base);
+      tack_copy(tmp, sizeof(tmp), base);
       dot = strrchr(tmp, '.');
       if (dot) *dot = '\0';
-      path_join(out_exe, tests_bin, tmp);
+      path_join(out_exe, sizeof(out_exe), tests_bin, tmp);
     }
 #endif
 
@@ -2492,7 +2541,7 @@ int main(int argc, char **argv) {
       if (run_argi < argc && streq(argv[run_argi], "--")) run_argi++;
 
       if (build_one_target(t, p, verbose, force, jobs, strict, no_core) != 0) { tv_free(&tv); config_free(); return 1; }
-      exe_path(exe, t->id, p, t->bin_base);
+      exe_path(exe, sizeof(exe), t->id, p, t->bin_base);
 
       /* build argv: exe + rest args */
       {
@@ -2520,3 +2569,4 @@ int main(int argc, char **argv) {
   config_free();
   return 2;
 }
+
