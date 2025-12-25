@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.6.4
+ * v0.6.5
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -40,6 +40,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
 #include <limits.h>
 #include <sys/stat.h>
 
@@ -59,7 +60,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.6.4"
+#define TACK_VERSION "0.6.5"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -198,11 +199,54 @@ static const char *get_cc(void) {
   static int inited = 0;
   static char ccbuf[TACK_MAX_CC + 1];
   const char *v;
+
   if (inited) return ccbuf;
+
   v = getenv("TACK_CC");
   if (!v || !v[0]) v = g_cc_default;
   tack_check_len("TACK_CC", v, TACK_MAX_CC);
-  tack_copy(ccbuf, sizeof(ccbuf), v);
+
+  /* trim leading whitespace */
+  while (*v && isspace((unsigned char)*v)) v++;
+
+  {
+    size_t n = strlen(v);
+
+    /* trim trailing whitespace */
+    while (n > 0 && isspace((unsigned char)v[n - 1])) n--;
+
+    if (n == 0) tack_die("TACK_CC is empty");
+
+    /* strip surrounding quotes if present */
+    if (n >= 2 && v[0] == '"' && v[n - 1] == '"') {
+      v++;
+      n -= 2;
+      while (n > 0 && isspace((unsigned char)v[0])) { v++; n--; }
+      while (n > 0 && isspace((unsigned char)v[n - 1])) n--;
+      if (n == 0) tack_die("TACK_CC is empty");
+    }
+
+    if (n > TACK_MAX_CC) tack_die("TACK_CC too long");
+    memcpy(ccbuf, v, n);
+    ccbuf[n] = '\0';
+  }
+
+  /* CC policy: allow spaces only when this clearly looks like a path.
+     Disallow "clang -std=c89" style values (use cflags/ldflags in tack.ini instead). */
+  {
+    int has_ws = 0, has_sep = 0, has_drive = 0;
+    const char *p;
+    for (p = ccbuf; *p; p++) {
+      unsigned char ch = (unsigned char)*p;
+      if (isspace(ch)) has_ws = 1;
+      if (*p == '/' || *p == '\\') has_sep = 1;
+      if (*p == ':') has_drive = 1;
+    }
+    if (has_ws && !has_sep && !has_drive) {
+      tack_die("TACK_CC must be an executable name or path, not a command line (put flags into tack.ini)");
+    }
+  }
+
   inited = 1;
   return ccbuf;
 }
@@ -671,7 +715,12 @@ static int proc_wait(Proc *p) {
 static int run_argv_wait(char **argv, int verbose) {
   Proc p;
   if (verbose) print_argv(argv);
-  if (proc_spawn_nowait(argv, &p) != 0) return 1;
+  if (proc_spawn_nowait(argv, &p) != 0) {
+    const char *cmd0 = (argv && argv[0]) ? argv[0] : "(null)";
+    fprintf(stderr, "tack: spawn failed: %s\n", cmd0);
+    fprintf(stderr, "tack: errno: %d (%s)\n", errno, strerror(errno));
+    return 1;
+  }
   return proc_wait(&p);
 }
 
@@ -1128,36 +1177,78 @@ static int parse_bool(const char *v, int *out) {
   return 0;
 }
 
-static void split_list_semicolon(StrVec *out, const char *v) {
+static void split_list_tokens(StrVec *out, const char *v, int ws_sep) {
   const char *p = v;
-  while (p && *p) {
-    const char *q;
-    size_t n;
-    char *tmp;
 
+  while (p && *p) {
+    char *tmp;
+    size_t n;
+
+    /* skip separators and leading whitespace */
     while (*p && (*p == ';' || isspace((unsigned char)*p))) p++;
     if (!*p) break;
 
+    /* quoted token: " ... " */
+    if (*p == '"') {
+      const char *q;
+      p++; /* skip opening quote */
     q = p;
-    while (*q && *q != ';') q++;
+      while (*q && *q != '"') q++;
+      if (!*q) tack_die("ini: unterminated quote in list");
 
     n = (size_t)(q - p);
     if (n > TACK_MAX_TOKEN) tack_die("ini token too long");
+
     tmp = (char*)xmalloc(n + 1);
     memcpy(tmp, p, n);
     tmp[n] = '\0';
-    {
-      char *t = trim(tmp);
-      if (t[0]) {
+
+      if (tmp[0]) {
         if (out->count >= TACK_MAX_LIST_ITEMS) { free(tmp); tack_die("ini list too long"); }
-        sv_push(out, t);
-      }
-    }
+        sv_push_own(out, tmp); /* already owned */
+      } else {
     free(tmp);
+      }
+
+      p = q + 1; /* skip closing quote */
+      continue;
+    }
+
+    /* unquoted token */
+    {
+      const char *q = p;
+      while (*q) {
+        if (*q == ';') break;
+        if (ws_sep && isspace((unsigned char)*q)) break;
+        q++;
+      }
+
+      n = (size_t)(q - p);
+      if (n > TACK_MAX_TOKEN) tack_die("ini token too long");
+
+      tmp = (char*)xmalloc(n + 1);
+      memcpy(tmp, p, n);
+      tmp[n] = '\0';
+
+      {
+        char *t = trim(tmp);
+        if (t[0]) {
+          if (out->count >= TACK_MAX_LIST_ITEMS) { free(tmp); tack_die("ini list too long"); }
+          if (t != tmp) {
+            char *own = xstrdup(t);
+            free(tmp);
+            tmp = own;
+          }
+          sv_push_own(out, tmp);
+        } else {
+          free(tmp);
+        }
+      }
 
     p = q;
-    if (*p == ';') p++;
+      continue;
   }
+}
 }
 
 static IniTargetCfg *ini_get_or_add_target(const char *name) {
@@ -1346,15 +1437,15 @@ static int ini_load_file(const char *path) {
           int b;
           if (parse_bool(val, &b)) { cur_t->core_set = 1; cur_t->core = b; }
         } else if (strieq(key, "includes")) {
-          sv_free(&cur_t->includes); sv_init(&cur_t->includes); split_list_semicolon(&cur_t->includes, val);
+          sv_free(&cur_t->includes); sv_init(&cur_t->includes); split_list_tokens(&cur_t->includes, val, 0);
         } else if (strieq(key, "defines")) {
-          sv_free(&cur_t->defines); sv_init(&cur_t->defines); split_list_semicolon(&cur_t->defines, val);
+          sv_free(&cur_t->defines); sv_init(&cur_t->defines); split_list_tokens(&cur_t->defines, val, 1);
         } else if (strieq(key, "cflags")) {
-          sv_free(&cur_t->cflags); sv_init(&cur_t->cflags); split_list_semicolon(&cur_t->cflags, val);
+          sv_free(&cur_t->cflags); sv_init(&cur_t->cflags); split_list_tokens(&cur_t->cflags, val, 1);
         } else if (strieq(key, "ldflags")) {
-          sv_free(&cur_t->ldflags); sv_init(&cur_t->ldflags); split_list_semicolon(&cur_t->ldflags, val);
+          sv_free(&cur_t->ldflags); sv_init(&cur_t->ldflags); split_list_tokens(&cur_t->ldflags, val, 1);
         } else if (strieq(key, "libs")) {
-          sv_free(&cur_t->libs); sv_init(&cur_t->libs); split_list_semicolon(&cur_t->libs, val);
+          sv_free(&cur_t->libs); sv_init(&cur_t->libs); split_list_tokens(&cur_t->libs, val, 1);
         }
       }
     }
@@ -2405,6 +2496,7 @@ static void cmd_version(void) { printf("tack %s\n", TACK_VERSION); }
 static void cmd_doctor(void) {
   printf("Compiler default: %s\n", g_cc_default);
   printf("Compiler override: set env TACK_CC\n");
+  printf("Compiler in use: %s\n", get_cc());
 #ifdef _WIN32
   printf("OS: Windows\n");
 #else
