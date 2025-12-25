@@ -287,9 +287,11 @@ Darum ist Default: `-Wno-unsupported`
 tcc -run src/tack.c build debug --strict
 ```
 
-## [ROADMAP](ROADMAP.md)
+## ROADMAP
+Weitere Infos, wie es mit tack weitergehen wird, ist [hier](ROADMAP.md).
 
-## [FAQ](FAQ.md)
+## FAQ
+Eine detailierte FAQ ist [hier](FAQ.md).
 
 ## Lizenz
 MIT
@@ -471,9 +473,11 @@ tack.exe build debug --strict
 - strange compile errors like `... undeclared`: often a comment accidentally ended early.
 - paths with spaces: tack uses spawn/exec rather than shell `system()`, so quoting issues are reduced.
 
-## [ROADMAP](ROADMAP.md)
+## ROADMAP
+A detailed roadmap on how tack is evolving is available [here](ROADMAP.md).
 
-## [FAQ](FAQ.md)
+## FAQ
+A detailed FAQ is available [here](FAQ.md).
 
 
 ## License
