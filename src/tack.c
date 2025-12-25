@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.6.1
+ * v0.6.2
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -230,6 +230,24 @@ static void path_join(char *out, size_t cap, const char *a, const char *b) {
   tack_cat(out, cap, b);
 }
 
+/* Allocate joined path (supports long paths; caller frees). */
+static char *path_join_alloc(const char *a, const char *b) {
+  size_t la, lb, need_sep;
+  char *out;
+  la = strlen(a);
+  lb = strlen(b);
+#ifdef _WIN32
+  need_sep = (la > 0 && a[la - 1] != '\\' && a[la - 1] != '/') ? 1 : 0;
+#else
+  need_sep = (la > 0 && a[la - 1] != PATH_SEP) ? 1 : 0;
+#endif
+  out = (char*)xmalloc(la + need_sep + lb + 1);
+  memcpy(out, a, la);
+  if (need_sep) out[la] = PATH_SEP;
+  memcpy(out + la + need_sep, b, lb + 1);
+  return out;
+}
+
 static const char *path_base(const char *p) {
   const char *s1 = strrchr(p, '/');
   const char *s2 = strrchr(p, '\\');
@@ -306,25 +324,18 @@ static void sv_free(StrVec *v) {
 static void scan_dir_recursive_suffix_skip(StrVec *out, const char *dir, const char *suffix,
                                            const char *skip_dirname) {
 #ifdef _WIN32
-  char pattern[1024];
   WIN32_FIND_DATAA fd;
   HANDLE h;
+  char *pattern;
 
-  tack_copy(pattern, sizeof(pattern), dir);
-  {
-    size_t ld = strlen(pattern);
-    if (ld > 0 && pattern[ld - 1] != '\\' && pattern[ld - 1] != '/') {
-      pattern[ld] = '\\';
-      pattern[ld + 1] = '\0';
-    }
-  }
-  tack_cat(pattern, sizeof(pattern), "*");
-
+  pattern = path_join_alloc(dir, "*");
   h = FindFirstFileA(pattern, &fd);
+  free(pattern);
   if (h == INVALID_HANDLE_VALUE) return;
 
   do {
-    char full[1024];
+    char *full;
+
     if (streq(fd.cFileName, ".") || streq(fd.cFileName, "..")) continue;
 
     if (skip_dirname && (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
@@ -332,12 +343,17 @@ static void scan_dir_recursive_suffix_skip(StrVec *out, const char *dir, const c
       if (streq(fd.cFileName, "build")) continue;
     }
 
-    path_join(full, sizeof(full), dir, fd.cFileName);
+    full = path_join_alloc(dir, fd.cFileName);
 
     if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
       scan_dir_recursive_suffix_skip(out, full, suffix, skip_dirname);
+      free(full);
     } else {
-      if (ends_with(fd.cFileName, suffix)) sv_push(out, full);
+      if (ends_with(fd.cFileName, suffix)) {
+        sv_push_own(out, full);
+      } else {
+        free(full);
+      }
     }
   } while (FindNextFileA(h, &fd));
 
@@ -350,18 +366,24 @@ static void scan_dir_recursive_suffix_skip(StrVec *out, const char *dir, const c
   if (!d) return;
 
   while ((e = readdir(d)) != 0) {
-    char full[1024];
+    char *full;
+
     if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
 
     if (skip_dirname && streq(e->d_name, skip_dirname)) continue;
     if (streq(e->d_name, "build")) continue;
 
-    path_join(full, sizeof(full), dir, e->d_name);
+    full = path_join_alloc(dir, e->d_name);
 
     if (is_dir_path(full)) {
       scan_dir_recursive_suffix_skip(out, full, suffix, skip_dirname);
+      free(full);
     } else {
-      if (ends_with(e->d_name, suffix)) sv_push(out, full);
+      if (ends_with(e->d_name, suffix)) {
+        sv_push_own(out, full);
+      } else {
+        free(full);
+}
     }
   }
   closedir(d);
@@ -390,31 +412,27 @@ static int rm_rf(const char *path) {
 
 #ifdef _WIN32
   {
-    char pattern[1024];
     WIN32_FIND_DATAA fd;
     HANDLE h;
+    char *pattern;
 
-    tack_copy(pattern, sizeof(pattern), path);
-    {
-      size_t lp = strlen(pattern);
-      if (lp > 0 && pattern[lp - 1] != '\\' && pattern[lp - 1] != '/') {
-        pattern[lp] = '\\';
-        pattern[lp + 1] = '\0';
-      }
-    }
-    tack_cat(pattern, sizeof(pattern), "*");
-
+    pattern = path_join_alloc(path, "*");
     h = FindFirstFileA(pattern, &fd);
+    free(pattern);
+
     if (h != INVALID_HANDLE_VALUE) {
       do {
-        char child[1024];
+        char *child;
+
         if (streq(fd.cFileName, ".") || streq(fd.cFileName, "..")) continue;
-        path_join(child, sizeof(child), path, fd.cFileName);
+        child = path_join_alloc(path, fd.cFileName);
 
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-          if (rm_rf(child) != 0) { FindClose(h); return 1; }
+          if (rm_rf(child) != 0) { free(child); FindClose(h); return 1; }
+          free(child);
         } else {
-          if (!DeleteFileA(child)) { FindClose(h); return 1; }
+          if (!DeleteFileA(child)) { free(child); FindClose(h); return 1; }
+          free(child);
         }
       } while (FindNextFileA(h, &fd));
       FindClose(h);
@@ -430,10 +448,11 @@ static int rm_rf(const char *path) {
     if (!d) return 1;
 
     while ((e = readdir(d)) != 0) {
-      char child[1024];
+      char *child;
       if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
-      path_join(child, sizeof(child), path, e->d_name);
-      if (rm_rf(child) != 0) { closedir(d); return 1; }
+      child = path_join_alloc(path, e->d_name);
+      if (rm_rf(child) != 0) { free(child); closedir(d); return 1; }
+      free(child);
     }
     closedir(d);
     return rmdir(path) == 0 ? 0 : 1;
@@ -447,32 +466,28 @@ static int rm_rf_contents(const char *dir) {
 
 #ifdef _WIN32
   {
-    char pattern[1024];
     WIN32_FIND_DATAA fd;
     HANDLE h;
+    char *pattern;
 
-    tack_copy(pattern, sizeof(pattern), dir);
-    {
-      size_t lp = strlen(pattern);
-      if (lp > 0 && pattern[lp - 1] != '\\' && pattern[lp - 1] != '/') {
-        pattern[lp] = '\\';
-        pattern[lp + 1] = '\0';
-      }
-    }
-    tack_cat(pattern, sizeof(pattern), "*");
-
+    pattern = path_join_alloc(dir, "*");
     h = FindFirstFileA(pattern, &fd);
+    free(pattern);
+
     if (h == INVALID_HANDLE_VALUE) return 0;
 
     do {
-      char child[1024];
+      char *child;
+
       if (streq(fd.cFileName, ".") || streq(fd.cFileName, "..")) continue;
-      path_join(child, sizeof(child), dir, fd.cFileName);
+      child = path_join_alloc(dir, fd.cFileName);
 
       if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-        if (rm_rf(child) != 0) { FindClose(h); return 1; }
+        if (rm_rf(child) != 0) { free(child); FindClose(h); return 1; }
+        free(child);
       } else {
-        if (!DeleteFileA(child)) { FindClose(h); return 1; }
+        if (!DeleteFileA(child)) { free(child); FindClose(h); return 1; }
+        free(child);
       }
     } while (FindNextFileA(h, &fd));
 
@@ -488,10 +503,11 @@ static int rm_rf_contents(const char *dir) {
     if (!d) return 1;
 
     while ((e = readdir(d)) != 0) {
-      char child[1024];
+      char *child;
       if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
-      path_join(child, sizeof(child), dir, e->d_name);
-      if (rm_rf(child) != 0) { closedir(d); return 1; }
+      child = path_join_alloc(dir, e->d_name);
+      if (rm_rf(child) != 0) { free(child); closedir(d); return 1; }
+      free(child);
     }
     closedir(d);
     return 0;
@@ -1646,16 +1662,23 @@ static void discover_targets(TargetVec *out, int disable_auto_tools) {
       if (streq(fd.cFileName, ".") || streq(fd.cFileName, "..")) continue;
       if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
         char name[256];
-        char src[512];
-        char tname[512];
+        char *src;
+        char *tname;
+        size_t n;
 
         tack_copy(name, sizeof(name), fd.cFileName);
-        path_join(src, sizeof(src), g_tools_dir, name);
 
-        tack_copy(tname, sizeof(tname), "tool:");
-        tack_cat(tname, sizeof(tname), name);
+        src = path_join_alloc(g_tools_dir, name);
+
+        n = strlen("tool:") + strlen(name) + 1;
+        tname = (char*)xmalloc(n);
+        tack_copy(tname, n, "tool:");
+        tack_cat(tname, n, name);
 
         tv_push(out, tname, src, name);
+
+        free(tname);
+        free(src);
       }
     } while (FindNextFileA(h, &fd));
 
@@ -1670,20 +1693,25 @@ static void discover_targets(TargetVec *out, int disable_auto_tools) {
     if (!d) return;
 
     while ((e = readdir(d)) != 0) {
-      char full[1024];
+      char *full;
       if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
-      path_join(full, sizeof(full), g_tools_dir, e->d_name);
+      full = path_join_alloc(g_tools_dir, e->d_name);
       if (is_dir_path(full)) {
-        char tname[512];
-        tack_copy(tname, sizeof(tname), "tool:");
-        tack_cat(tname, sizeof(tname), e->d_name);
+        char *tname;
+        size_t n;
+        n = strlen("tool:") + strlen(e->d_name) + 1;
+        tname = (char*)xmalloc(n);
+        tack_copy(tname, n, "tool:");
+        tack_cat(tname, n, e->d_name);
         tv_push(out, tname, full, e->d_name);
-      }
+        free(tname);
     }
+      free(full);
+  }
     closedir(d);
   }
 #endif
-  }
+}
   }
 }
 
