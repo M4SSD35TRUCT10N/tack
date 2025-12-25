@@ -3,8 +3,6 @@
 > **DE/EN README**
 > Single-file build tool in C89/ANSI‑C. No Make/CMake/Ninja. Runs great with `tcc`.
 
----
-
 # Deutsch
 
 `tack` ist ein **Build- und Projekt-Werkzeug in einer einzigen C-Datei** (C89/ANSI‑C).
@@ -456,18 +454,10 @@ tack.exe build debug --strict
 - strange compile errors like `... undeclared`: often a comment accidentally ended early.
 - paths with spaces: tack uses spawn/exec rather than shell `system()`, so quoting issues are reduced.
 
-## Roadmap (v0.6.0+): tackfile.c runtime plugin (DLL/SO)
-
-In **v0.5.0**, `tackfile.c` is **compile‑time** only (`-DTACK_USE_TACKFILE`).  
-For **v0.6.0+**, the next step is a runtime plugin model:
-
-- `tack.exe` compiles `tackfile.c` into a plugin (Windows: **DLL**, POSIX: **SO**)
-- loads it automatically and registers targets/overrides through a host API
-- changes take effect **without rebuilding** `tack.exe` (great for CI/dev workflows)
-
-**Security/CI:** add `--no-code-config` so teams can enforce INI‑only policies.
-
-(Default recommendation remains: **INI first**, code config only when explicitly desired.)
+## Roadmap (v0.7.0+ / Ideas)
+- optional switch to prohibit **only** code configuration (e.g., “INI only” in CI) without disabling `tack.ini`
+- more examples/ports to real-world C projects + test matrix
 
 ## License
 MIT
+
