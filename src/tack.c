@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.6.3
+ * v0.6.4
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -59,12 +59,16 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.6.3"
+#define TACK_VERSION "0.6.4"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
 #define TACK_MAX_TOKEN       4096
 #define TACK_MAX_LIST_ITEMS   512
+
+/* FS recursion limits (fail-fast) */
+#define TACK_MAX_SCAN_DEPTH    64
+#define TACK_MAX_RM_DEPTH      64
 #define TACK_MAX_NAME         512
 #define TACK_MAX_CC          1024
 #define TACK_MAX_CONFIG_PATH 4096
@@ -224,6 +228,26 @@ static int is_dir_path(const char *path) {
 #endif
 }
 
+#ifndef _WIN32
+/* POSIX: lstat() may be hidden under feature macros in strict C89; declare it. */
+extern int lstat(const char *path, struct stat *buf);
+#endif
+
+/* Directory check that does NOT follow symlinks/junctions (loop defense) */
+static int is_dir_path_nofollow(const char *path) {
+#ifdef _WIN32
+  DWORD attr = GetFileAttributesA(path);
+  if (attr == INVALID_FILE_ATTRIBUTES) return 0;
+  if (attr & FILE_ATTRIBUTE_REPARSE_POINT) return 0;
+  return (attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
+#else
+  struct stat st;
+  if (lstat(path, &st) != 0) return 0;
+  if (S_ISLNK(st.st_mode)) return 0;
+  return S_ISDIR(st.st_mode);
+#endif
+}
+
 static void ensure_dir(const char *path) {
 #ifdef _WIN32
   _mkdir(path);
@@ -347,12 +371,14 @@ static void sv_free(StrVec *v) {
 
 /* --------------------------- recursive scanning --------------------------- */
 
-static void scan_dir_recursive_suffix_skip(StrVec *out, const char *dir, const char *suffix,
-                                           const char *skip_dirname) {
+static void scan_dir_recursive_suffix_skip_depth(StrVec *out, const char *dir, const char *suffix,
+                                                 const char *skip_dirname, int depth) {
 #ifdef _WIN32
   WIN32_FIND_DATAA fd;
   HANDLE h;
   char *pattern;
+
+  if (depth > TACK_MAX_SCAN_DEPTH) tack_die("directory recursion too deep");
 
   pattern = path_join_alloc(dir, "*");
   h = FindFirstFileA(pattern, &fd);
@@ -369,10 +395,16 @@ static void scan_dir_recursive_suffix_skip(StrVec *out, const char *dir, const c
       if (streq(fd.cFileName, "build")) continue;
     }
 
+    /* loop defense: do not recurse into reparse points (junctions/symlinks) */
+    if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+        (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+      continue;
+    }
+
     full = path_join_alloc(dir, fd.cFileName);
 
     if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-      scan_dir_recursive_suffix_skip(out, full, suffix, skip_dirname);
+      scan_dir_recursive_suffix_skip_depth(out, full, suffix, skip_dirname, depth + 1);
       free(full);
     } else {
       if (ends_with(fd.cFileName, suffix)) {
@@ -388,6 +420,8 @@ static void scan_dir_recursive_suffix_skip(StrVec *out, const char *dir, const c
   DIR *d;
   struct dirent *e;
 
+  if (depth > TACK_MAX_SCAN_DEPTH) tack_die("directory recursion too deep");
+
   d = opendir(dir);
   if (!d) return;
 
@@ -401,8 +435,8 @@ static void scan_dir_recursive_suffix_skip(StrVec *out, const char *dir, const c
 
     full = path_join_alloc(dir, e->d_name);
 
-    if (is_dir_path(full)) {
-      scan_dir_recursive_suffix_skip(out, full, suffix, skip_dirname);
+    if (is_dir_path_nofollow(full)) {
+      scan_dir_recursive_suffix_skip_depth(out, full, suffix, skip_dirname, depth + 1);
       free(full);
     } else {
       if (ends_with(e->d_name, suffix)) {
@@ -416,6 +450,11 @@ static void scan_dir_recursive_suffix_skip(StrVec *out, const char *dir, const c
 #endif
 }
 
+static void scan_dir_recursive_suffix_skip(StrVec *out, const char *dir, const char *suffix,
+                                           const char *skip_dirname) {
+  scan_dir_recursive_suffix_skip_depth(out, dir, suffix, skip_dirname, 0);
+}
+
 static void scan_dir_recursive_suffix(StrVec *out, const char *dir, const char *suffix) {
   scan_dir_recursive_suffix_skip(out, dir, suffix, 0);
 }
@@ -425,10 +464,11 @@ static void scan_dir_recursive_suffix(StrVec *out, const char *dir, const char *
 static int rm_rf(const char *path);
 static int rm_rf_contents(const char *dir);
 
-static int rm_rf(const char *path) {
+static int rm_rf_depth(const char *path, int depth) {
+  if (depth > TACK_MAX_RM_DEPTH) tack_die("rm recursion too deep");
   if (!file_exists(path)) return 0;
 
-  if (!is_dir_path(path)) {
+  if (!is_dir_path_nofollow(path)) {
 #ifdef _WIN32
     return DeleteFileA(path) ? 0 : 1;
 #else
@@ -454,8 +494,14 @@ static int rm_rf(const char *path) {
         child = path_join_alloc(path, fd.cFileName);
 
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-          if (rm_rf(child) != 0) { free(child); FindClose(h); return 1; }
-          free(child);
+          if (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+            /* remove junction/symlink without following */
+            if (!RemoveDirectoryA(child)) { free(child); FindClose(h); return 1; }
+            free(child);
+          } else {
+            if (rm_rf_depth(child, depth + 1) != 0) { free(child); FindClose(h); return 1; }
+            free(child);
+          }
         } else {
           if (!DeleteFileA(child)) { free(child); FindClose(h); return 1; }
           free(child);
@@ -476,8 +522,9 @@ static int rm_rf(const char *path) {
     while ((e = readdir(d)) != 0) {
       char *child;
       if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
+
       child = path_join_alloc(path, e->d_name);
-      if (rm_rf(child) != 0) { free(child); closedir(d); return 1; }
+      if (rm_rf_depth(child, depth + 1) != 0) { free(child); closedir(d); return 1; }
       free(child);
     }
     closedir(d);
@@ -486,9 +533,14 @@ static int rm_rf(const char *path) {
 #endif
 }
 
-static int rm_rf_contents(const char *dir) {
+static int rm_rf(const char *path) {
+  return rm_rf_depth(path, 0);
+}
+
+static int rm_rf_contents_depth(const char *dir, int depth) {
+  if (depth > TACK_MAX_RM_DEPTH) tack_die("rm recursion too deep");
   if (!file_exists(dir)) return 0;
-  if (!is_dir_path(dir)) return 1;
+  if (!is_dir_path_nofollow(dir)) return 1;
 
 #ifdef _WIN32
   {
@@ -509,8 +561,13 @@ static int rm_rf_contents(const char *dir) {
       child = path_join_alloc(dir, fd.cFileName);
 
       if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-        if (rm_rf(child) != 0) { free(child); FindClose(h); return 1; }
-        free(child);
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+          if (!RemoveDirectoryA(child)) { free(child); FindClose(h); return 1; }
+          free(child);
+        } else {
+          if (rm_rf_depth(child, depth + 1) != 0) { free(child); FindClose(h); return 1; }
+          free(child);
+        }
       } else {
         if (!DeleteFileA(child)) { free(child); FindClose(h); return 1; }
         free(child);
@@ -532,13 +589,17 @@ static int rm_rf_contents(const char *dir) {
       char *child;
       if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
       child = path_join_alloc(dir, e->d_name);
-      if (rm_rf(child) != 0) { free(child); closedir(d); return 1; }
+      if (rm_rf_depth(child, depth + 1) != 0) { free(child); closedir(d); return 1; }
       free(child);
     }
     closedir(d);
     return 0;
   }
 #endif
+}
+
+static int rm_rf_contents(const char *dir) {
+  return rm_rf_contents_depth(dir, 0);
 }
 
 /* --------------------------- process execution --------------------------- */
