@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.6.5
+ * v0.6.6
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -60,7 +60,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.6.5"
+#define TACK_VERSION "0.6.6"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -81,13 +81,16 @@
  * - tackfile.c (code) is optional; if present, tack compiles a tiny generator that emits
  *   a generated INI layer under build/_tackfile/ (fail-fast on errors)
  * - disable config loading entirely with --no-config
+ * - disable code config (tackfile.c) with --no-code-config (INI still loaded)
  *
  * Global options (must appear before the command):
  *   --no-config        ignore tack.ini and tackfile.c
+ *   --no-code-config    ignore tackfile.c (still use tack.ini / --config)
  *   --config <path>    use explicit INI file (highest priority)
  *   --no-auto-tools    disable tool discovery at runtime
  */
 static int g_no_config = 0;
+static int g_no_code_config = 0; /* ignore tackfile.c but still load INI */
 static const char *g_config_path_cli = 0;
 static int g_no_auto_tools_cli = 0;
 
@@ -1781,7 +1784,7 @@ static int config_auto_load(void) {
 
 #ifndef TACK_USE_TACKFILE
   /* low-priority layer: tackfile.c (compiled on the fly) */
-  if (file_exists("tackfile.c")) {
+  if (!g_no_code_config && file_exists("tackfile.c")) {
     if (tackfile_prepare_generated_ini() != 0) return 1;
     if (g_tackfile_generated_ini[0]) {
       if (config_add_ini_layer(g_tackfile_generated_ini) != 0) return 1;
@@ -2480,6 +2483,11 @@ static void print_help(void) {
          "  tack test [debug|release] [-v] [--rebuild] [--strict]\n"
          "  tack clean\n"
          "  tack clobber\n");
+  printf("\nGlobal options (must come before the command):\n"
+         "  --no-config         ignore tack.ini and tackfile.c\n"
+         "  --no-code-config    ignore tackfile.c (still load INI)\n"
+         "  --config <path>     use explicit INI file (highest priority)\n"
+         "  --no-auto-tools     disable tool discovery\n");
   printf("\nConventions:\n"
          "  app         : src/ or src/app/\n"
          "  shared core : src/core/ (linked if enabled for target)\n"
@@ -2508,10 +2516,13 @@ static void cmd_doctor(void) {
 
   if (g_no_config) {
     printf("Config    : disabled (legacy mode)\n");
+    printf("Code cfg  : disabled (legacy mode)\n");
   } else if (g_config_loaded) {
     printf("Config    : %s\n", g_config_path);
+    printf("Code cfg  : %s\n", g_no_code_config ? "disabled" : (file_exists("tackfile.c") ? "tackfile.c present" : "none"));
   } else {
     printf("Config    : none\n");
+    printf("Code cfg  : %s\n", g_no_code_config ? "disabled" : (file_exists("tackfile.c") ? "tackfile.c present" : "none"));
   }
 
   printf("Default target: %s\n", default_target_name());
