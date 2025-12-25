@@ -1,7 +1,14 @@
 # tack — Tiny ANSI-C Kit (v0.6.0)
 
+---
+
 > **DE/EN README**
-> Single-file build tool in C89/ANSI‑C. No Make/CMake/Ninja. Runs great with `tcc`.
+> DE: Ein schlanker **Build‑Driver** für C (C89/ANSI‑C), inspiriert von Cargo‑Workflows: `init`, `list`, `build`, `run`, `test` — ohne Make/CMake/Ninja‑Stack.  
+> EN: A tiny **build driver** for C (C89/ANSI‑C), inspired by Cargo workflows: `init`, `list`, `build`, `run`, `test` — without a Make/CMake/Ninja stack.
+
+**Links:** [FAQ](FAQ.md) • [Roadmap](ROADMAP.md)
+
+---
 
 # Deutsch
 
@@ -30,6 +37,15 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - Du willst eine **schmale Pipeline**: `tcc -run src/tack.c ...`
 - Du willst Build-Logik **wie C-Code debuggen**.
 - Du willst **Portabilität** (C89) und einfache Verteilung (eine Datei oder ein kleines `tack.exe`).
+
+### Was tack ist
+- Ein **einzelnes C‑Programm** als Build‑Tool (C89), das Targets findet und baut.
+- Fokus: **DX** (einheitliche Kommandos), **Portabilität**, **nachvollziehbare Builds**.
+- `tack.ini` als Standard‑Konfiguration (data‑only); optional `tackfile.c` für Code‑Konfig.
+
+### Was tack nicht ist
+- **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
+- Kein IDE‑Projektgenerator wie CMake (bewusst).
 
 ## Features (v0.6.0)
 
@@ -270,9 +286,9 @@ Darum ist Default: `-Wno-unsupported`
 tcc -run src/tack.c build debug --strict
 ```
 
-## Roadmap (v0.7.0+ / Ideen)
-- optionaler Schalter, um **nur** Code-Konfig zu verbieten (z.B. „INI only“ in CI), ohne `tack.ini` zu deaktivieren
-- mehr Beispiele/Ports auf Real-World-C-Projekte + Test-Matrix
+## [ROADMAP](ROADMAP.md)
+
+## [FAQ](FAQ.md)
 
 ## Lizenz
 MIT
@@ -454,9 +470,10 @@ tack.exe build debug --strict
 - strange compile errors like `... undeclared`: often a comment accidentally ended early.
 - paths with spaces: tack uses spawn/exec rather than shell `system()`, so quoting issues are reduced.
 
-## Roadmap (v0.7.0+ / Ideas)
-- optional switch to prohibit **only** code configuration (e.g., “INI only” in CI) without disabling `tack.ini`
-- more examples/ports to real-world C projects + test matrix
+## [ROADMAP](ROADMAP.md)
+
+## [FAQ](FAQ.md)
+
 
 ## License
 MIT
