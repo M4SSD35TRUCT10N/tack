@@ -1,15 +1,19 @@
-# tack — Tiny ANSI-C Kit
+# tack — Tiny ANSI-C Kit (v0.6.0)
 
 > **DE/EN README**
+> Single-file build tool in C89/ANSI‑C. No Make/CMake/Ninja. Runs great with `tcc`.
+
+---
 
 # Deutsch
 
-`tack` ist ein **Build- und Projekt-Werkzeug in einer einzigen C-Datei** (C89/ANSI‑C). Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und trotzdem:
+`tack` ist ein **Build- und Projekt-Werkzeug in einer einzigen C-Datei** (C89/ANSI‑C).
+Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und trotzdem:
 
 - mehrere Targets (App + Tools + eigene Targets) sauber bauen,
 - Shared Code (Core) wiederverwenden,
 - **data-only** konfigurierbar bleiben (`tack.ini`) – ohne fremden C-Code im Repo,
-- optional „Power-Konfiguration“ per `tackfile.c` nutzen (compile-time),
+- optional „Power-Konfiguration“ per `tackfile.c` nutzen (Code, aber kontrolliert und fail-fast),
 - und sich hervorragend mit **tcc** (Tiny C Compiler) fahren lassen.
 
 **Leitidee:** *Build-Logik ist Code.* Wenn dein Projekt C ist, darf auch die Build-Pipeline C sein.
@@ -19,198 +23,138 @@
 ### Warum es Make/CMake/Ninja etc. überhaupt gibt
 - **Make**: pragmatisches, zeitstempelbasiertes Rebuild-System.
 - **CMake**: Generator („Makefiles/IDE-Projekte für alles“).
-- **Ninja**: schneller Executor für große Build-Graphen (meist generiert).
+- **Ninja**: schneller Executor für große (meist generierte) Build-Graphen.
 - **jam/b2**: alternative Regel-/Graph-Modelle.
 - **mk (Plan 9/9front)**: sehr elegant, aber nicht überall vorhanden.
 
 ### Warum tack trotzdem sinnvoll ist
 - Du willst **keinen Build-Stack** (Generator → Executor → Toolchain).
-- Du willst eine **schmale Pipeline**: `tcc -run tack.c ...`
+- Du willst eine **schmale Pipeline**: `tcc -run src/tack.c ...`
 - Du willst Build-Logik **wie C-Code debuggen**.
 - Du willst **Portabilität** (C89) und einfache Verteilung (eine Datei oder ein kleines `tack.exe`).
 
-## Features (v0.5.0)
+## Features (v0.6.0)
 
 - Single-file Build Driver (C89)
 - Kein Make/CMake/Ninja
 - Recursive Scanning: `src/**/*.c`, `tools/<name>/**/*.c`, `tests/**/*_test.c`
-- Target Discovery: `app` + `tool:<name>` (aus `tools/`, abschaltbar)
-- Eigene Targets deklarativ definieren/ändern/abschalten/entfernen (via `tack.ini` oder `tackfile.c`)
+- Target Discovery: `app` + `tool:<name>` (aus `tools/`, per Config abschaltbar)
+- Declarative Targets: add/modify/disable/remove (via `tack.ini` und/oder `tackfile.c`)
 - `tack list` zeigt Targets (Name + id + src + core + enabled)
 - Robuste Prozessausführung (kein `system()` für Builds)
 - Parallel Compile: `-j N`
 - Depfiles (`-MD -MF`) für Incremental Builds
 - Strict Mode: `--strict` aktiviert zusätzlich `-Wunsupported`
-- Echte Target-Konfiguration (Includes/Defines/CFLAGS/LDFLAGS/LIBS pro Target)
+- Echte Target-Konfiguration: Includes/Defines/CFLAGS/LDFLAGS/LIBS pro Target
 - Shared Core Code: `src/core/` wird 1× pro Profil gebaut und optional gelinkt
-- **Konfiguration**
-  - `tack.ini` (runtime, data-only, auto-load; Highest Priority)
-  - `tackfile.c` (runtime auto-load (compiled on the fly), optional; Middle Priority)
+- **Konfiguration / Layering**:
+  - `tack.ini` (runtime, data-only, auto-load; höchste Priorität)
+  - `tackfile.c` (optional, runtime → generiertes INI-Layer; niedrigere Priorität als `tack.ini`)
   - Built-ins in `tack.c` (Fallback)
 
-## Installation / Verwendung
+## Repository-Struktur (wie im Repo)
 
-Lege `tack.c` in die Repo-Root.
+Dieses Repo legt `tack` unter `src/tack.c` ab. Du kannst es aber auch in die Repo-Root legen – wichtig ist nur, dass du `tack` aus dem Projekt-Root startest (weil relative Pfade wie `src/`, `tools/`, `build/` verwendet werden).
+
+### Projektstruktur (Konventionen)
+
+- **App**
+  - Standard: `src/`
+  - Optional: `src/app/` (wenn vorhanden, nimmt tack bevorzugt `src/app`)
+- **Shared Core**
+  - `src/core/` (wird einmal pro Profil kompiliert)
+- **Tools**
+  - `tools/<name>/` → Target `tool:<name>` (1 Ebene tief; Quellen darunter rekursiv)
+- **Tests**
+  - `tests/**/*_test.c` → wird gebaut und ausgeführt
+
+## Quickstart
 
 ### Option A: direkt aus `tack.c` laufen lassen (tcc)
+
 Windows:
 ```bat
-tcc -run tack.c init
-tcc -run tack.c list
-tcc -run tack.c build debug -v -j 8
-tcc -run tack.c run debug -- --hello "Berlin"
+tcc -run src/tack.c init
+tcc -run src/tack.c list
+tcc -run src/tack.c build debug -v -j 8
+tcc -run src/tack.c run debug -- --hello "Berlin"
 ```
 
 Linux/BSD:
 ```sh
-tcc -run tack.c init
-tcc -run tack.c list
-tcc -run tack.c build debug -v -j 8
-tcc -run tack.c run debug -- --hello Berlin
+tcc -run src/tack.c init
+tcc -run src/tack.c list
+tcc -run src/tack.c build debug -v -j 8
+tcc -run src/tack.c run debug -- --hello Berlin
 ```
 
 ### Option B: `tack.exe` bauen (für CI/Teams)
+
 Windows (tcc):
 ```bat
-tcc tack.c -o tack.exe
+tcc src/tack.c -o tack.exe
 tack.exe init
 tack.exe build debug -j 8 -v
 ```
 
-Mit optionalem `tackfile.c` (compile-time):
+## Globale Optionen (müssen vor dem Kommando stehen)
+
 ```bat
-tcc -DTACK_USE_TACKFILE tack.c -o tack.exe
+tack.exe --config tack.ci.ini build release
+tack.exe --no-config build debug
+tack.exe --no-auto-tools list
 ```
 
-## Compiler wählen (Env)
-
-Standard ist `tcc`. Du kannst den Compiler pro Umgebung überschreiben:
-
-- `TACK_CC` → Compiler-Binary (muss im PATH sein)
-
-Beispiele:
-```bat
-set TACK_CC=clang
-tcc -run tack.c doctor
-```
-
-```sh
-export TACK_CC=cc
-tcc -run tack.c doctor
-```
-
-## Projektstruktur (Konventionen)
-
-- **App**
-  - Standard: `src/`
-  - optional: `src/app/` (wenn vorhanden, nimmt tack bevorzugt `src/app`)
-- **Shared Core**
-  - `src/core/` (wird einmal pro Profil kompiliert)
-- **Tools**
-  - `tools/<name>/` → Target `tool:<name>` (nur 1 Ebene tief; Quellen darunter rekursiv)
-- **Tests**
-  - `tests/**/*_test.c` → wird gebaut und ausgeführt
+- `--config <path>`: explizite INI-Datei laden (höchste Priorität)
+- `--no-config`: **alle** Konfiguration deaktivieren (`tack.ini` und `tackfile.c`)
+- `--no-auto-tools`: Auto-Discovery von `tools/<name>` deaktivieren (praktisch für rein deklarative Builds)
 
 ## Kommandos
 
-### Wichtige Regel: globale Optionen stehen **vor** dem Kommando
-`tack` parst globale Optionen zuerst. Beispiele:
-```bat
-tcc -run tack.c --no-config build debug
-tcc -run tack.c --config tack.ci.ini build release
-tcc -run tack.c --no-auto-tools list
-```
+- `help`, `version`, `doctor`
+- `init` – Grundstruktur & Hello-World erzeugen
+- `list` – Targets anzeigen
+- `build [debug|release] ...` – Target bauen
+- `run [debug|release] ... -- <args...>` – Target bauen + ausführen
+- `test [debug|release] ...` – `_test.c` bauen + ausführen
+- `clean` – Inhalt von `build/` löschen, Ordner bleibt
+- `clobber` – `build/` komplett löschen
 
-Als `tack.exe`:
-```bat
-tack.exe --config tack.ini build debug
-```
-
-### help / version / doctor
-```bat
-tcc -run tack.c help
-tcc -run tack.c version
-tcc -run tack.c doctor
-```
-
-### init
-Erzeugt (wenn nicht vorhanden) Grundstruktur & Hello-World.
-```bat
-tcc -run tack.c init
-```
-
-### list
-Listet Targets (inkl. id, src, core yes/no, enabled yes/no).
-```bat
-tcc -run tack.c list
-```
-
-### build
-```bat
-tcc -run tack.c build debug   -j 8 -v
-tcc -run tack.c build release --target tool:foo
-```
-
-Optionen:
-- `-v` / `--verbose` → zeigt Compiler-Kommandos
-- `--rebuild`        → erzwingt Neuaufbau
-- `-j N`             → paralleles Kompilieren
-- `--strict`         → aktiviert zusätzlich `-Wunsupported`
-- `--target NAME`    → Target wählen (Name **oder** `id`)
-- `--no-core`        → Core für diesen Aufruf nicht linken
-
-### run
-Alles hinter `--` wird an das Programm durchgereicht.
-```bat
-tcc -run tack.c run debug -- --hello "Berlin"
-```
-
-### test
-```bat
-tcc -run tack.c test debug -v
-```
-
-### clean / clobber
-- **clean**: Inhalt von `build/` löschen, Ordner bleibt
-- **clobber**: `build/` komplett löschen
-```bat
-tcc -run tack.c clean
-tcc -run tack.c clobber
-```
-
-## Warum “clean” und “clobber” (statt distclean)?
-
-`distclean` stammt aus Make-Welten („putze auch generierte Konfig“). Bei tack ist es klar getrennt:
+### Warum “clean” und “clobber” (statt distclean)?
+`distclean` stammt aus Make-Welten („putze auch generierte Konfig“).  
+Bei tack ist es klar getrennt:
 - **clean**: „Baureste weg, Struktur bleibt“
 - **clobber**: „alles weg“
 
-## Konfiguration: `tack.ini` (Data) und `tackfile.c` (Code)
+## Konfiguration
 
-### `tack.ini` — Data-only Konfiguration (empfohlen)
+### 1) `tack.ini` — Data-only Konfiguration (empfohlen)
+
 Wenn `tack.ini` vorhanden ist (oder per `--config PATH` gesetzt wird), lädt tack sie automatisch – außer du setzt `--no-config`.
 
-**Sektionen:**
+**Sektionen**
 - `[project]`
-- `[target "<name>"]` (oder ohne Quotes: `[target tool:foo]`)
+- `[target "NAME"]` (oder ohne Quotes: `[target tool:foo]`)
 
-**Schlüssel in `[project]`:**
+**Schlüssel in `[project]`**
 - `default_target = app`
 - `disable_auto_tools = yes|no`
 
-**Schlüssel in `[target ...]`:**
+**Schlüssel in `[target ...]`**
 - `src = <dir>`        (rekursiver `.c`-Scan)
 - `bin = <name>`       (Exe-Base-Name)
-- `id = <id>`          (optional, build/<id>/...)
+- `id = <safe_id>` (optional; Ordnername unter `build/<id>/...`)
 - `enabled = yes|no`
 - `remove = yes|no`
-- `core = yes|no`      (Core linken für dieses Target)
+- `core = yes|no`
 - `includes = a;b;c`   (ohne `-I`, tack setzt `-I` selbst)
 - `defines  = A=1;B=2` (ohne `-D`, tack setzt `-D` selbst)
 - `cflags   = ...`     (Tokens, per `;` getrennt)
 - `ldflags  = ...`     (Tokens, per `;` getrennt)
 - `libs     = ...`     (Tokens, per `;` getrennt)
 
-**Listen-Format:** Semikolon-getrennt (`;`). Leerzeichen um Tokens herum sind ok, aber Tokens sollten keine eingebetteten Leerzeichen enthalten.
+**Listen-Format:** Semikolon-getrennt (`;`).  
+Leerzeichen um Tokens herum sind ok, aber Tokens sollten keine eingebetteten Leerzeichen enthalten.
 
 Beispiel `tack.ini`:
 ```ini
@@ -236,87 +180,101 @@ enabled = no
 remove = yes
 ```
 
-### `tackfile.c` — Code-Konfiguration (optional)
+### 2) `tackfile.c` — Code-Konfiguration (optional, runtime, fail-fast)
 
-Ab **v0.6.0** kann tack ein `tackfile.c` im Projekt-Root **automatisch verwenden**:
-tack kompiliert beim Start (sofern `--no-config` nicht gesetzt ist) einen kleinen Generator
-nach `build/_tackfile/`, führt ihn aus und lädt die erzeugte Datei
-`build/_tackfile/tackfile.generated.ini` als **Config-Layer mit niedriger Priorität**.
+Wenn `tackfile.c` im Projekt-Root existiert, dann:
 
-- Compiler für diesen Schritt: `TACK_CC` (Default: `tcc`)
-- Wenn `tackfile.c` existiert, aber nicht kompiliert/ausgeführt werden kann, bricht tack ab
-  (damit eine Pipeline nicht „aus Versehen“ mit Defaults weiterläuft).
-- Wer das nicht möchte, nutzt nur `tack.ini` oder startet tack mit `--no-config`.
+1. tack kompiliert automatisch einen kleinen Generator unter `build/_tackfile/`
+2. der Generator erzeugt `build/_tackfile/tackfile.generated.ini`
+3. tack lädt diese generierte INI als **Low-Priority-Layer** (unterhalb von `tack.ini`)
 
-Optional (Embed/Single-File): Wenn du `tackfile.c` **compile-time** einbetten willst
-(z.B. wenn du kein On-the-fly-Compile möchtest), kompiliere tack mit:
+Wenn `tackfile.c` **nicht** kompiliert oder ausgeführt werden kann, bricht tack mit Fehler ab (fail-fast).
+
+**Warum so?**  
+Viele Teams wollen „nur Daten“ (`tack.ini`) – aber manchmal brauchst du Code, um Targets dynamisch zu definieren. Mit dem Generator-Ansatz bleibt der Host (`tack.exe`) stabil, und du bekommst trotzdem Code-Flexibilität.
+
+#### Makros in `tackfile.c` (gleiches Format wie bisher)
+
+**a) Overrides (per Target)**
+```c
+#define TACKFILE_OVERRIDES my_overrides
+
+static const char *gen_defines[] = { "TOOL_GEN=1", 0 };
+
+static const TargetOverride my_overrides[] = {
+  { "tool:gen", 0, gen_defines, 0, 0, 0, 1 },
+  { 0,0,0,0,0,0,0 }
+};
+```
+
+**b) Targets add/modify/disable/remove**
+```c
+#define TACKFILE_TARGETS my_targets
+
+static const TargetDef my_targets[] = {
+  /* upsert / define */
+  { "demo:hi", "demos/hi", "hi", "demo_hi", 1, 0 },
+
+  /* action: disable (src/bin/id = 0) */
+  { "tool:old", 0, 0, 0, 0, 0 },
+
+  /* action: remove (remove=1) */
+  { "tool:tmp", 0, 0, 0, 0, 1 },
+
+  { 0,0,0,0,0,0 }
+};
+```
+
+**c) Default Target**
+```c
+#define TACKFILE_DEFAULT_TARGET "app"
+```
+
+**d) Auto Tool Discovery deaktivieren**
+```c
+#define TACKFILE_DISABLE_AUTO_TOOLS 1
+```
+
+### Prioritäten / Layering (wichtig)
+
+„Höchste Priorität gewinnt“:
+1. `--config <path>` / `tack.ini`
+2. generiertes `tackfile.generated.ini` (aus `tackfile.c`)
+3. built-ins in `tack.c`
+
+### Legacy/Lockdown: compile-time `-DTACK_USE_TACKFILE`
+
+Falls du **gar keine** dynamische Code-Konfiguration zur Laufzeit willst (z.B. in sehr strikten Umgebungen), kannst du `tackfile.c` auch compile-time einbinden:
 
 ```bat
-tcc -DTACK_USE_TACKFILE -run src/tack.c list
+tcc -DTACK_USE_TACKFILE src/tack.c -o tack.exe
 ```
 
-Standard (ohne Embed): `tackfile.c` wird automatisch erkannt und verarbeitet:
+In diesem Modus wird die runtime-Generator-Variante nicht verwendet.
 
-```bat
-tcc -run src/tack.c list
-```
-
-Beispiel-Layout:
-
-```
-project/
-  src/
-  include/
-  tack.ini (optional, highest priority)
-  tackfile.c (optional, used automatically)
-  build/_tackfile/tackfile.generated.ini (auto-generated, do not edit)
-```
-
-### Prioritäten (wichtig)
-- **Flags/Overrides:** `tack.ini` → `tackfile.c` → built-in `tack.c`
-- **Target-Graph:** Discovery → `tackfile.c` → `tack.ini`
-
-## Roadmap (v0.6.0+): `tackfile.c` als Runtime-Plugin (DLL/SO)
-
-In **v0.5.0** ist `tackfile.c` eine **compile-time** Option (`-DTACK_USE_TACKFILE`).  
-Für **v0.6.0+** ist als nächster Evolutionsschritt geplant, `tackfile.c` **zur Laufzeit** zu laden:
-
-- `tack.exe` kompiliert `tackfile.c` automatisch zu einem Plugin (Windows: **DLL**, POSIX: **SO**)
-- Plugin wird geladen und registriert Targets/Overrides via Host‑API
-- Änderungen an `tackfile.c` wirken **ohne Neubau** von `tack.exe` (perfekt für CI/Dev)
-
-**Security/CI:** zusätzlich ein Schalter `--no-code-config`, damit Teams strikt auf `tack.ini` bestehen können.
-
-(Die sichere Default-Empfehlung bleibt: **INI als Standard**, Code-Konfig nur wenn bewusst gewünscht.)
-
-
-
-## Shared Core (src/core)
+## Shared Core (`src/core/`)
 
 **Wofür?** App und Tools teilen sich oft Logik (Parser/IO/Protokolle/Utilities).  
-Mit `src/core/` gibt’s eine klare Trennung: Core wird einmal gebaut und mehrfach gelinkt.
+Core wird einmal gebaut und in mehrere Targets gelinkt.
 
-**Wie?**
 - Objekte landen unter `build/_core/<profile>/obj/...`
 - Targets mit `core=yes` (INI) bzw. `use_core=1` (Override) linken diese Objekte dazu
 - `--no-core` schaltet Core für den aktuellen Aufruf aus
 
 ## Strict Mode (`--strict`)
 
-Unter Windows enthalten System-Header oft GCC-Attribute (`format`, `nonnull`).  
-Mit `-Werror` können solche Warnungen Builds abbrechen. Darum ist Default:
-- `-Wno-unsupported`
+Unter Windows enthalten System-Header oft GCC-Attribute (`format`, `nonnull`). Mit `-Werror` können solche Warnungen Builds abbrechen.
 
+Darum ist Default: `-Wno-unsupported`  
 `--strict` schaltet bewusst wieder strenger:
+
 ```bat
-tcc -run tack.c build debug --strict
+tcc -run src/tack.c build debug --strict
 ```
 
-## Troubleshooting (kurz)
-
-- **Warnungen aus stdio.h** + kein `.exe`: `--strict` aus lassen (Default ist korrekt).
-- **`keep undeclared`** o.ä.: oft Kommentar versehentlich beendet.
-- **Pfade mit Leerzeichen**: tack nutzt `spawn/exec`, daher deutlich weniger Quoting-Probleme.
+## Roadmap (v0.7.0+ / Ideen)
+- optionaler Schalter, um **nur** Code-Konfig zu verbieten (z.B. „INI only“ in CI), ohne `tack.ini` zu deaktivieren
+- mehr Beispiele/Ports auf Real-World-C-Projekte + Test-Matrix
 
 ## Lizenz
 MIT
@@ -325,12 +283,13 @@ MIT
 
 # English
 
-`tack` is a **single‑file build & project tool written in C** (C89/ANSI‑C). It targets projects that intentionally want to **avoid Make/CMake/Ninja** while still having:
+`tack` is a **single‑file build & project tool written in C** (C89/ANSI‑C).
+It targets projects that intentionally want to **avoid Make/CMake/Ninja** while still having:
 
 - clean multi‑target builds (app + tools + custom targets),
 - shared code reuse via a “core” (`src/core/`),
 - **data‑only** configuration via `tack.ini` (no executable config required),
-- optional “power config” via `tackfile.c` (compile‑time include),
+- optional “power config” via `tackfile.c` (code, but controlled and fail-fast),
 - a workflow that plays very well with **tcc** (Tiny C Compiler).
 
 **Core idea:** *Build logic is code.* If your project is C, your build pipeline can be C too.
@@ -346,17 +305,17 @@ MIT
 
 ### Why tack can be a better fit
 - you want **no build stack** (generator → executor → toolchain),
-- you want a **thin pipeline**: `tcc -run tack.c ...`,
+- you want a **thin pipeline**: `tcc -run src/tack.c ...`,
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.5.0)
+## Features (v0.6.0)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
 - Recursive scanning: `src/**/*.c`, `tools/<name>/**/*.c`, `tests/**/*_test.c`
 - Target discovery: `app` + `tool:<name>` (from `tools/`, can be disabled)
-- Declarative targets: add/modify/disable/remove (via `tack.ini` or `tackfile.c`)
+- Declarative targets: add/modify/disable/remove (via `tack.ini` and/or `tackfile.c`)
 - `tack list` prints targets (name + id + src + core + enabled)
 - Robust process execution (no `system()` for builds)
 - Parallel compile: `-j N`
@@ -364,51 +323,16 @@ MIT
 - strict mode: `--strict` enables `-Wunsupported` (default suppresses it)
 - real per‑target config: includes/defines/cflags/ldflags/libs/core
 - Shared core code: `src/core/` built once per profile, optionally linked
-- configuration sources (priority):
+- **Configuration layering**:
   - `tack.ini` (runtime, data‑only, auto‑load; highest priority)
-  - `tackfile.c` (compile‑time include, optional; middle priority)
+  - `tackfile.c` (optional, runtime → generated INI layer; lower priority than `tack.ini`)
   - built‑ins in `tack.c` (fallback)
 
-## Quickstart
+## Repo layout
 
-Put `tack.c` into your repo root.
+This repo keeps tack at `src/tack.c`. You may also place it in the repo root — just run tack from the project root, because it uses relative paths like `src/`, `tools/`, and `build/`.
 
-### Option A: run from source (tcc)
-Windows:
-```bat
-tcc -run tack.c init
-tcc -run tack.c list
-tcc -run tack.c build debug -v -j 8
-tcc -run tack.c run debug -- --hello "Berlin"
-```
-
-Linux/BSD:
-```sh
-tcc -run tack.c init
-tcc -run tack.c list
-tcc -run tack.c build debug -v -j 8
-tcc -run tack.c run debug -- --hello Berlin
-```
-
-### Option B: build `tack.exe` (CI/teams)
-```bat
-tcc tack.c -o tack.exe
-tack.exe init
-tack.exe build debug -j 8 -v
-```
-
-With optional `tackfile.c` (compile‑time):
-```bat
-tcc -DTACK_USE_TACKFILE tack.c -o tack.exe
-```
-
-## Pick a compiler (Env)
-
-Default compiler is `tcc`. Override it with:
-
-- `TACK_CC` → compiler binary (must be in PATH)
-
-## Project layout conventions
+### Project layout conventions
 
 - **App**
   - default: `src/`
@@ -420,174 +344,101 @@ Default compiler is `tcc`. Override it with:
 - **Tests**
   - `tests/**/*_test.c` (built and executed)
 
-## Commands
+## Quickstart
 
-### Important rule: global options come **before** the command
-Examples:
+### Option A: run from source (tcc)
+Windows:
 ```bat
-tack.exe --no-config build release
-tack.exe --config ci/windows.ini build release
+tcc -run src/tack.c init
+tcc -run src/tack.c list
+tcc -run src/tack.c build debug -v -j 8
+tcc -run src/tack.c run debug -- --hello "Berlin"
+```
+
+Linux/BSD:
+```sh
+tcc -run src/tack.c init
+tcc -run src/tack.c list
+tcc -run src/tack.c build debug -v -j 8
+tcc -run src/tack.c run debug -- --hello Berlin
+```
+
+### Option B: build `tack.exe` (CI/teams)
+
+```bat
+tcc src/tack.c -o tack.exe
+tack.exe init
+tack.exe build debug -j 8 -v
+```
+
+## Global options (must come before the command)
+
+```bat
+tack.exe --config tack.ci.ini build release
+tack.exe --no-config build debug
 tack.exe --no-auto-tools list
 ```
 
-### help / version / doctor
-```bat
-tack.exe help
-tack.exe version
-tack.exe doctor
+- `--config <path>`: load explicit INI (highest priority)
+- `--no-config`: disable **all** configuration (`tack.ini` and `tackfile.c`)
+- `--no-auto-tools`: disable `tools/<name>` auto discovery (useful for fully declarative builds)
+
+## Commands
+
+- `help`, `version`, `doctor`
+- `init` – create a minimal skeleton + hello world
+- `list` – show targets
+- `build [debug|release] ...` – build target
+- `run [debug|release] ... -- <args...>` – build + run target
+- `test [debug|release] ...` – build + execute `_test.c`
+- `clean` – delete contents of `build/` (keep directory)
+- `clobber` – delete `build/` entirely
+
+## Configuration
+
+### 1) `tack.ini` — data-only config (recommended)
+
+Auto-loaded if present (or via `--config`), unless `--no-config` is set.
+
+See the German section above for the full key list. The format is the same.
+
+### 2) `tackfile.c` — optional code config (runtime, fail-fast)
+
+If `tackfile.c` exists in the project root:
+
+1. tack compiles a small generator under `build/_tackfile/`
+2. the generator writes `build/_tackfile/tackfile.generated.ini`
+3. tack loads that generated INI as a **low-priority layer** (below `tack.ini`)
+
+If `tackfile.c` cannot be compiled or executed, tack exits with an error (fail-fast).
+
+#### Macros in `tackfile.c` (same format as before)
+
+```c
+#define TACKFILE_DEFAULT_TARGET "app"
+#define TACKFILE_DISABLE_AUTO_TOOLS 1
+#define TACKFILE_TARGETS my_targets
+#define TACKFILE_OVERRIDES my_overrides
 ```
 
-### init
-Creates (if missing) a minimal project skeleton + Hello World.
-```bat
-tack.exe init
-```
+### Layering / priorities (highest wins)
 
-### list
-Lists targets (id, src, core yes/no, enabled yes/no).
-```bat
-tack.exe list
-```
+1. `--config <path>` / `tack.ini`
+2. generated `tackfile.generated.ini` (from `tackfile.c`)
+3. built-ins in `tack.c`
 
-### build
-```bat
-tack.exe build debug   -j 8 -v
-tack.exe build release --target tool:foo
-```
-
-Options:
-- `-v` / `--verbose` → print compiler/link commands
-- `--rebuild`        → force rebuild
-- `-j N`             → parallel compilation
-- `--strict`         → re-enable `-Wunsupported`
-- `--target NAME`    → select target (name **or** `id`)
-- `--no-core`        → do not link shared core for this invocation
-
-### run
-Everything after `--` is forwarded to the target executable.
-```bat
-tack.exe run debug -- --hello "Berlin"
-```
-
-### test
-Builds and runs `tests/**/*_test.c`.
-```bat
-tack.exe test debug -v
-```
-
-### clean / clobber
-- **clean**: remove contents of `build/`, keep the directory
-- **clobber**: remove `build/` itself
-```bat
-tack.exe clean
-tack.exe clobber
-```
-
-## Why “clean” and “clobber” (instead of distclean)?
-
-`distclean` is a Make‑ism (“also remove generated configuration”). In tack it’s explicit:
-- **clean**: “remove build artefacts, keep structure”
-- **clobber**: “remove everything under build root”
-
-## Configuration: `tack.ini` (data) and `tackfile.c` (code)
-
-### `tack.ini` — data-only (recommended)
-If `tack.ini` exists (or is set via `--config PATH`), tack loads it automatically unless you pass `--no-config`.
-
-Sections:
-- `[project]`
-- `[target "<name>"]` (quotes optional; e.g. `[target tool:foo]`)
-
-Keys in `[project]`:
-- `default_target = app`
-- `disable_auto_tools = yes|no`
-
-Keys in `[target ...]`:
-- `src = <dir>`        (recursive `.c` scan)
-- `bin = <name>`       (executable base name)
-- `id = <id>`          (optional: controls `build/<id>/...`)
-- `enabled = yes|no`
-- `remove = yes|no`
-- `core = yes|no`      (link shared core for this target)
-- `includes = a;b;c`   (without `-I`)
-- `defines  = A=1;B=2` (without `-D`)
-- `cflags   = ...`     (`;`-separated tokens)
-- `ldflags  = ...`     (`;`-separated tokens)
-- `libs     = ...`     (`;`-separated tokens)
-
-**List format:** `;`-separated. Whitespace around tokens is fine; avoid embedded spaces inside a token.
-
-Example `tack.ini`:
-```ini
-[project]
-default_target = app
-disable_auto_tools = no
-
-[target "app"]
-core = yes
-includes = include; src
-defines = FEATURE_X=1
-
-[target "tool:gen"]
-src = tools/gen
-bin = gen
-core = yes
-libs = -lws2_32
-
-[target "tool:old"]
-enabled = no
-
-[target "tool:tmp"]
-remove = yes
-```
-
-### `tackfile.c` — optional code config (runtime auto-load in v0.6.0+)
-
-Starting with **v0.6.0**, tack will automatically use a `tackfile.c` in the project root:
-on startup (unless `--no-config` is used) tack compiles a tiny generator into
-`build/_tackfile/`, runs it to emit `build/_tackfile/tackfile.generated.ini`,
-and loads that file as a **low-priority config layer**.
-
-- Compiler for this step: `TACK_CC` (default: `tcc`)
-- If `tackfile.c` exists but cannot be compiled/executed, tack exits with an error
-  (so your pipeline does not silently fall back to defaults).
-- If you don’t want to execute project code, just use `tack.ini` (or `--no-config`).
-
-Optional compile-time embedding (no on-the-fly compile):
+### Legacy/lockdown: compile-time `-DTACK_USE_TACKFILE`
 
 ```bat
-tcc -DTACK_USE_TACKFILE -run src/tack.c list
+tcc -DTACK_USE_TACKFILE src/tack.c -o tack.exe
 ```
 
-Default (no embedding): `tackfile.c` is detected and processed automatically:
+When enabled, the runtime generator path is not used.
 
-```bat
-tcc -run src/tack.c list
-```
+## Shared core (`src/core/`)
 
-Example layout:
-
-```
-project/
-  src/
-  include/
-  tack.ini (optional, highest priority)
-  tackfile.c (optional, auto-loaded)
-  build/_tackfile/tackfile.generated.ini (auto-generated, do not edit)
-```
-
-### Priorities (important)
-- **Overrides/flags:** `tack.ini` → `tackfile.c` → built‑in `tack.c`
-- **Target graph:** discovery → `tackfile.c` → `tack.ini`
-
-## Shared Core (src/core)
-
-**Why?** Apps and tools often share logic (IO, parsers, utilities).  
-`src/core/` gives you a clear split: core is built once per profile and linked into multiple targets.
-
-- core objects live under `build/_core/<profile>/obj/...`
-- targets with `core=yes` (INI) or `use_core=1` (override) link them
-- `--no-core` disables core linking for the current invocation
+Core is built once per profile and linked into targets with `core = yes`.
+Use `--no-core` to skip core linking for the current invocation.
 
 ## Strict mode (`--strict`)
 

@@ -3,9 +3,11 @@
  * v0.6.0
  *
  * Adds:
- * - Real target configuration overrides (includes/defines/libs per target)
- * - Shared "core" code (src/core/ (recursive .c files)) built once per profile and linked into targets
- * - Keeps: recursive scanning, tool discovery, -j parallel compile, robust process execution
+ * - Runtime config via tack.ini (data-only)
+ * - Optional code config via tackfile.c: on-the-fly compile to generated INI (fail-fast)
+ * - Real per-target configuration overrides (includes/defines/cflags/ldflags/libs, core yes/no)
+ * - Shared "core" code (src/core/...) built once per profile and linked into targets
+ * - Keeps: recursive scanning, optional tool discovery, -j parallel compile, robust process execution
  *
  * Conventions:
  *   app            : sources under src/ (or src/app/ if exists)
@@ -27,11 +29,11 @@
  *   TACK_CC: override compiler (default "tcc")
  *
  * Quickstart (Windows):
- *   tcc -run tack.c init
- *   tcc -run tack.c list
- *   tcc -run tack.c build debug -v -j 8
- *   tcc -run tack.c run debug -- --hello "world"
- *   tcc -run tack.c build release --target tool:foo
+ *   tcc -run src/tack.c init
+ *   tcc -run src/tack.c list
+ *   tcc -run src/tack.c build debug -v -j 8
+ *   tcc -run src/tack.c run debug -- --hello "world"
+ *   tcc -run src/tack.c build release --target tool:foo
  */
 
 #include <stdio.h>
@@ -58,15 +60,16 @@
 
 #define TACK_VERSION "0.6.0"
 
-
 /* --------------------------- runtime config (globals) --------------------------- */
-/* Optional project configuration (data-only, no code execution):
- * - auto-loads tack.ini if present
- * - CLI may override with --config / disable with --no-config
+/* Optional project configuration:
+ * - tack.ini (data-only) auto-loads if present (or via --config)
+ * - tackfile.c (code) is optional; if present, tack compiles a tiny generator that emits
+ *   a generated INI layer under build/_tackfile/ (fail-fast on errors)
+ * - disable config loading entirely with --no-config
  *
  * Global options (must appear before the command):
- *   --no-config        ignore all config files (legacy mode)
- *   --config <path>    use explicit INI file
+ *   --no-config        ignore tack.ini and tackfile.c
+ *   --config <path>    use explicit INI file (highest priority)
  *   --no-auto-tools    disable tool discovery at runtime
  */
 static int g_no_config = 0;
@@ -77,7 +80,6 @@ static int g_config_loaded = 0;
 static char g_config_path[512] = {0};
 static char *g_config_default_target = 0; /* owned; freed at exit */
 static int g_config_disable_auto_tools = 0;
-
 
 static const char *g_cc_default = "tcc";
 static const char *g_build_dir  = "build";
@@ -99,7 +101,6 @@ static const char *default_target_name(void) {
   return g_default_target;
 #endif
 }
-
 
 /* Warnings: keep strict, but avoid killing builds due to GCC attributes in system headers */
 static const char *g_warn_flags_base[] = {
@@ -669,45 +670,44 @@ typedef struct {
 } TargetDef;
 
 /* Optional external configuration:
- * If you want to keep project-specific settings out of tack.c, create a file
- * named "tackfile.c" next to this file and compile tack with:
- *   tcc -DTACK_USE_TACKFILE -run tack.c build debug
- * or (for a standalone tack.exe):
- *   tcc -DTACK_USE_TACKFILE tack.c -o tack.exe
  *
-* In tackfile.c you may define:
+ * tack supports two ways to keep project-specific build setup out of tack.c:
  *
- *   1) Overrides (includes/defines/libs per target):
+ *  A) Runtime tackfile.c (recommended):
+ *     - If a file named "tackfile.c" exists in the project root, tack compiles a tiny
+ *       generator (with your chosen compiler) and runs it to produce:
+ *         build/_tackfile/tackfile.generated.ini
+ *     - That generated INI is loaded as a low-priority config layer (below tack.ini / --config).
+ *     - If compilation or execution fails, tack exits with an error (fail-fast).
+ *
+ *  B) Compile-time include (legacy / locked-down environments):
+ *     - Build tack with -DTACK_USE_TACKFILE to #include "tackfile.c" directly:
+ *         tcc -DTACK_USE_TACKFILE src/tack.c -o tack.exe
+ *     - When this mode is enabled, the runtime generator is not used.
+ *
+ * In tackfile.c you may define:
+ *
+ *   1) Overrides (includes/defines/cflags/ldflags/libs, core):
  *   #define TACKFILE_OVERRIDES my_overrides
- *   static const TargetOverride my_overrides[] = {
- *     { "app", 0, 0, 0, 0, 0, 1 },
- *     { "tool:foo", 0, (const char*[]){"TOOL_FOO=1",0}, 0, 0, 0, 1 },
- *     { 0,0,0,0,0,0,0 }
- *   };
+ *      static const TargetOverride my_overrides[] = { ... , { 0,0,0,0,0,0,0 } };
  *
- *   2) Declarative target graph (add/modify/remove/disable):
+ *   2) Targets (add/modify/disable/remove):
  *      #define TACKFILE_TARGETS my_targets
- *      static const TargetDef my_targets[] = {
- *        { "app", "src/app", "app", 0, 1, 0 },            // upsert (enabled by default)
- *        { "demo:hello", "demos/hello", "hello", "demo_hello", 1, 0 },
- *        { "tool:gen", "extras/gen", "gen", 0, 1, 0 },
- *        { "tool:old", 0, 0, 0, 0, 0 },                   // action: disable existing
- *        { "tool:tmp", 0, 0, 0, 0, 1 },                   // action: remove existing
- *        { 0,0,0,0,0,0 }
- *      };
+ *      static const TargetDef my_targets[] = { ... , { 0,0,0,0,0,0 } };
  *
  *   3) Default target:
  *      #define TACKFILE_DEFAULT_TARGET "app"
  *
- *   4) Disable auto tool discovery (for fully declarative builds):
+ *   4) Disable auto tool discovery:
  *      #define TACKFILE_DISABLE_AUTO_TOOLS 1
  *
- * tack will search TACKFILE_OVERRIDES first, then its built-in g_overrides[].
+ * Layering (highest wins):
+ *   tack.ini / --config  >  generated tackfile.ini  >  built-ins
  */
+
 #ifdef TACK_USE_TACKFILE
 #include "tackfile.c"
 #endif
-
 
 /* Example overrides (edit as needed) */
 static const char *app_includes[] = { "src", 0 };
@@ -882,7 +882,6 @@ static void apply_tackfile_targets(TargetVec *out) {
 #else
 static void apply_tackfile_targets(TargetVec *out) { (void)out; }
 #endif
-
 
 /* --------------------------- tack.ini (INI config) --------------------------- */
 
@@ -1279,7 +1278,6 @@ static void apply_ini_targets(TargetVec *out) {
 }
 
 /* config glue (called from main) */
-/* config glue (called from main) */
 
 /* --------------------------- tackfile.c auto-config (v0.6.0) ---------------------------
  *
@@ -1297,7 +1295,6 @@ static void apply_ini_targets(TargetVec *out) {
 
 #ifndef TACK_USE_TACKFILE
 static char g_tackfile_generated_ini[512] = {0};
-
 
 static void tackfile_gen_paths(char *dir, char *gen_c, char *gen_exe, char *gen_ini) {
   char tmp[512];
@@ -1496,7 +1493,6 @@ static int tackfile_prepare_generated_ini(void) {
 }
 #endif /* !TACK_USE_TACKFILE */
 
-
 static void config_reset(void) {
   /* reset INI state and project globals for layered loads */
   free(g_config_default_target);
@@ -1649,7 +1645,6 @@ static void discover_targets(TargetVec *out, int disable_auto_tools) {
   }
   }
 }
-
 
 /* --------------------------- build paths --------------------------- */
 
