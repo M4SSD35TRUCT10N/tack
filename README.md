@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.6.0)
+# tack — Tiny ANSI-C Kit (v0.6.6)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.6.0)
+## Features (v0.6.6)
 
 - Single-file Build Driver (C89)
 - Kein Make/CMake/Ninja
@@ -66,6 +66,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
   - `tack.ini` (runtime, data-only, auto-load; höchste Priorität)
   - `tackfile.c` (optional, runtime → generiertes INI-Layer; niedrigere Priorität als `tack.ini`)
   - Built-ins in `tack.c` (Fallback)
+- **Hardening (v0.6.1–v0.6.6)**: fail-fast Bounds-Checks, sicherere FS-Traversierung (Depth/Symlink/Reparse-Guards), harte Input-Limits, robustere Token-Parsing-Regeln, plus `--no-code-config` für CI/Teams.
 
 ## Repository-Struktur (wie im Repo)
 
@@ -117,6 +118,7 @@ tack.exe build debug -j 8 -v
 ```bat
 tack.exe --config tack.ci.ini build release
 tack.exe --no-config build debug
+tack.exe --no-code-config build debug
 tack.exe --no-auto-tools list
 ```
 
@@ -168,7 +170,7 @@ Wenn `tack.ini` vorhanden ist (oder per `--config PATH` gesetzt wird), lädt tac
 - `ldflags  = ...`     (Tokens, per `;` getrennt)
 - `libs     = ...`     (Tokens, per `;` getrennt)
 
-**Listen-Format:** Semikolon-getrennt (`;`).  
+**Listen-Format:** Primär Semikolon-getrennt (`;`). Ab **v0.6.5** werden zusätzlich **Whitespace** als Trenner sowie **quotierte Tokens** unterstützt (z. B. Pfade mit Leerzeichen). Empfehlung: `;` nutzen, weil es am klarsten ist.  
 Leerzeichen um Tokens herum sind ok, aber Tokens sollten keine eingebetteten Leerzeichen enthalten.
 
 Beispiel `tack.ini`:
@@ -198,6 +200,8 @@ remove = yes
 ### 2) `tackfile.c` — Code-Konfiguration (optional, runtime, fail-fast)
 
 Wenn `tackfile.c` im Projekt-Root existiert, dann:
+
+> **CI/Team-Hinweis:** Nutze `--no-code-config`, wenn `tackfile.c` im Repo liegen darf, aber in CI/Team-Umgebungen **nicht** ausgeführt werden soll.
 
 1. tack kompiliert automatisch einen kleinen Generator unter `build/_tackfile/`
 2. der Generator erzeugt `build/_tackfile/tackfile.generated.ini`
@@ -289,23 +293,18 @@ tcc -run src/tack.c build debug --strict
 
 ## Sicherheitslage (Security posture)
 
-`tack` ist bewusst **minimalistisch** und primär als **Developer-Tool** gedacht – nicht als
-gehärtetes Security-Produkt.
+`tack` ist ein Entwickler‑Tool: es scannt dein Repo und startet Compiler/Tools. Es ist **kein** Security‑Produkt, aber ab v0.6.1+ deutlich robuster (fail‑fast).
 
-Was das praktisch bedeutet:
+Praktische Regeln:
 
-- **Trust boundary:** `tack` verarbeitet Pfade, `tack.ini`-Inhalte und optional `tackfile.c`.
-  Wenn du ein fremdes Repository baust, betrachte diese Inputs als **untrusted**.
-- **String-/Pfad-Handling:** Der Code setzt an vielen Stellen klassische C-Strings und feste
-  Buffer ein. Sehr lange oder manipulierte Pfade/Konfigwerte können zu Fehlverhalten führen.
-- **`tack.ini` ist data-only:** Es wird kein Code ausgeführt – aber die Werte beeinflussen
-  Compiler-/Linker-Argumente. In Team-/CI-Setups sollte die INI aus einer kontrollierten Quelle kommen.
-- **`tackfile.c` ist Code:** Im Runtime-Modus kompiliert und **führt tack** ein kleines
-  Generator-Programm aus, das eine INI-Schicht erzeugt. Das ist funktional „Code aus dem Repo ausführen“.
-  Nutze `tackfile.c` daher nur, wenn du dem Projekt/Repo **bewusst vertraust** (oder es auditierst).
-- **CI/Lockdown-Empfehlung (heute):** Wenn du Code-Konfiguration nicht willst, **committe kein**
-  `tackfile.c` (oder entferne/renenne es in CI vor dem Build). Ein dedizierter Schalter wie
-  `--no-code-config` ist als Hardening-Option sinnvoll (siehe ROADMAP).
+- **Untrusted Repos:** `tack` nicht als Admin/root auf fremden Repositories ausführen.
+- **Code‑Konfiguration:** `tackfile.c` ist *bewusst* ausführbarer Code (Generator → `tackfile.generated.ini`).  
+  Für CI/Teams: `--no-code-config` (nur INI), oder `--no-config` (alles aus).
+- **Eingaben:** `tack.ini`, ENV (`TACK_CC`) und CLI werden mit harten Limits geprüft; tack bricht bei Überschreitung ab.
+- **Filesystem:** Traversierung ist depth‑limitiert; Symlinks/Junctions/Reparse Points werden nicht verfolgt (Loop‑Schutz).
+- **Supply‑Chain:** externe Libs versionieren/pinnen und Herkunft/Lizenzen dokumentieren.
+
+Empfehlung: Für Teams ist `tack.ini` der Default. `tackfile.c` nur bewusst nutzen.
 
 ## ROADMAP
 Weitere Infos, wie es mit tack weitergehen wird, stehen [hier](ROADMAP.md).
@@ -346,7 +345,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.6.0)
+## Features (v0.6.6)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -413,6 +412,7 @@ tack.exe build debug -j 8 -v
 ```bat
 tack.exe --config tack.ci.ini build release
 tack.exe --no-config build debug
+tack.exe --no-code-config build debug
 tack.exe --no-auto-tools list
 ```
 
@@ -489,23 +489,18 @@ tack.exe build debug --strict
 
 ## Security posture
 
-`tack` is intentionally **minimal** and designed as a **developer tool** — not a hardened
-security product.
+`tack` is a developer tool: it scans your repo and spawns compilers/tools. It is **not** a hardened security product, but v0.6.1+ is much more robust (fail‑fast).
 
-What this means in practice:
+Practical rules:
 
-- **Trust boundary:** `tack` processes file paths, `tack.ini` content, and optionally `tackfile.c`.
-  If you build third‑party repositories, treat these inputs as **untrusted**.
-- **String/path handling:** the code uses classic C string APIs and fixed buffers in many places.
-  Extremely long or crafted paths/config values may cause failures or undefined behaviour.
-- **`tack.ini` is data‑only:** no executable code is run — but values still affect compiler/linker
-  arguments. In team/CI setups, keep the INI under strict control.
-- **`tackfile.c` is code:** in runtime mode `tack` compiles and **executes** a small generator
-  that emits a generated INI layer. That is effectively “execute code from the repo”.
-  Only use `tackfile.c` when you **explicitly trust** (or audit) the repository.
-- **CI/lockdown recommendation (today):** if you don’t want code configuration, **do not**
-  commit `tackfile.c` (or remove/rename it in CI before invoking `tack`). A dedicated
-  flag like `--no-code-config` would be a useful hardening option (see ROADMAP).
+- **Untrusted repos:** don’t run tack as Admin/root on untrusted repositories.
+- **Code config:** `tackfile.c` is intentionally executable code (generator → `tackfile.generated.ini`).  
+  For CI/teams: use `--no-code-config` (INI only), or `--no-config` (everything off).
+- **Inputs:** `tack.ini`, env (`TACK_CC`) and CLI args are checked with hard limits; tack aborts on violations.
+- **Filesystem:** traversal is depth‑limited; symlinks/junctions/reparse points are not followed (loop protection).
+- **Supply chain:** pin external dependencies and document provenance/licenses.
+
+Recommendation: for teams, prefer `tack.ini` by default; use `tackfile.c` only intentionally.
 
 ## Troubleshooting
 
