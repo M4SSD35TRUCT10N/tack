@@ -288,7 +288,7 @@ tcc -run src/tack.c build debug --strict
 ```
 
 ## ROADMAP
-Weitere Infos, wie es mit tack weitergehen wird, ist [hier](ROADMAP.md).
+Weitere Infos, wie es mit tack weitergehen wird, stehen [hier](ROADMAP.md).
 
 ## FAQ
 Eine detailierte FAQ ist [hier](FAQ.md).
