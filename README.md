@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.5.0)
+# tack — Tiny ANSI-C Kit
 
 > **DE/EN README**
 
