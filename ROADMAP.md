@@ -1,6 +1,6 @@
-# tack ROADMAP (DE/EN) — v0.6.6
+# tack ROADMAP (DE/EN) — v0.7.0
 
-Links: **[README](README.md)** · **[FAQ](FAQ.md)**
+Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
 ---
 
@@ -13,6 +13,9 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 - Dokumentation per **Projekt‑Port‑Report** (1 Seite pro Projekt)
 - Mini‑Matrix: Projekt × OS × Compiler × Status
 
+
+### Erledigt in v0.7.0
+- `tack init` legt optional `.gitignore` sowie `.fossil-settings/ignore-glob` an und **überschreibt nichts** (non-destructive, tack-Block wird nur angehängt, wenn er fehlt).
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
 - Optional: bessere Windows Long‑Path Guidance
@@ -52,4 +55,4 @@ This stays open until the core build workflow is proven in practice.
 
 ---
 
-Back: **[README](README.md)** · **[FAQ](FAQ.md)**
+Back: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**

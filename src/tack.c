@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.6.6
+ * v0.7.0
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -60,7 +60,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.6.6"
+#define TACK_VERSION "0.7.0"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -257,6 +257,82 @@ static const char *get_cc(void) {
 static int file_exists(const char *path) {
   STAT_ST st;
   return STAT_FN(path, &st) == 0;
+}
+
+/* --------------------------- small file helpers --------------------------- */
+
+static char *read_entire_file(const char *path, long *out_len) {
+  FILE *f;
+  long n;
+  char *buf;
+
+  f = fopen(path, "rb");
+  if (!f) return 0;
+  if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return 0; }
+  n = ftell(f);
+  if (n < 0) { fclose(f); return 0; }
+  if (fseek(f, 0, SEEK_SET) != 0) { fclose(f); return 0; }
+
+  /* sanity limit: ignore files should never be huge */
+  if (n > (1024 * 1024)) { fclose(f); return 0; }
+
+  buf = (char*)xmalloc((size_t)n + 1);
+  if (n > 0) {
+    if (fread(buf, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(buf); return 0; }
+  }
+  buf[n] = '\0';
+  fclose(f);
+
+  if (out_len) *out_len = n;
+  return buf;
+}
+
+static int file_contains_substr(const char *path, const char *needle) {
+  long n = 0;
+  char *s;
+  int ok;
+
+  s = read_entire_file(path, &n);
+  (void)n;
+  if (!s) return 0;
+
+  ok = (strstr(s, needle) != 0);
+  free(s);
+  return ok;
+}
+
+
+
+static int write_lines(FILE *f, const char * const *lines) {
+  int i = 0;
+  if (!lines) return 0;
+  while (lines[i]) {
+    if (fputs(lines[i], f) == EOF) return 1;
+    i++;
+  }
+  return 0;
+}
+
+static int write_lines_if_missing(const char *path, const char * const *lines) {
+  FILE *f;
+  if (file_exists(path)) return 0;
+  f = fopen(path, "wb");
+  if (!f) return 1;
+  if (write_lines(f, lines) != 0) { fclose(f); return 1; }
+  fclose(f);
+  return 0;
+}
+
+static int append_lines_if_missing(const char *path, const char *marker, const char * const *lines) {
+  FILE *f;
+  if (!file_exists(path)) return write_lines_if_missing(path, lines);
+  if (marker && file_contains_substr(path, marker)) return 0;
+  f = fopen(path, "ab");
+  if (!f) return 1;
+  fputs("\n", f);
+  if (write_lines(f, lines) != 0) { fclose(f); return 1; }
+  fclose(f);
+  return 0;
 }
 
 static long file_mtime(const char *path) {
@@ -2496,6 +2572,7 @@ static void print_help(void) {
   printf("\nNotes:\n"
          "  clean   = remove contents under build/ (keep the build directory)\n"
          "  clobber = remove build/ itself\n"
+         "  init    = also provisions .gitignore and .fossil-settings/ignore-glob (non-destructive)\n"
          "  --strict enables -Wunsupported\n");
 }
 
@@ -2538,6 +2615,192 @@ static void cmd_doctor(void) {
   printf("Overrides : built-ins + optional tackfile.c + optional tack.ini\n");
 }
 
+/* --------------------------- init: ignore files --------------------------- */
+
+static const char * const GITIGNORE_TACK_BLOCK_LINES[] = {
+  "###############################################################################\n",
+  "# tack (Tiny ANSI-C Kit)\n",
+  "###############################################################################\n",
+  "\n",
+  "# tack build output\n",
+  "/build/\n",
+  "/.tack-cache/\n",
+  "/.fossil-settings/\n",
+  "\n",
+  "# tackfile.c generator artifacts (optional)\n",
+  "/build/_tackfile/\n",
+  "tackfile.generated.ini\n",
+  "/build/_tackfile/tackfile.generated.ini\n",
+  "\n",
+  "# generated docs/BOM (optional)\n",
+  "/build/bom.md\n",
+  "/build/bom.html\n",
+  "/build/doc/\n",
+  0
+};
+
+static const char * const GITIGNORE_FULL_LINES[] = {
+  "###############################################################################\n",
+  "# tack (Tiny ANSI-C Kit)\n",
+  "###############################################################################\n",
+  "\n",
+  "# tack build output\n",
+  "/build/\n",
+  "/.tack-cache/\n",
+  "/.fossil-settings/\n",
+  "\n",
+  "# tackfile.c generator artifacts (optional)\n",
+  "/build/_tackfile/\n",
+  "tackfile.generated.ini\n",
+  "/build/_tackfile/tackfile.generated.ini\n",
+  "\n",
+  "# generated docs/BOM (optional)\n",
+  "/build/bom.md\n",
+  "/build/bom.html\n",
+  "/build/doc/\n",
+  "\n",
+  "###############################################################################\n",
+  "# Generic C / toolchain ignores\n",
+  "###############################################################################\n",
+  "\n",
+  "# Prerequisites / depfiles\n",
+  "*.d\n",
+  "\n",
+  "# Object files\n",
+  "*.o\n",
+  "*.ko\n",
+  "*.obj\n",
+  "*.elf\n",
+  "\n",
+  "# Linker output\n",
+  "*.ilk\n",
+  "*.map\n",
+  "*.exp\n",
+  "\n",
+  "# Precompiled Headers\n",
+  "*.gch\n",
+  "*.pch\n",
+  "\n",
+  "# Libraries\n",
+  "*.lib\n",
+  "*.a\n",
+  "*.la\n",
+  "*.lo\n",
+  "\n",
+  "# Shared objects (inc. Windows DLLs)\n",
+  "*.dll\n",
+  "*.so\n",
+  "*.so.*\n",
+  "*.dylib\n",
+  "\n",
+  "# Executables\n",
+  "*.exe\n",
+  "*.out\n",
+  "*.app\n",
+  "*.i*86\n",
+  "*.x86_64\n",
+  "*.hex\n",
+  "\n",
+  "# Debug files\n",
+  "*.dSYM/\n",
+  "*.su\n",
+  "*.idb\n",
+  "*.pdb\n",
+  "\n",
+  "# Kernel Module Compile Results\n",
+  "*.mod*\n",
+  "*.cmd\n",
+  ".tmp_versions/\n",
+  "modules.order\n",
+  "Module.symvers\n",
+  "Mkfile.old\n",
+  "dkms.conf\n",
+  "\n",
+  "# debug information files\n",
+  "*.dwo\n",
+  "\n",
+  "###############################################################################\n",
+  "# OS / editor noise\n",
+  "###############################################################################\n",
+  ".DS_Store\n",
+  "Thumbs.db\n",
+  0
+};
+
+static const char * const FOSSIL_IGNORE_TACK_BLOCK_LINES[] = {
+  "# tack\n",
+  "build\n",
+  ".tack-cache\n",
+  "tackfile.generated.ini\n",
+  0
+};
+
+static const char * const FOSSIL_IGNORE_FULL_LINES[] = {
+  "# tack\n",
+  "build\n",
+  ".tack-cache\n",
+  "tackfile.generated.ini\n",
+  "\n",
+  "# objects / depfiles\n",
+  "*.d\n",
+  "*.o\n",
+  "*.ko\n",
+  "*.obj\n",
+  "*.elf\n",
+  "\n",
+  "# linker output\n",
+  "*.ilk\n",
+  "*.map\n",
+  "*.exp\n",
+  "\n",
+  "# precompiled headers\n",
+  "*.gch\n",
+  "*.pch\n",
+  "\n",
+  "# libraries\n",
+  "*.lib\n",
+  "*.a\n",
+  "*.la\n",
+  "*.lo\n",
+  "\n",
+  "# shared objects\n",
+  "*.dll\n",
+  "*.so\n",
+  "*.so.*\n",
+  "*.dylib\n",
+  "\n",
+  "# executables\n",
+  "*.exe\n",
+  "*.out\n",
+  "*.app\n",
+  "*.i*86\n",
+  "*.x86_64\n",
+  "*.hex\n",
+  "\n",
+  "# debug files\n",
+  "*.dSYM\n",
+  "*.su\n",
+  "*.idb\n",
+  "*.pdb\n",
+  "\n",
+  "# kernel/module stuff\n",
+  "*.mod*\n",
+  "*.cmd\n",
+  ".tmp_versions\n",
+  "modules.order\n",
+  "Module.symvers\n",
+  "Mkfile.old\n",
+  "dkms.conf\n",
+  "\n",
+  "# debug info\n",
+  "*.dwo\n",
+  "\n",
+  "# OS noise\n",
+  ".DS_Store\n",
+  "Thumbs.db\n",
+  0
+};
+
 static int cmd_init(void) {
   FILE *f;
 
@@ -2579,7 +2842,44 @@ static int cmd_init(void) {
     fclose(f);
   }
 
-  printf("tack: init: ensured src/include/tests/tools/build\n");
+  /* -------------------- ignore files: git + fossil --------------------- */
+
+  /* ignore files: git + fossil (non-destructive) */
+  {
+    /* .gitignore: if missing -> write full; else append tack block if not present */
+  if (!file_exists(".gitignore")) {
+      if (write_lines_if_missing(".gitignore", GITIGNORE_FULL_LINES) != 0) {
+      fprintf(stderr, "tack: init: cannot create .gitignore\n");
+      return 1;
+    }
+  } else {
+      if (append_lines_if_missing(".gitignore", "tack (Tiny ANSI-C Kit)", GITIGNORE_TACK_BLOCK_LINES) != 0) {
+      fprintf(stderr, "tack: init: cannot update .gitignore\n");
+      return 1;
+    }
+  }
+
+  /* Fossil: .fossil-settings/ignore-glob */
+  ensure_dir(".fossil-settings");
+  {
+      char fp[512];
+      path_join(fp, sizeof(fp), ".fossil-settings", "ignore-glob");
+
+    if (!file_exists(fp)) {
+        FILE *ff = fopen(fp, "wb");
+        if (!ff) { fprintf(stderr, "tack: init: cannot create %s\n", fp); return 1; }
+        if (write_lines(ff, FOSSIL_IGNORE_FULL_LINES) != 0) { fclose(ff); fprintf(stderr, "tack: init: cannot write %s\n", fp); return 1; }
+        fclose(ff);
+    } else {
+        if (append_lines_if_missing(fp, "# tack", FOSSIL_IGNORE_TACK_BLOCK_LINES) != 0) {
+        fprintf(stderr, "tack: init: cannot update %s\n", fp);
+        return 1;
+      }
+    }
+  }
+  }
+
+  printf("tack: init: ensured src/include/tests/tools/build (+ ignore files)\n");
   return 0;
 }
 

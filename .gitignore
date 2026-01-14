@@ -1,4 +1,29 @@
-# Prerequisites
+
+###############################################################################
+# tack (Tiny ANSI-C Kit)
+###############################################################################
+
+# tack build output
+/build/
+/.tack-cache/
+
+# tackfile.c generator artifacts (falls genutzt)
+/build/_tackfile/
+tackfile.generated.ini
+/build/_tackfile/tackfile.generated.ini
+
+# generated docs/BOM (falls du tack bom/doc nutzt)
+/build/bom.md
+/build/bom.html
+/build/doc/
+
+
+###############################################################################
+# Generic C / toolchain ignores
+# (based on your existing .gitignore)
+###############################################################################
+
+# Prerequisites / depfiles
 *.d
 
 # Object files
@@ -36,6 +61,30 @@
 *.x86_64
 *.hex
 
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+# debug information files
+*.dwo
+
+
+###############################################################################
+# OS / editor noise (nice to have)
+###############################################################################
+.DS_Store
+Thumbs.db
 # Debug files
 *.dSYM/
 *.su

@@ -1,6 +1,6 @@
-# tack FAQ / FQA (DE/EN) — v0.6.6
+# tack FAQ / FQA (DE/EN) — v0.7.0
 
-**Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md)
+**Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
 ---
 
@@ -8,6 +8,11 @@
 
 ### Ist tack ein Ersatz für CMake/make?
 tack ersetzt für viele Projekte das klassische Build-Skript (Makefile/CMakeLists), indem es eine feste, simple Konvention nutzt und die üblichen Tasks (`build/run/test/clean`) anbietet. Für extrem komplexe Toolchains ist make/cmake weiterhin besser geeignet.
+
+### Erzeugt tack eine `.gitignore` oder Fossil-Ignore-Regeln?
+Ja: `tack init` legt, falls nicht vorhanden, eine sinnvolle `.gitignore` sowie `.fossil-settings/ignore-glob` an.
+Wenn die Dateien bereits existieren, **überschreibt tack nichts**, sondern hängt nur einen klar markierten `tack`-Block an, sofern er noch fehlt.
+Das ist bewusst „non-destructive“, damit bestehende Projektregeln erhalten bleiben.
 
 ### Welche Compiler funktionieren?
 Standard ist **tcc**. Über `TACK_CC` kannst du z.B. `gcc` oder `clang` nutzen, solange sie „klassische“ C‑Kommandozeilen verstehen.  
@@ -63,6 +68,11 @@ tack baut Pfade dynamisch, nutzt aber trotzdem harte Limits (fail-fast). Wenn de
 ### Is tack a replacement for CMake/make?
 For many projects, yes: tack replaces custom build scripts by using conventions and providing `build/run/test/clean`. For very complex toolchains, make/cmake may still be the better fit.
 
+### Does tack create a `.gitignore` or Fossil ignore rules?
+Yes: `tack init` will provision a sensible `.gitignore` and `.fossil-settings/ignore-glob` if they don't exist.
+If the files already exist, tack **won't overwrite** them; it only appends a clearly marked `tack` block if missing.
+This is intentionally non-destructive to preserve existing project rules.
+
 ### Which compilers work?
 Default is **tcc**. You can set `TACK_CC` to `gcc`/`clang` etc. as long as they behave like classic C compilers.  
 Important: `TACK_CC` is the compiler program, not “compiler + flags”. Put flags into `tack.ini`.
@@ -105,4 +115,5 @@ tack intentionally aborts on:
 
 ---
 
-Back: **[README](README.md)** · Next: **[ROADMAP](ROADMAP.md)**
+**Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
+

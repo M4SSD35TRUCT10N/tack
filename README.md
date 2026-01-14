@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.6.6)
+# tack — Tiny ANSI-C Kit (v0.7.0)
 
 ---
 
@@ -7,7 +7,7 @@
 > DE: Ein schlanker **Build‑Driver** für C (C89/ANSI‑C), inspiriert von Cargo‑Workflows: `init`, `list`, `build`, `run`, `test` — ohne Make/CMake/Ninja‑Stack.  
 > EN: A tiny **build driver** for C (C89/ANSI‑C), inspired by Cargo workflows: `init`, `list`, `build`, `run`, `test` — without a Make/CMake/Ninja stack.
 
-**Links:** [FAQ](FAQ.md) • [Roadmap](ROADMAP.md)
+**Backlinks:** [FAQ](FAQ.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.6.6)
+## Features (v0.7.0)
 
 - Single-file Build Driver (C89)
 - Kein Make/CMake/Ninja
@@ -66,7 +66,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
   - `tack.ini` (runtime, data-only, auto-load; höchste Priorität)
   - `tackfile.c` (optional, runtime → generiertes INI-Layer; niedrigere Priorität als `tack.ini`)
   - Built-ins in `tack.c` (Fallback)
-- **Hardening (v0.6.1–v0.6.6)**: fail-fast Bounds-Checks, sicherere FS-Traversierung (Depth/Symlink/Reparse-Guards), harte Input-Limits, robustere Token-Parsing-Regeln, plus `--no-code-config` für CI/Teams.
+- **Hardening (v0.6.1–v0.7.0)**: fail-fast Bounds-Checks, sicherere FS-Traversierung (Depth/Symlink/Reparse-Guards), harte Input-Limits, robustere Token-Parsing-Regeln, plus `--no-code-config` für CI/Teams.
 
 ## Repository-Struktur (wie im Repo)
 
@@ -129,7 +129,7 @@ tack.exe --no-auto-tools list
 ## Kommandos
 
 - `help`, `version`, `doctor`
-- `init` – Grundstruktur & Hello-World erzeugen
+- `init` – Grundstruktur & Hello-World erzeugen (legt auch `.gitignore` + Fossil-Ignore an, ohne zu überschreiben)
 - `list` – Targets anzeigen
 - `build [debug|release] ...` – Target bauen
 - `run [debug|release] ... -- <args...>` – Target bauen + ausführen
@@ -423,7 +423,7 @@ tack.exe --no-auto-tools list
 ## Commands
 
 - `help`, `version`, `doctor`
-- `init` – create a minimal skeleton + hello world
+- `init` – create a minimal skeleton + hello world (also provisions `.gitignore` + Fossil ignore, non-destructive)
 - `list` – show targets
 - `build [debug|release] ...` – build target
 - `run [debug|release] ... -- <args...>` – build + run target
@@ -517,4 +517,3 @@ A detailed FAQ is available [here](FAQ.md).
 
 ## License
 MIT
-
