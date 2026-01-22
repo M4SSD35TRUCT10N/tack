@@ -61,6 +61,14 @@ Das ist Absicht: lieber **klarer Fehler** statt undefiniertes Verhalten.
 ### Windows: Was ist mit langen Pfaden?
 tack baut Pfade dynamisch, nutzt aber trotzdem harte Limits (fail-fast). Wenn dein Windows Setup Long-Paths unterstützt, hilft das. Bei extrem langen Repo-Pfaden bekommst du eine klare Fehlermeldung.
 
+### Windows: Warum findet tack meine `tack.ini` nicht, wenn tack im `PATH` liegt?
+Wenn `tack.exe` aus einem Tool-Ordner im `PATH` gestartet wird und bei `--config` nur ein Dateiname ohne Pfad angegeben wird (z.B. `--config tack.ini`), kann die Config-Datei – je nach Aufruf/Setup – im **falschen Verzeichnis** gesucht werden (z.B. im Tool-Ordner statt im Projektordner).
+
+Abhilfe: den Pfad explizit angeben.
+
+- relativ zum aktuellen Ordner: `tack --config .\tack.ini build release -j 8`
+- oder absolut: `tack --config C:\path\to\tack.ini build release -j 8`
+
 ---
 
 ### Was ist der Unterschied zwischen BOM und SBOM?
@@ -143,6 +151,14 @@ Fix: `TACK_CC=clang` and `cflags = -std=c89` in `tack.ini`.
 ### `--no-config` vs `--no-code-config`?
 - `--no-config`: ignore **INI + tackfile.c**
 - `--no-code-config`: ignore **only tackfile.c**, still load INI
+
+### Windows: Why doesn’t tack find my `tack.ini` when tack is on `PATH`?
+If `tack.exe` is started from a tools folder that’s on `PATH` and you pass only a bare file name to `--config` (e.g. `--config tack.ini`), the config file may be looked up in the **wrong directory** depending on your setup (for example the tools folder instead of your project folder).
+
+Fix: provide an explicit path.
+
+- relative to the current folder: `tack --config .\tack.ini build release -j 8`
+- or absolute: `tack --config C:\path\to\tack.ini build release -j 8`
 
 ### How do I disable auto tool discovery?
 - CLI: `--no-auto-tools`
