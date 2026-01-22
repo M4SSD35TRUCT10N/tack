@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.7.0
+ * v0.7.1
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -42,6 +42,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <time.h>
 #include <sys/stat.h>
 
 #ifdef _WIN32
@@ -60,7 +61,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.7.0"
+#define TACK_VERSION "0.7.1"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -98,6 +99,10 @@ static int g_config_loaded = 0;
 static char g_config_path[TACK_MAX_CONFIG_PATH + 1] = {0};
 static char *g_config_default_target = 0; /* owned; freed at exit */
 static int g_config_disable_auto_tools = 0;
+static char *g_config_doc_template = 0; /* owned */
+static char *g_config_doc_css = 0;      /* owned */
+static char *g_config_bom_template = 0; /* owned */
+static char *g_config_bom_css = 0;      /* owned */
 
 static const char *g_cc_default = "tcc";
 static const char *g_build_dir  = "build";
@@ -287,6 +292,25 @@ static char *read_entire_file(const char *path, long *out_len) {
   return buf;
 }
 
+static int copy_file(const char *src, const char *dst) {
+  FILE *in, *out;
+  unsigned char buf[65536];
+  size_t n;
+
+  in = fopen(src, "rb");
+  if (!in) return 1;
+  out = fopen(dst, "wb");
+  if (!out) { fclose(in); return 1; }
+
+  while ((n = fread(buf, 1, sizeof(buf), in)) > 0) {
+    if (fwrite(buf, 1, n, out) != n) { fclose(in); fclose(out); return 1; }
+  }
+
+  fclose(in);
+  fclose(out);
+  return 0;
+}
+
 static int file_contains_substr(const char *path, const char *needle) {
   long n = 0;
   char *s;
@@ -301,36 +325,29 @@ static int file_contains_substr(const char *path, const char *needle) {
   return ok;
 }
 
-
-
-static int write_lines(FILE *f, const char * const *lines) {
-  int i = 0;
-  if (!lines) return 0;
-  while (lines[i]) {
-    if (fputs(lines[i], f) == EOF) return 1;
-    i++;
-  }
-  return 0;
-}
-
-static int write_lines_if_missing(const char *path, const char * const *lines) {
+static int write_file_if_missing(const char *path, const char *content) {
   FILE *f;
   if (file_exists(path)) return 0;
   f = fopen(path, "wb");
   if (!f) return 1;
-  if (write_lines(f, lines) != 0) { fclose(f); return 1; }
+  fputs(content, f);
   fclose(f);
   return 0;
 }
 
-static int append_lines_if_missing(const char *path, const char *marker, const char * const *lines) {
+static int append_block_if_missing(const char *path, const char *marker, const char *block) {
   FILE *f;
-  if (!file_exists(path)) return write_lines_if_missing(path, lines);
-  if (marker && file_contains_substr(path, marker)) return 0;
+
+  if (!file_exists(path)) return write_file_if_missing(path, block);
+
+  if (file_contains_substr(path, marker)) return 0;
+
   f = fopen(path, "ab");
   if (!f) return 1;
+
+  /* separate with a newline for cleanliness */
   fputs("\n", f);
-  if (write_lines(f, lines) != 0) { fclose(f); return 1; }
+  fputs(block, f);
   fclose(f);
   return 0;
 }
@@ -1406,14 +1423,11 @@ static int ini_load_file(const char *path) {
   char line[TACK_MAX_LINE];
   int lineno = 0;
 
-  enum { SEC_NONE = 0, SEC_PROJECT = 1, SEC_TARGET = 2 } sec = SEC_NONE;
+  enum { SEC_NONE = 0, SEC_PROJECT = 1, SEC_TARGET = 2, SEC_DOC = 3, SEC_BOM = 4, SEC_SBOM = 5 } sec = SEC_NONE;
   IniTargetCfg *cur_t = 0;
 
   f = fopen(path, "rb");
   if (!f) return 1;
-
-  ini_targets_init();
-  ini_overrides_init();
 
   while (fgets(line, sizeof(line), f)) {
     char *s, *eq;
@@ -1447,6 +1461,10 @@ static int ini_load_file(const char *path) {
         continue;
       }
 
+      if (strieq(s, "doc")) { sec = SEC_DOC; continue; }
+      if (strieq(s, "bom")) { sec = SEC_BOM; continue; }
+      if (strieq(s, "sbom")) { sec = SEC_SBOM; continue; }
+
       if ((tolower((unsigned char)s[0])=='t') && (tolower((unsigned char)s[1])=='a') && (tolower((unsigned char)s[2])=='r') && (tolower((unsigned char)s[3])=='g') && (tolower((unsigned char)s[4])=='e') && (tolower((unsigned char)s[5])=='t')) {
         char *p;
         char *tname;
@@ -1470,6 +1488,7 @@ static int ini_load_file(const char *path) {
           tname = xstrdup(p);
         }
         cur_t = ini_get_or_add_target(tname);
+        sec = SEC_TARGET;
         free(tname);
         continue;
       }
@@ -1493,6 +1512,23 @@ static int ini_load_file(const char *path) {
           int b;
           if (parse_bool(val, &b)) g_config_disable_auto_tools = b;
         }
+        continue;
+      }
+
+      if (sec == SEC_DOC) {
+        if (strieq(key, "template")) { free(g_config_doc_template); g_config_doc_template = xstrdup(val); }
+        else if (strieq(key, "css")) { free(g_config_doc_css); g_config_doc_css = xstrdup(val); }
+        continue;
+      }
+
+      if (sec == SEC_BOM) {
+        if (strieq(key, "template")) { free(g_config_bom_template); g_config_bom_template = xstrdup(val); }
+        else if (strieq(key, "css")) { free(g_config_bom_css); g_config_bom_css = xstrdup(val); }
+        continue;
+      }
+
+      if (sec == SEC_SBOM) {
+        /* reserved for future keys (format/spec_version/etc.) */
         continue;
       }
 
@@ -1885,6 +1921,10 @@ static void config_free(void) {
   ini_overrides_free();
   free(g_config_default_target);
   g_config_default_target = 0;
+  free(g_config_doc_template); g_config_doc_template = 0;
+  free(g_config_doc_css); g_config_doc_css = 0;
+  free(g_config_bom_template); g_config_bom_template = 0;
+  free(g_config_bom_css); g_config_bom_css = 0;
   g_config_loaded = 0;
   g_config_path[0] = '\0';
 }
@@ -2557,6 +2597,8 @@ static void print_help(void) {
          "  tack build [debug|release] [--target NAME] [-v] [--rebuild] [-j N] [--strict] [--no-core]\n"
          "  tack run  [debug|release] [--target NAME] [-v] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]\n"
          "  tack test [debug|release] [-v] [--rebuild] [--strict]\n"
+         "  tack bom  [debug|release] [--target NAME] [-v] [--strict] [--no-core] [--outdir <dir>]\n"
+         "  tack doc  [debug|release] [--target NAME] [-v] [--strict] [--no-core] [--outdir <dir>]\n"
          "  tack clean\n"
          "  tack clobber\n");
   printf("\nGlobal options (must come before the command):\n"
@@ -2573,6 +2615,8 @@ static void print_help(void) {
          "  clean   = remove contents under build/ (keep the build directory)\n"
          "  clobber = remove build/ itself\n"
          "  init    = also provisions .gitignore and .fossil-settings/ignore-glob (non-destructive)\n"
+         "  bom     = writes build/bom.md and build/bom.html\n"
+         "  doc     = writes HTML into build/doc/ (README/FAQ/ROADMAP/RELEASENOTES + BOM)\n"
          "  --strict enables -Wunsupported\n");
 }
 
@@ -2617,190 +2661,179 @@ static void cmd_doctor(void) {
 
 /* --------------------------- init: ignore files --------------------------- */
 
-static const char * const GITIGNORE_TACK_BLOCK_LINES[] = {
-  "###############################################################################\n",
-  "# tack (Tiny ANSI-C Kit)\n",
-  "###############################################################################\n",
-  "\n",
-  "# tack build output\n",
-  "/build/\n",
-  "/.tack-cache/\n",
-  "/.fossil-settings/\n",
-  "\n",
-  "# tackfile.c generator artifacts (optional)\n",
-  "/build/_tackfile/\n",
-  "tackfile.generated.ini\n",
-  "/build/_tackfile/tackfile.generated.ini\n",
-  "\n",
-  "# generated docs/BOM (optional)\n",
-  "/build/bom.md\n",
-  "/build/bom.html\n",
-  "/build/doc/\n",
-  0
-};
+static const char *TACK_GITIGNORE_BLOCK =
+  "###############################################################################\n"
+  "# tack (Tiny ANSI-C Kit)\n"
+  "###############################################################################\n"
+  "\n"
+  "# tack build output\n"
+  "/build/\n"
+  "/.tack-cache/\n"
+  "\n"
+  "# tackfile.c generator artifacts (optional)\n"
+  "/build/_tackfile/\n"
+  "tackfile.generated.ini\n"
+  "/build/_tackfile/tackfile.generated.ini\n"
+  "\n"
+  "# generated docs/BOM (optional)\n"
+  "/build/bom.md\n"
+  "/build/bom.html\n"
+  "/build/doc/\n";
 
-static const char * const GITIGNORE_FULL_LINES[] = {
-  "###############################################################################\n",
-  "# tack (Tiny ANSI-C Kit)\n",
-  "###############################################################################\n",
-  "\n",
-  "# tack build output\n",
-  "/build/\n",
-  "/.tack-cache/\n",
-  "/.fossil-settings/\n",
-  "\n",
-  "# tackfile.c generator artifacts (optional)\n",
-  "/build/_tackfile/\n",
-  "tackfile.generated.ini\n",
-  "/build/_tackfile/tackfile.generated.ini\n",
-  "\n",
-  "# generated docs/BOM (optional)\n",
-  "/build/bom.md\n",
-  "/build/bom.html\n",
-  "/build/doc/\n",
-  "\n",
-  "###############################################################################\n",
-  "# Generic C / toolchain ignores\n",
-  "###############################################################################\n",
-  "\n",
-  "# Prerequisites / depfiles\n",
-  "*.d\n",
-  "\n",
-  "# Object files\n",
-  "*.o\n",
-  "*.ko\n",
-  "*.obj\n",
-  "*.elf\n",
-  "\n",
-  "# Linker output\n",
-  "*.ilk\n",
-  "*.map\n",
-  "*.exp\n",
-  "\n",
-  "# Precompiled Headers\n",
-  "*.gch\n",
-  "*.pch\n",
-  "\n",
-  "# Libraries\n",
-  "*.lib\n",
-  "*.a\n",
-  "*.la\n",
-  "*.lo\n",
-  "\n",
-  "# Shared objects (inc. Windows DLLs)\n",
-  "*.dll\n",
-  "*.so\n",
-  "*.so.*\n",
-  "*.dylib\n",
-  "\n",
-  "# Executables\n",
-  "*.exe\n",
-  "*.out\n",
-  "*.app\n",
-  "*.i*86\n",
-  "*.x86_64\n",
-  "*.hex\n",
-  "\n",
-  "# Debug files\n",
-  "*.dSYM/\n",
-  "*.su\n",
-  "*.idb\n",
-  "*.pdb\n",
-  "\n",
-  "# Kernel Module Compile Results\n",
-  "*.mod*\n",
-  "*.cmd\n",
-  ".tmp_versions/\n",
-  "modules.order\n",
-  "Module.symvers\n",
-  "Mkfile.old\n",
-  "dkms.conf\n",
-  "\n",
-  "# debug information files\n",
-  "*.dwo\n",
-  "\n",
-  "###############################################################################\n",
-  "# OS / editor noise\n",
-  "###############################################################################\n",
-  ".DS_Store\n",
-  "Thumbs.db\n",
-  0
-};
+static const char *GITIGNORE_FULL =
+  "###############################################################################\n"
+  "# tack (Tiny ANSI-C Kit)\n"
+  "###############################################################################\n"
+  "\n"
+  "# tack build output\n"
+  "/build/\n"
+  "/.tack-cache/\n"
+  "\n"
+  "# tackfile.c generator artifacts (optional)\n"
+  "/build/_tackfile/\n"
+  "tackfile.generated.ini\n"
+  "/build/_tackfile/tackfile.generated.ini\n"
+  "\n"
+  "# generated docs/BOM (optional)\n"
+  "/build/bom.md\n"
+  "/build/bom.html\n"
+  "/build/doc/\n"
+  "\n"
+  "###############################################################################\n"
+  "# Generic C / toolchain ignores\n"
+  "###############################################################################\n"
+  "\n"
+  "# Prerequisites / depfiles\n"
+  "*.d\n"
+  "\n"
+  "# Object files\n"
+  "*.o\n"
+  "*.ko\n"
+  "*.obj\n"
+  "*.elf\n"
+  "\n"
+  "# Linker output\n"
+  "*.ilk\n"
+  "*.map\n"
+  "*.exp\n"
+  "\n"
+  "# Precompiled Headers\n"
+  "*.gch\n"
+  "*.pch\n"
+  "\n"
+  "# Libraries\n"
+  "*.lib\n"
+  "*.a\n"
+  "*.la\n"
+  "*.lo\n"
+  "\n"
+  "# Shared objects (inc. Windows DLLs)\n"
+  "*.dll\n"
+  "*.so\n"
+  "*.so.*\n"
+  "*.dylib\n"
+  "\n"
+  "# Executables\n"
+  "*.exe\n"
+  "*.out\n"
+  "*.app\n"
+  "*.i*86\n"
+  "*.x86_64\n"
+  "*.hex\n"
+  "\n"
+  "# Debug files\n"
+  "*.dSYM/\n"
+  "*.su\n"
+  "*.idb\n"
+  "*.pdb\n"
+  "\n"
+  "# Kernel Module Compile Results\n"
+  "*.mod*\n"
+  "*.cmd\n"
+  ".tmp_versions/\n"
+  "modules.order\n"
+  "Module.symvers\n"
+  "Mkfile.old\n"
+  "dkms.conf\n"
+  "\n"
+  "# debug information files\n"
+  "*.dwo\n"
+  "\n"
+  "###############################################################################\n"
+  "# OS / editor noise\n"
+  "###############################################################################\n"
+  ".DS_Store\n"
+  "Thumbs.db\n";
 
-static const char * const FOSSIL_IGNORE_TACK_BLOCK_LINES[] = {
-  "# tack\n",
-  "build\n",
-  ".tack-cache\n",
-  "tackfile.generated.ini\n",
-  0
-};
+static const char *FOSSIL_IGNORE_BLOCK =
+  "# tack\n"
+  "build\n"
+  ".tack-cache\n"
+  "tackfile.generated.ini\n";
 
-static const char * const FOSSIL_IGNORE_FULL_LINES[] = {
-  "# tack\n",
-  "build\n",
-  ".tack-cache\n",
-  "tackfile.generated.ini\n",
-  "\n",
-  "# objects / depfiles\n",
-  "*.d\n",
-  "*.o\n",
-  "*.ko\n",
-  "*.obj\n",
-  "*.elf\n",
-  "\n",
-  "# linker output\n",
-  "*.ilk\n",
-  "*.map\n",
-  "*.exp\n",
-  "\n",
-  "# precompiled headers\n",
-  "*.gch\n",
-  "*.pch\n",
-  "\n",
-  "# libraries\n",
-  "*.lib\n",
-  "*.a\n",
-  "*.la\n",
-  "*.lo\n",
-  "\n",
-  "# shared objects\n",
-  "*.dll\n",
-  "*.so\n",
-  "*.so.*\n",
-  "*.dylib\n",
-  "\n",
-  "# executables\n",
-  "*.exe\n",
-  "*.out\n",
-  "*.app\n",
-  "*.i*86\n",
-  "*.x86_64\n",
-  "*.hex\n",
-  "\n",
-  "# debug files\n",
-  "*.dSYM\n",
-  "*.su\n",
-  "*.idb\n",
-  "*.pdb\n",
-  "\n",
-  "# kernel/module stuff\n",
-  "*.mod*\n",
-  "*.cmd\n",
-  ".tmp_versions\n",
-  "modules.order\n",
-  "Module.symvers\n",
-  "Mkfile.old\n",
-  "dkms.conf\n",
-  "\n",
-  "# debug info\n",
-  "*.dwo\n",
-  "\n",
-  "# OS noise\n",
-  ".DS_Store\n",
-  "Thumbs.db\n",
-  0
-};
-
+static const char *FOSSIL_IGNORE_FULL =
+  "# tack\n"
+  "build\n"
+  ".tack-cache\n"
+  "tackfile.generated.ini\n"
+  "\n"
+  "# objects / depfiles\n"
+  "*.d\n"
+  "*.o\n"
+  "*.ko\n"
+  "*.obj\n"
+  "*.elf\n"
+  "\n"
+  "# linker output\n"
+  "*.ilk\n"
+  "*.map\n"
+  "*.exp\n"
+  "\n"
+  "# precompiled headers\n"
+  "*.gch\n"
+  "*.pch\n"
+  "\n"
+  "# libraries\n"
+  "*.lib\n"
+  "*.a\n"
+  "*.la\n"
+  "*.lo\n"
+  "\n"
+  "# shared objects\n"
+  "*.dll\n"
+  "*.so\n"
+  "*.so.*\n"
+  "*.dylib\n"
+  "\n"
+  "# executables\n"
+  "*.exe\n"
+  "*.out\n"
+  "*.app\n"
+  "*.i*86\n"
+  "*.x86_64\n"
+  "*.hex\n"
+  "\n"
+  "# debug files\n"
+  "*.dSYM\n"
+  "*.su\n"
+  "*.idb\n"
+  "*.pdb\n"
+  "\n"
+  "# kernel/module stuff\n"
+  "*.mod*\n"
+  "*.cmd\n"
+  ".tmp_versions\n"
+  "modules.order\n"
+  "Module.symvers\n"
+  "Mkfile.old\n"
+  "dkms.conf\n"
+  "\n"
+  "# debug info\n"
+  "*.dwo\n"
+  "\n"
+  "# OS noise\n"
+  ".DS_Store\n"
+  "Thumbs.db\n";
 static int cmd_init(void) {
   FILE *f;
 
@@ -2848,12 +2881,12 @@ static int cmd_init(void) {
   {
     /* .gitignore: if missing -> write full; else append tack block if not present */
   if (!file_exists(".gitignore")) {
-      if (write_lines_if_missing(".gitignore", GITIGNORE_FULL_LINES) != 0) {
+      if (write_file_if_missing(".gitignore", GITIGNORE_FULL) != 0) {
       fprintf(stderr, "tack: init: cannot create .gitignore\n");
       return 1;
     }
   } else {
-      if (append_lines_if_missing(".gitignore", "tack (Tiny ANSI-C Kit)", GITIGNORE_TACK_BLOCK_LINES) != 0) {
+      if (append_block_if_missing(".gitignore", "tack (Tiny ANSI-C Kit)", TACK_GITIGNORE_BLOCK) != 0) {
       fprintf(stderr, "tack: init: cannot update .gitignore\n");
       return 1;
     }
@@ -2868,10 +2901,10 @@ static int cmd_init(void) {
     if (!file_exists(fp)) {
         FILE *ff = fopen(fp, "wb");
         if (!ff) { fprintf(stderr, "tack: init: cannot create %s\n", fp); return 1; }
-        if (write_lines(ff, FOSSIL_IGNORE_FULL_LINES) != 0) { fclose(ff); fprintf(stderr, "tack: init: cannot write %s\n", fp); return 1; }
+        fputs(FOSSIL_IGNORE_FULL, ff);
         fclose(ff);
     } else {
-        if (append_lines_if_missing(fp, "# tack", FOSSIL_IGNORE_TACK_BLOCK_LINES) != 0) {
+        if (append_block_if_missing(fp, "# tack", FOSSIL_IGNORE_BLOCK) != 0) {
         fprintf(stderr, "tack: init: cannot update %s\n", fp);
         return 1;
       }
@@ -2919,6 +2952,710 @@ static int cmd_list_targets(TargetVec *tv) {
   return 0;
 }
 
+
+/* --------------------------- BOM / DOC --------------------------- */
+
+static void write_html_escaped(FILE *f, const char *s) {
+  const unsigned char *p = (const unsigned char*)s;
+  while (*p) {
+    if (*p == '&') fputs("&amp;", f);
+    else if (*p == '<') fputs("&lt;", f);
+    else if (*p == '>') fputs("&gt;", f);
+    else if (*p == '"') fputs("&quot;", f);
+    else fputc((int)*p, f);
+    p++;
+  }
+}
+
+static void fprint_time_local(FILE *f) {
+  time_t t = time(0);
+  struct tm *tmv = localtime(&t);
+  if (!tmv) {
+    fprintf(f, "%ld", (long)t);
+    return;
+  }
+  fprintf(f, "%04d-%02d-%02d %02d:%02d:%02d",
+          tmv->tm_year + 1900, tmv->tm_mon + 1, tmv->tm_mday,
+          tmv->tm_hour, tmv->tm_min, tmv->tm_sec);
+}
+
+/* --------------------------- HTML templating (optional) --------------------------- */
+
+typedef void (*EmitFn)(FILE *out, void *ctx);
+
+typedef struct {
+  const char *page_title;
+  const char *project_title;
+  const char *head_assets_html;
+  const char *nav_html;
+  const char *toc_html;
+  EmitFn emit_content;
+  void *content_ctx;
+  EmitFn emit_footer;
+  void *footer_ctx;
+} HtmlPage;
+
+static char *read_entire_file_capped(const char *path, long *out_len, long cap) {
+  FILE *f;
+  long n;
+  char *buf;
+
+  if (cap <= 0) return 0;
+  f = fopen(path, "rb");
+  if (!f) return 0;
+  if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return 0; }
+  n = ftell(f);
+  if (n < 0 || n > cap) { fclose(f); return 0; }
+  if (fseek(f, 0, SEEK_SET) != 0) { fclose(f); return 0; }
+
+  buf = (char*)xmalloc((size_t)n + 1);
+  if (n > 0) {
+    if (fread(buf, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(buf); return 0; }
+  }
+  buf[n] = '\0';
+  fclose(f);
+  if (out_len) *out_len = n;
+  return buf;
+}
+
+static const char *choose_template(const char *kind) {
+  /* kind: "doc" or "bom" */
+  if (streq(kind, "doc")) return g_config_doc_template;
+  if (streq(kind, "bom")) {
+    if (g_config_bom_template) return g_config_bom_template;
+    /* fallback: reuse doc template if only one template is desired */
+    return g_config_doc_template;
+  }
+  return 0;
+}
+
+static const char *choose_css(const char *kind) {
+  if (streq(kind, "doc")) return g_config_doc_css;
+  if (streq(kind, "bom")) {
+    if (g_config_bom_css) return g_config_bom_css;
+    return g_config_doc_css;
+  }
+  return 0;
+}
+
+static char *make_head_assets(const char *css_href) {
+  /* css_href is a relative href for the generated page (may be NULL). */
+  const char *pre = "";
+  const char *post = "";
+  const char *link_pre = "<link rel=\"stylesheet\" href=\"";
+  const char *link_post = "\">\n";
+  size_t n = strlen(pre) + strlen(post);
+  char *out;
+
+  if (css_href && css_href[0]) {
+    n += strlen(link_pre) + strlen(css_href) + strlen(link_post);
+  }
+  out = (char*)xmalloc(n + 1);
+  out[0] = '\0';
+  strcat(out, pre);
+  if (css_href && css_href[0]) {
+    strcat(out, link_pre);
+    strcat(out, css_href);
+    strcat(out, link_post);
+  }
+  strcat(out, post);
+  return out;
+}
+
+static char *make_nav_block(const char *inner_links_html) {
+  const char *pre = "<nav id=\"tack-nav\">";
+  const char *post = "</nav>\n";
+  size_t n = strlen(pre) + strlen(post);
+  char *out;
+
+  if (inner_links_html) n += strlen(inner_links_html);
+  out = (char*)xmalloc(n + 1);
+  out[0] = '\0';
+  strcat(out, pre);
+  if (inner_links_html) strcat(out, inner_links_html);
+  strcat(out, post);
+  return out;
+}
+
+static char *make_empty_toc_block(void) {
+  return xstrdup("");
+}
+
+static void emit_footer_default(FILE *out, void *ctx) {
+  (void)ctx;
+  fputs("<footer id=\"tack-footer\">", out);
+  fputs("<p>Generated by tack at ", out);
+  fprint_time_local(out);
+  fputs(".</p></footer>\n", out);
+}
+
+static int tpl_render(FILE *out, const char *tpl_text, const HtmlPage *pg, int *saw_content) {
+  const char *p = tpl_text;
+
+  if (saw_content) *saw_content = 0;
+
+  while (*p) {
+    if (strncmp(p, "{{TACK_PAGE_TITLE}}", (int)(sizeof("{{TACK_PAGE_TITLE}}") - 1)) == 0) {
+      if (pg->page_title) write_html_escaped(out, pg->page_title);
+      p += (int)(sizeof("{{TACK_PAGE_TITLE}}") - 1);
+      continue;
+    }
+    if (strncmp(p, "{{TACK_PROJECT_TITLE}}", (int)(sizeof("{{TACK_PROJECT_TITLE}}") - 1)) == 0) {
+      if (pg->project_title) write_html_escaped(out, pg->project_title);
+      p += (int)(sizeof("{{TACK_PROJECT_TITLE}}") - 1);
+      continue;
+    }
+    if (strncmp(p, "{{TACK_HEAD_ASSETS}}", (int)(sizeof("{{TACK_HEAD_ASSETS}}") - 1)) == 0) {
+      if (pg->head_assets_html) fputs(pg->head_assets_html, out);
+      p += (int)(sizeof("{{TACK_HEAD_ASSETS}}") - 1);
+      continue;
+    }
+    if (strncmp(p, "{{TACK_NAV_HTML}}", (int)(sizeof("{{TACK_NAV_HTML}}") - 1)) == 0) {
+      if (pg->nav_html) fputs(pg->nav_html, out);
+      p += (int)(sizeof("{{TACK_NAV_HTML}}") - 1);
+      continue;
+    }
+    if (strncmp(p, "{{TACK_TOC_HTML}}", (int)(sizeof("{{TACK_TOC_HTML}}") - 1)) == 0) {
+      if (pg->toc_html) fputs(pg->toc_html, out);
+      p += (int)(sizeof("{{TACK_TOC_HTML}}") - 1);
+      continue;
+    }
+    if (strncmp(p, "{{TACK_CONTENT_HTML}}", (int)(sizeof("{{TACK_CONTENT_HTML}}") - 1)) == 0) {
+      if (saw_content) *saw_content = 1;
+      if (pg->emit_content) pg->emit_content(out, pg->content_ctx);
+      p += (int)(sizeof("{{TACK_CONTENT_HTML}}") - 1);
+      continue;
+    }
+    if (strncmp(p, "{{TACK_FOOTER_HTML}}", (int)(sizeof("{{TACK_FOOTER_HTML}}") - 1)) == 0) {
+      if (pg->emit_footer) pg->emit_footer(out, pg->footer_ctx);
+      p += (int)(sizeof("{{TACK_FOOTER_HTML}}") - 1);
+      continue;
+    }
+
+    fputc((unsigned char)*p, out);
+    p++;
+  }
+
+  return 0;
+}
+
+static int write_html_page(const char *out_path, const char *kind, const HtmlPage *pg) {
+  FILE *f;
+  const char *tpl_path;
+  int saw_content = 0;
+
+  tpl_path = choose_template(kind);
+
+  f = fopen(out_path, "wb");
+  if (!f) return 1;
+
+  /* template path configured -> fail-fast on missing/bad template */
+  if (tpl_path && tpl_path[0]) {
+    long n = 0;
+    char *tpl;
+
+    if (!file_exists(tpl_path)) {
+      fclose(f);
+      fprintf(stderr, "tack: %s: template not found: %s\n", kind, tpl_path);
+      return 2;
+    }
+
+    tpl = read_entire_file_capped(tpl_path, &n, 1024L * 1024L);
+    (void)n;
+    if (!tpl) {
+      fclose(f);
+      fprintf(stderr, "tack: %s: cannot read template %s\n", kind, tpl_path);
+      return 2;
+    }
+
+    tpl_render(f, tpl, pg, &saw_content);
+    free(tpl);
+
+    if (!saw_content) {
+      fclose(f);
+      fprintf(stderr, "tack: %s: template missing {{TACK_CONTENT_HTML}}: %s\n", kind, tpl_path);
+      return 2;
+    }
+
+    fclose(f);
+    return 0;
+  }
+
+  /* built-in default layout (markers are the output contract) */
+  fputs("<!doctype html>\n<html><head><meta charset=\"utf-8\">", f);
+  fputs("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">", f);
+  fputs("<title>", f); if (pg->page_title) write_html_escaped(f, pg->page_title); fputs("</title>\n", f);
+
+  fputs("<!-- TACK:BEGIN HEAD_ASSETS -->\n", f);
+  if (pg->head_assets_html) fputs(pg->head_assets_html, f);
+  fputs("<!-- TACK:END HEAD_ASSETS -->\n", f);
+
+  fputs("</head><body>\n", f);
+
+  fputs("<!-- TACK:BEGIN NAV -->\n", f);
+  if (pg->nav_html) fputs(pg->nav_html, f);
+  fputs("<!-- TACK:END NAV -->\n", f);
+
+  fputs("<!-- TACK:BEGIN TOC -->\n", f);
+  if (pg->toc_html) fputs(pg->toc_html, f);
+  fputs("<!-- TACK:END TOC -->\n", f);
+
+  fputs("<!-- TACK:BEGIN CONTENT -->\n", f);
+  if (pg->emit_content) pg->emit_content(f, pg->content_ctx);
+  fputs("<!-- TACK:END CONTENT -->\n", f);
+
+  fputs("<!-- TACK:BEGIN FOOTER -->\n", f);
+  if (pg->emit_footer) pg->emit_footer(f, pg->footer_ctx);
+  fputs("<!-- TACK:END FOOTER -->\n", f);
+
+  fputs("</body></html>\n", f);
+  fclose(f);
+  return 0;
+}
+
+typedef struct {
+  const char *kind;          /* "doc" or "bom" */
+  const char *project_title; /* optional; escaped in template */
+  const char *css_href;      /* relative href for generated page (copied to outdir) */
+  const char *nav_inner;     /* inner links (a-tags) */
+} HtmlCfg;
+
+typedef struct {
+  char *md; /* owned; freed by caller */
+} MdCtx;
+
+static void emit_md_pre(FILE *out, void *ctx) {
+  MdCtx *m = (MdCtx*)ctx;
+  fputs("<main id=\"tack-content\"><pre>", out);
+  if (m && m->md) write_html_escaped(out, m->md);
+  fputs("</pre></main>\n", out);
+}
+
+static int write_doc_page(const char *out_path, const char *title, const char *nav_inner, const HtmlCfg *hc, const char *md_path) {
+  HtmlPage pg;
+  MdCtx mctx;
+  long n = 0;
+  char *md = 0;
+  char *head_assets = 0;
+  char *nav = 0;
+  char *toc = 0;
+  int rc;
+
+  md = read_entire_file(md_path, &n);
+  (void)n;
+
+  memset(&pg, 0, sizeof(pg));
+  memset(&mctx, 0, sizeof(mctx));
+  mctx.md = md;
+
+  head_assets = make_head_assets(hc ? hc->css_href : 0);
+  nav = make_nav_block(nav_inner);
+  toc = make_empty_toc_block();
+
+  pg.page_title = title;
+  pg.project_title = (hc && hc->project_title) ? hc->project_title : "tack";
+  pg.head_assets_html = head_assets;
+  pg.nav_html = nav;
+  pg.toc_html = toc;
+  pg.emit_content = emit_md_pre;
+  pg.content_ctx = &mctx;
+  pg.emit_footer = emit_footer_default;
+  pg.footer_ctx = 0;
+
+  rc = write_html_page(out_path, (hc && hc->kind) ? hc->kind : "doc", &pg);
+
+  free(head_assets);
+  free(nav);
+  free(toc);
+  if (md) free(md);
+
+  return rc;
+}
+
+typedef struct {
+  int has_readme;
+  int has_faq;
+  int has_roadmap;
+  int has_releasenotes;
+} DocIndexCtx;
+
+static void emit_doc_index(FILE *out, void *ctx) {
+  DocIndexCtx *d = (DocIndexCtx*)ctx;
+
+  fputs("<main id=\"tack-content\">", out);
+  fputs("<h1>tack docs</h1>", out);
+  fputs("<ul>", out);
+  if (!d || d->has_readme) fputs("<li><a href=\"readme.html\">README</a></li>", out);
+  if (!d || d->has_faq) fputs("<li><a href=\"faq.html\">FAQ</a></li>", out);
+  if (!d || d->has_roadmap) fputs("<li><a href=\"roadmap.html\">Roadmap</a></li>", out);
+  if (!d || d->has_releasenotes) fputs("<li><a href=\"releasenotes.html\">Release Notes</a></li>", out);
+  fputs("<li><a href=\"../bom.html\">BOM</a></li>", out);
+  fputs("</ul>", out);
+  fputs("<p>Generated by tack. Pages are simple offline HTML wrappers around Markdown (no JS).</p>", out);
+  fputs("</main>\n", out);
+}
+
+static void md_list_strings(FILE *f, const char *title, const char * const *lst) {
+  int i;
+  if (!lst) return;
+  fprintf(f, "### %s\n\n", title);
+  for (i = 0; lst[i]; i++) fprintf(f, "- `%s`\n", lst[i]);
+  fputc('\n', f);
+}
+
+static void md_list_sources(FILE *f, const char *title, StrVec *srcs) {
+  int i;
+  fprintf(f, "### %s\n\n", title);
+  for (i = 0; i < srcs->count; i++) fprintf(f, "- `%s`\n", srcs->items[i]);
+  fputc('\n', f);
+}
+
+static int gather_target_sources(StrVec *out, const Target *t) {
+  /* mirror build_one_target scanning rules */
+  if (!t || !t->enabled) return 1;
+
+  if (streq(t->name, "app") && streq(t->src_dir, g_src_dir) &&
+      file_exists(g_core_dir) && is_dir_path(g_core_dir)) {
+    scan_dir_recursive_suffix_skip(out, t->src_dir, ".c", "core");
+  } else {
+    scan_dir_recursive_suffix(out, t->src_dir, ".c");
+  }
+
+  /* allow legacy src/main.c when using src/app */
+  if (streq(t->name, "app") && streq(t->src_dir, g_app_dir)) {
+    if (file_exists("src/main.c")) sv_push(out, "src/main.c");
+  }
+
+  return 0;
+}
+
+static int cmd_bom(Profile p, TargetVec *tv, const Target *t, int verbose, int strict, int no_core,
+                   const char *outdir) {
+  FILE *f;
+  char bom_md[512];
+  char bom_html[512];
+  const TargetOverride *ov;
+  int use_core_effective;
+
+  StrVec srcs;
+  StrVec core_srcs;
+
+  const char *inc_common[5];
+
+  (void)tv;
+
+  if (!outdir) outdir = g_build_dir;
+
+  ensure_dir(outdir);
+  path_join(bom_md, sizeof(bom_md), outdir, "bom.md");
+  path_join(bom_html, sizeof(bom_html), outdir, "bom.html");
+
+  if (verbose) printf("tack: bom: writing %s and %s\n", bom_md, bom_html);
+
+  f = fopen(bom_md, "wb");
+  if (!f) {
+    fprintf(stderr, "tack: bom: cannot write %s\n", bom_md);
+    return 1;
+  }
+
+  fprintf(f, "# tack BOM (Build Manifest)\n\n");
+  fprintf(f, "- Generated: **");
+  fprint_time_local(f);
+  fprintf(f, "**\n");
+  fprintf(f, "- tack: **v%s**\n", TACK_VERSION);
+#ifdef _WIN32
+  fprintf(f, "- OS: **Windows**\n");
+#else
+  fprintf(f, "- OS: **POSIX**\n");
+#endif
+  fprintf(f, "- Compiler: **%s**\n", get_cc());
+  fprintf(f, "- Profile: **%s**\n", profile_name(p));
+  fprintf(f, "- Strict warnings: **%s**\n", strict ? "yes" : "no");
+  fprintf(f, "- Core forced off (--no-core): **%s**\n\n", no_core ? "yes" : "no");
+
+  fprintf(f, "## Configuration sources\n\n");
+  if (g_no_config) fprintf(f, "- tack.ini: **disabled** (`--no-config`)\n");
+  else if (g_config_loaded) fprintf(f, "- tack.ini: `%s`\n", g_config_path);
+  else fprintf(f, "- tack.ini: *(none)*\n");
+
+#ifdef TACK_USE_TACKFILE
+  fprintf(f, "- tackfile.c: **compile-time include** (`-DTACK_USE_TACKFILE`)\n");
+#else
+  if (file_exists("tackfile.c")) {
+    fprintf(f, "- tackfile.c: **runtime generator** (compiled & executed, fail-fast)\n");
+  } else {
+    fprintf(f, "- tackfile.c: *(none)*\n");
+  }
+#endif
+
+  fprintf(f, "\n## Target\n\n");
+  fprintf(f, "- name: `%s`\n", t->name);
+  fprintf(f, "- id: `%s`\n", t->id);
+  fprintf(f, "- src: `%s`\n", t->src_dir);
+  fprintf(f, "- bin: `%s`\n", t->bin_base);
+  fprintf(f, "- enabled: **%s**\n", t->enabled ? "yes" : "no");
+
+  ov = find_override(t->name);
+  use_core_effective = (ov && ov->use_core) ? 1 : 0;
+  if (no_core) use_core_effective = 0;
+  fprintf(f, "- core: **%s**\n\n", use_core_effective ? "yes" : "no");
+
+  fprintf(f, "## Effective flags\n\n");
+
+  fprintf(f, "### Common warnings\n\n");
+  {
+    int i;
+    for (i = 0; g_warn_flags_base[i]; i++) fprintf(f, "- `%s`\n", g_warn_flags_base[i]);
+    if (strict) {
+      for (i = 0; g_warn_flags_strict_add[i]; i++) fprintf(f, "- `%s`\n", g_warn_flags_strict_add[i]);
+    }
+    fputc('\n', f);
+  }
+
+  fprintf(f, "### Profile flags\n\n");
+  if (p == PROF_DEBUG) {
+    fprintf(f, "- `-g`\n- `-bt20`\n- `-DDEBUG=1`\n\n");
+  } else {
+    fprintf(f, "- `-O2`\n- `-DNDEBUG=1`\n\n");
+  }
+
+  /* common includes: include + target src dir + src + (optional core) */
+  inc_common[0] = g_inc_dir;
+  inc_common[1] = t->src_dir;
+  inc_common[2] = g_src_dir;
+  if (file_exists(g_core_dir) && is_dir_path(g_core_dir)) inc_common[3] = g_core_dir;
+  else inc_common[3] = 0;
+  inc_common[4] = 0;
+
+  md_list_strings(f, "Include search path (common)", inc_common);
+  if (ov && ov->includes) md_list_strings(f, "Target includes (extra)", ov->includes);
+  if (ov && ov->defines) md_list_strings(f, "Target defines (extra)", ov->defines);
+  if (ov && ov->cflags) md_list_strings(f, "Target cflags (extra)", ov->cflags);
+  if (ov && ov->ldflags) md_list_strings(f, "Target ldflags (extra)", ov->ldflags);
+  if (ov && ov->libs) md_list_strings(f, "Target libs (extra)", ov->libs);
+
+  sv_init(&srcs);
+  if (gather_target_sources(&srcs, t) != 0 || srcs.count == 0) {
+    fprintf(stderr, "tack: bom: cannot gather sources for %s\n", t->name);
+    sv_free(&srcs);
+    fclose(f);
+    return 1;
+  }
+
+  if (use_core_effective) {
+    sv_init(&core_srcs);
+    if (file_exists(g_core_dir) && is_dir_path(g_core_dir)) {
+      scan_dir_recursive_suffix(&core_srcs, g_core_dir, ".c");
+    }
+    md_list_sources(f, "Sources (core)", &core_srcs);
+    sv_free(&core_srcs);
+  }
+
+  md_list_sources(f, "Sources (target)", &srcs);
+  sv_free(&srcs);
+
+  fprintf(f, "## Notes\n\n");
+  fprintf(f, "- This BOM is a **build manifest**, not a full SBOM.\n");
+  fprintf(f, "- It reflects **effective tack configuration** (tack.ini/tackfile.c + defaults) and discovered sources.\n");
+  fprintf(f, "- For reproducible pipelines, commit `tack.ini` and (optionally) `tackfile.c`.\n");
+  fclose(f);
+
+  /* HTML: optional template wrapping */
+  {
+    HtmlCfg hc;
+    char css_href[256];
+    char css_dst[512];
+    const char *css_path;
+    const char *nav_inner = "<a href=\"doc/index.html\">Docs</a>";
+
+    memset(&hc, 0, sizeof(hc));
+    hc.kind = "bom";
+    hc.project_title = "tack";
+
+    css_href[0] = '\0';
+    css_path = choose_css("bom");
+    if (css_path && css_path[0] && !file_exists(css_path)) {
+      fprintf(stderr, "tack: bom: css not found: %s\n", css_path);
+      return 2;
+    }
+    if (css_path && css_path[0] && file_exists(css_path)) {
+      const char *base = path_base(css_path);
+      if (strlen(base) >= sizeof(css_href)) tack_die("css filename too long");
+      tack_copy(css_href, sizeof(css_href), base);
+      path_join(css_dst, sizeof(css_dst), outdir, css_href);
+      if (copy_file(css_path, css_dst) != 0) {
+        fprintf(stderr, "tack: bom: cannot copy css %s -> %s\n", css_path, css_dst);
+        return 1;
+      }
+      hc.css_href = css_href;
+    }
+
+  {
+    int rc2 = write_doc_page(bom_html, "tack BOM", nav_inner, &hc, bom_md);
+    if (rc2 != 0) return rc2;
+  }
+}
+
+  return 0;
+}
+
+static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int no_core,
+                   const char *outdir, Profile p) {
+  char docdir[512];
+  char idx[512];
+  int rc;
+
+  if (!outdir) outdir = "build/doc";
+
+  /* ensure build/ and doc/ */
+  ensure_dir("build");
+  ensure_dir("build/doc");
+  if (outdir && !streq(outdir, "build/doc")) ensure_dir(outdir);
+
+  tack_copy(docdir, sizeof(docdir), outdir);
+
+  /* generate BOM first (default: alongside doc output) */
+  {
+    char bomdir[512];
+    const char *d = docdir;
+    size_t dl = strlen(d);
+
+    /* fallback */
+    tack_copy(bomdir, sizeof(bomdir), "build");
+
+    /* trim trailing slashes */
+    while (dl > 0 && (d[dl - 1] == '/' || d[dl - 1] == '\\')) dl--;
+
+    /* if docdir ends with ".../doc", place BOM in parent directory; else use docdir */
+    if (dl >= 3 &&
+        (tolower((unsigned char)d[dl - 3]) == 'd') &&
+        (tolower((unsigned char)d[dl - 2]) == 'o') &&
+        (tolower((unsigned char)d[dl - 1]) == 'c')) {
+      size_t cut = dl - 3;
+      while (cut > 0 && (d[cut - 1] == '/' || d[cut - 1] == '\\')) cut--;
+      if (cut == 0) {
+        tack_copy(bomdir, sizeof(bomdir), ".");
+      } else {
+        if (cut >= sizeof(bomdir)) tack_die("path too long");
+        memcpy(bomdir, d, cut);
+        bomdir[cut] = '\0';
+      }
+    } else {
+      if (dl >= sizeof(bomdir)) tack_die("path too long");
+      memcpy(bomdir, d, dl);
+      bomdir[dl] = '\0';
+    }
+
+    rc = cmd_bom(p, tv, t, verbose, strict, no_core, bomdir);
+  }
+  if (rc != 0) return rc;
+
+  /* write pages */
+  {
+    const char *nav_inner =
+      "<a href=\"index.html\">Index</a> | "
+      "<a href=\"readme.html\">README</a> | "
+      "<a href=\"faq.html\">FAQ</a> | "
+      "<a href=\"roadmap.html\">Roadmap</a> | "
+      "<a href=\"releasenotes.html\">Release Notes</a> | "
+      "<a href=\"../bom.html\">BOM</a>";
+    HtmlCfg hc;
+    char css_href[256];
+    char css_dst[512];
+    const char *css_path;
+    char out[512];
+
+    memset(&hc, 0, sizeof(hc));
+    hc.kind = "doc";
+    hc.project_title = "tack";
+
+    css_href[0] = '\0';
+    css_path = choose_css("doc");
+    if (css_path && css_path[0] && !file_exists(css_path)) {
+      fprintf(stderr, "tack: doc: css not found: %s\n", css_path);
+      return 2;
+    }
+    if (css_path && css_path[0] && file_exists(css_path)) {
+      const char *base = path_base(css_path);
+
+      if (strlen(base) >= sizeof(css_href)) tack_die("css filename too long");
+      tack_copy(css_href, sizeof(css_href), base);
+      path_join(css_dst, sizeof(css_dst), docdir, css_href);
+
+      if (copy_file(css_path, css_dst) != 0) {
+        fprintf(stderr, "tack: doc: cannot copy css %s -> %s\n", css_path, css_dst);
+        return 1;
+      }
+
+      hc.css_href = css_href;
+    }
+
+    if (file_exists("README.md")) {
+      path_join(out, sizeof(out), docdir, "readme.html");
+      if (verbose) printf("tack: doc: %s\n", out);
+      { int rc2 = write_doc_page(out, "tack README", nav_inner, &hc, "README.md"); if (rc2 != 0) return rc2; }
+    }
+    if (file_exists("FAQ.md")) {
+      path_join(out, sizeof(out), docdir, "faq.html");
+      if (verbose) printf("tack: doc: %s\n", out);
+      { int rc2 = write_doc_page(out, "tack FAQ", nav_inner, &hc, "FAQ.md"); if (rc2 != 0) return rc2; }
+    }
+    if (file_exists("ROADMAP.md")) {
+      path_join(out, sizeof(out), docdir, "roadmap.html");
+      if (verbose) printf("tack: doc: %s\n", out);
+      { int rc2 = write_doc_page(out, "tack Roadmap", nav_inner, &hc, "ROADMAP.md"); if (rc2 != 0) return rc2; }
+    }
+    if (file_exists("RELEASENOTES.md")) {
+      path_join(out, sizeof(out), docdir, "releasenotes.html");
+      if (verbose) printf("tack: doc: %s\n", out);
+      { int rc2 = write_doc_page(out, "tack Release Notes", nav_inner, &hc, "RELEASENOTES.md"); if (rc2 != 0) return rc2; }
+    }
+
+    /* index */
+    path_join(idx, sizeof(idx), docdir, "index.html");
+    if (verbose) printf("tack: doc: %s\n", idx);
+    {
+      HtmlPage pg;
+      DocIndexCtx dctx;
+      char *head_assets = 0;
+      char *nav = 0;
+      char *toc = 0;
+
+      dctx.has_readme = file_exists("README.md");
+      dctx.has_faq = file_exists("FAQ.md");
+      dctx.has_roadmap = file_exists("ROADMAP.md");
+      dctx.has_releasenotes = file_exists("RELEASENOTES.md");
+
+      head_assets = make_head_assets(hc.css_href);
+      nav = make_nav_block(nav_inner);
+      toc = make_empty_toc_block();
+
+      memset(&pg, 0, sizeof(pg));
+      pg.page_title = "tack docs";
+      pg.project_title = "tack";
+      pg.head_assets_html = head_assets;
+      pg.nav_html = nav;
+      pg.toc_html = toc;
+      pg.emit_content = emit_doc_index;
+      pg.content_ctx = &dctx;
+      pg.emit_footer = emit_footer_default;
+      pg.footer_ctx = 0;
+
+      {
+        int rc2 = write_html_page(idx, "doc", &pg);
+        if (rc2 != 0) { free(head_assets); free(nav); free(toc); return rc2; }
+      }
+
+      free(head_assets);
+      free(nav);
+      free(toc);
+    }
+  }
+
+  printf("tack: doc: wrote %s\n", docdir);
+  return 0;
+}
+
 /* --------------------------- args --------------------------- */
 
 static Profile parse_profile(int *argi, int argc, char **argv) {
@@ -2953,6 +3690,7 @@ int main(int argc, char **argv) {
   argi = 1;
   while (argi < argc) {
     if (streq(argv[argi], "--no-config")) { g_no_config = 1; argi++; continue; }
+    if (streq(argv[argi], "--no-code-config")) { g_no_code_config = 1; argi++; continue; }
     if (streq(argv[argi], "--config")) {
       if (argi + 1 >= argc) { fprintf(stderr, "tack: --config needs PATH\n"); return 2; }
       g_config_path_cli = argv[argi + 1];
@@ -3012,6 +3750,59 @@ int main(int argc, char **argv) {
     else if (g_config_loaded) printf("config: %s\n", g_config_path);
     else printf("config: none\n");
     { int rc = cmd_list_targets(&tv); tv_free(&tv); config_free(); return rc; }
+  }
+
+
+  if (streq(cmd, "bom") || streq(cmd, "doc")) {
+    int verbose = 0;
+    int strict = 0;
+    int no_core = 0;
+    const char *outdir = 0;
+
+    int i = argi;
+    Profile p = parse_profile(&i, argc, argv);
+
+    const char *target_name = default_target_name();
+    const Target *t = 0;
+
+    for (; i < argc; i++) {
+      if (streq(argv[i], "-v") || streq(argv[i], "--verbose")) verbose = 1;
+      else if (streq(argv[i], "--strict")) strict = 1;
+      else if (streq(argv[i], "--no-core")) no_core = 1;
+      else if (streq(argv[i], "--target")) {
+        if (i + 1 >= argc) { fprintf(stderr, "tack: --target needs NAME\n"); tv_free(&tv); config_free(); return 2; }
+        target_name = argv[++i];
+      } else if (streq(argv[i], "--outdir")) {
+        if (i + 1 >= argc) { fprintf(stderr, "tack: --outdir needs DIR\n"); tv_free(&tv); config_free(); return 2; }
+        outdir = argv[++i];
+      } else {
+        fprintf(stderr, "tack: %s: unknown arg: %s\n", cmd, argv[i]);
+        tv_free(&tv);
+        config_free();
+        return 2;
+      }
+    }
+
+    t = find_target(&tv, target_name);
+    if (!t) {
+      fprintf(stderr, "tack: unknown target: %s\n", target_name);
+      fprintf(stderr, "tack: hint: use 'tack list'\n");
+      tv_free(&tv);
+      config_free();
+      return 2;
+    }
+
+    if (streq(cmd, "bom")) {
+      int rc = cmd_bom(p, &tv, t, verbose, strict, no_core, outdir);
+      tv_free(&tv);
+      config_free();
+      return rc;
+    } else {
+      int rc = cmd_doc(&tv, t, verbose, strict, no_core, outdir, p);
+      tv_free(&tv);
+      config_free();
+      return rc;
+    }
   }
 
   if (streq(cmd, "build") || streq(cmd, "run") || streq(cmd, "test")) {

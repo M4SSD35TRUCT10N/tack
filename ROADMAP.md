@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.0
+# tack ROADMAP (DE/EN) — v0.7.1
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -13,14 +13,33 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 - Dokumentation per **Projekt‑Port‑Report** (1 Seite pro Projekt)
 - Mini‑Matrix: Projekt × OS × Compiler × Status
 
-
 ### Erledigt in v0.7.0
 - `tack init` legt optional `.gitignore` sowie `.fossil-settings/ignore-glob` an und **überschreibt nichts** (non-destructive, tack-Block wird nur angehängt, wenn er fehlt).
+### Erledigt in v0.7.1
+- `tack bom`: erzeugt ein Build‑Manifest (BOM) als `build/bom.md` und `build/bom.html`.
+- `tack doc`: erzeugt offline HTML‑Doku in `build/doc/` (Wrapper um Markdown) und verlinkt die BOM.
+- Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
+- HTML-Ausgabe: stabile Template-Ankerpunkte (Marker + IDs) für CSS-Hooks und optionales Post-Processing.
+
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
 - Optional: bessere Windows Long‑Path Guidance
 - Optional: schnellere Incremental‑Builds (Caching / Rebuild-Reasons)
 - Optional: bessere Diagnose-Ausgaben (z.B. „why rebuild“)
+
+### Geplant: DOC/BOM HTML-Refinement (CSS-first)
+- Einheitliches HTML-Layout für DOC + BOM (Navigation, Typografie, Druck-Stile).
+- System hell/dunkel per CSS (`prefers-color-scheme`), optional hoher Kontrast.
+- Optional: Template-Support (ein Layout + CSS), konfigurierbar via `tack.ini`.
+- Suche: Index-first (ohne JS). Optional: minimale JS-Suche als Progressive Enhancement.
+
+### Geplant: SBOM-Export
+- CycloneDX JSON Export (Komponenten + Abhängigkeitsgraph), konfigurierbar via `tack.ini`.
+- Deterministische Ausgabe (keine Versions-Ratespiele aus Linker-Flags).
+- Optional: Datei-Hashes (z.B. SHA-256) und Lizenz-Hinweise, sofern vorhanden.
+- SPDX Export ggf. später (höhere Komplexität).
+
+---
 
 ### Paketmanagement (Idee / Untersuchungen)
 C hat kein Standard‑Paketmanagement wie Rust. Ein tack‑eigenes System wäre ein USP, aber nur mit sehr klarer Scope‑Definition:
@@ -40,11 +59,32 @@ Before “big” releases and announcements, tack should be validated against re
 - Document each attempt with a one-page **Project Port Report**
 - Maintain a small matrix: Project × OS × Compiler × Status
 
+### Done in v0.7.0
+- `tack init` optionally creates `.gitignore` and `.fossil-settings/ignore-glob` and **does not overwrite anything** (non-destructive, tack block is only appended if it is missing).
+### Done in v0.7.1
+- `tack bom`: generates a build manifest (BOM) as `build/bom.md` and `build/bom.html`.
+- `tack doc`: generates offline HTML documentation in `build/doc/` (wrapper around Markdown) and links to the BOM.
+- Optional: HTML templates + CSS for DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
+- HTML output: stable template anchor markers (markers + IDs) for CSS hooks and optional post-processing.
+
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs
 - Optional: better Windows long-path guidance
 - Optional: faster incremental builds (caching / rebuild reasons)
 - Optional: improved diagnostics (“why rebuild”)
+
+
+### Planned: DOC/BOM HTML refinement (CSS-first)
+- Unified HTML layout for DOC + BOM (navigation, typography, print styles).
+- System light/dark via CSS (`prefers-color-scheme`), optional high-contrast.
+- Optional template support (single layout + CSS), configurable via `tack.ini`.
+- Search: index-first (no JS). Optional minimal JS search as progressive enhancement.
+
+### Planned: SBOM export
+- CycloneDX JSON export (components + dependency graph), configurable via `tack.ini`.
+- Deterministic output (avoid guessing versions from linker flags).
+- Optional file hashes (e.g. SHA-256) and license hints when present.
+- SPDX export may follow later (higher complexity).
 
 ### Package management (idea / research)
 C has no standard package manager. A tack-native approach could be a USP, but needs strict scope:

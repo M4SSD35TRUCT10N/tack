@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.0)
+# tack — Tiny ANSI-C Kit (v0.7.1)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.0)
+## Features (v0.7.1)
 
 - Single-file Build Driver (C89)
 - Kein Make/CMake/Ninja
@@ -62,6 +62,10 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - Strict Mode: `--strict` aktiviert zusätzlich `-Wunsupported`
 - Echte Target-Konfiguration: Includes/Defines/CFLAGS/LDFLAGS/LIBS pro Target
 - Shared Core Code: `src/core/` wird 1× pro Profil gebaut und optional gelinkt
+- `tack bom`: erzeugt ein Build-Manifest (BOM) als `build/bom.md` und `build/bom.html`.
+- `tack doc`: erzeugt offline HTML-Doku in `build/doc/` (Wrapper um Markdown) und verlinkt die BOM.
+- Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
+- HTML-Ausgabe: stabile Template-Ankerpunkte (Marker + IDs) für CSS-Hooks und optionales Post-Processing.
 - **Konfiguration / Layering**:
   - `tack.ini` (runtime, data-only, auto-load; höchste Priorität)
   - `tackfile.c` (optional, runtime → generiertes INI-Layer; niedrigere Priorität als `tack.ini`)
@@ -83,6 +87,22 @@ Dieses Repo legt `tack` unter `src/tack.c` ab. Du kannst es aber auch in die Rep
   - `tools/<name>/` → Target `tool:<name>` (1 Ebene tief; Quellen darunter rekursiv)
 - **Tests**
   - `tests/**/*_test.c` → wird gebaut und ausgeführt
+
+## BOM, SBOM und DOC – was ist was?
+
+tack kann zwei Arten von „Dokumentation“ ausgeben, die oft verwechselt werden:
+
+- **DOC**: eine kleine, offline-fähige Projekt-Doku-Site (README/FAQ/ROADMAP/RELEASENOTES usw.).  
+  Das ist **keine** automatisch generierte API-Dokumentation wie bei `cargo doc`/`rustdoc`.
+- **BOM**: ein **Build-Manifest** für das konkrete Build (Targets, Inputs, Flags, Toolchain/OS, Output-Pfade).  
+  Zweck: Debugging, Nachvollziehbarkeit, Reproduzierbarkeit.
+- **SBOM**: eine **Software Bill Of Materials** im Supply-Chain-Sinne (Komponenten + Abhängigkeiten, z.B. CycloneDX/SPDX).  
+  **SBOM-Export ist geplant.** Das tack-BOM vermeidet bewusst Ratespiele (z.B. wird aus `-lssl` keine konkrete OpenSSL-Version „erraten“).
+
+### Suche / „cargo-like UI“
+Die erzeugten HTML-Seiten sind bewusst **CSS-first** und funktionieren offline.  
+Eine echte Volltextsuche ist ohne JavaScript nur sehr eingeschränkt möglich; ohne JS gilt: Index + Browser-Suche (Strg+F).  
+Eine optionale, kleine JS-Suche (Progressive Enhancement) ist denkbar, bleibt aber optional.
 
 ## Quickstart
 
@@ -137,6 +157,13 @@ tack.exe --no-auto-tools list
 - `clean` – Inhalt von `build/` löschen, Ordner bleibt
 - `clobber` – `build/` komplett löschen
 
+### Exitcodes
+
+- **0** – Erfolg
+- **1** – Laufzeitfehler (z.B. Compiler/Linker-Fehler, I/O, Kopieren von Assets)
+- **2** – Usage-/Konfigurationsfehler (CLI-Argumente, ungültige INI, fehlende Template/CSS-Datei, fehlendes Pflicht-Token im Template)
+
+
 ### Warum “clean” und “clobber” (statt distclean)?
 `distclean` stammt aus Make-Welten („putze auch generierte Konfig“).  
 Bei tack ist es klar getrennt:
@@ -152,6 +179,9 @@ Wenn `tack.ini` vorhanden ist (oder per `--config PATH` gesetzt wird), lädt tac
 **Sektionen**
 - `[project]`
 - `[target "NAME"]` (oder ohne Quotes: `[target tool:foo]`)
+- `[doc]` (optional: HTML-Template/CSS für `tack doc`)
+- `[bom]` (optional: HTML-Template/CSS für `tack bom`)
+- `[sbom]` (reserviert für zukünftigen SBOM-Export)
 
 **Schlüssel in `[project]`**
 - `default_target = app`
@@ -169,6 +199,11 @@ Wenn `tack.ini` vorhanden ist (oder per `--config PATH` gesetzt wird), lädt tac
 - `cflags   = ...`     (Tokens, per `;` getrennt)
 - `ldflags  = ...`     (Tokens, per `;` getrennt)
 - `libs     = ...`     (Tokens, per `;` getrennt)
+
+**Flag-Semantik (CFLAGS/DFLAGS/LFLAGS)**  
+- `includes`, `defines`, `cflags`, `ldflags`, `libs` sind **Extra-Listen**. tack ergänzt sie zu seinen internen Basis-Flags (Warnungen + Profil-Flags wie `-g`/`-O2`).  
+- Pro Target gilt: Werte aus `tack.ini` **ersetzen** die entsprechenden Extra-Listen aus `tackfile.c`/Built-ins (es wird nicht „zusammenaddiert“).  
+- Built-ins bleiben als Fallback aktiv, solange in `tack.ini` kein Target-Override für den betreffenden Schlüssel gesetzt ist.
 
 **Listen-Format:** Primär Semikolon-getrennt (`;`). Ab **v0.6.5** werden zusätzlich **Whitespace** als Trenner sowie **quotierte Tokens** unterstützt (z. B. Pfade mit Leerzeichen). Empfehlung: `;` nutzen, weil es am klarsten ist.  
 Leerzeichen um Tokens herum sind ok, aber Tokens sollten keine eingebetteten Leerzeichen enthalten.
@@ -208,6 +243,46 @@ Wenn `tackfile.c` im Projekt-Root existiert, dann:
 3. tack lädt diese generierte INI als **Low-Priority-Layer** (unterhalb von `tack.ini`)
 
 Wenn `tackfile.c` **nicht** kompiliert oder ausgeführt werden kann, bricht tack mit Fehler ab (fail-fast).
+
+#### `[doc]` / `[bom]` — HTML-Template und CSS (optional)
+
+Diese Sektionen sind optional. Ohne Eintrag nutzt tack das eingebaute HTML-Layout. Ein Template wird nur verwendet, wenn `template = ...` gesetzt ist.
+
+**Fail-Fast:** Wenn `template` oder `css` gesetzt ist, die Datei aber fehlt oder nicht gelesen werden kann, bricht tack mit **Exitcode 2** ab.
+
+**Empfehlung:** Templates als `templates/` neben `src/` im Repo ablegen (Assets, kein Quellcode).
+
+**Schlüssel**
+- `template = PATH` (HTML-Datei; wird gelesen, Standardlimit max. 1 MiB; nicht in den Output kopiert)
+- `css = PATH` (CSS-Datei; wird in den Output kopiert und per `<link>` eingebunden)
+
+**Fallback-Regel für BOM:** Wenn `[bom]` nicht gesetzt ist, nutzt BOM die Werte aus `[doc]`.
+
+Beispiel:
+```ini
+[doc]
+template = templates/tack_template_min.html
+css      = templates/tack_doc.css
+
+[bom]
+; optional: wenn nicht gesetzt, greift der Fallback auf [doc]
+template = templates/tack_template_min.html
+css      = templates/tack_doc.css
+```
+
+**Template-Platzhalter**
+- `{{TACK_PAGE_TITLE}}` (escaped)
+- `{{TACK_PROJECT_TITLE}}` (escaped)
+- `{{TACK_HEAD_ASSETS}}`
+- `{{TACK_NAV_HTML}}`
+- `{{TACK_TOC_HTML}}`
+- `{{TACK_CONTENT_HTML}}` (**Pflicht**, sonst Fehler)
+- `{{TACK_FOOTER_HTML}}`
+
+Der Output enthält stabile Marker (`<!-- TACK:BEGIN ... -->`) und IDs (`#tack-nav`, `#tack-content`, `#tack-footer`) als Vertrag für CSS-Hooks und optionales Post-Processing.
+
+- **IDs** werden immer von tack erzeugt (NAV/CONTENT/FOOTER).
+- **Marker** kommen entweder aus dem eingebauten Layout **oder** aus dem Template. Wenn ein eigenes Template verwendet wird und Marker benötigt werden, müssen sie im Template um die Platzhalter liegen (die shipped Templates machen das so).
 
 **Warum so?**  
 Viele Teams wollen „nur Daten“ (`tack.ini`) – aber manchmal brauchst du Code, um Targets dynamisch zu definieren. Mit dem Generator-Ansatz bleibt der Host (`tack.exe`) stabil, und du bekommst trotzdem Code-Flexibilität.
@@ -345,7 +420,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.6.6)
+## Features (v0.7.1)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -359,6 +434,10 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - strict mode: `--strict` enables `-Wunsupported` (default suppresses it)
 - real per‑target config: includes/defines/cflags/ldflags/libs/core
 - Shared core code: `src/core/` built once per profile, optionally linked
+- `tack bom`: generates a build manifest (BOM) as `build/bom.md` and `build/bom.html`.
+- `tack doc`: generates offline HTML docs in `build/doc/` (wrapper around Markdown) and links the BOM.
+- Optional: HTML templates + CSS for DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
+- HTML output: stable template anchor markers (markers + IDs) for CSS hooks and optional post-processing.
 - **Configuration layering**:
   - `tack.ini` (runtime, data‑only, auto‑load; highest priority)
   - `tackfile.c` (optional, runtime → generated INI layer; lower priority than `tack.ini`)
@@ -379,6 +458,22 @@ This repo keeps tack at `src/tack.c`. You may also place it in the repo root —
   - `tools/<name>/` → target `tool:<name>` (one level deep; sources below scanned recursively)
 - **Tests**
   - `tests/**/*_test.c` (built and executed)
+
+## BOM, SBOM and DOC — what is what?
+
+tack can output two kinds of “documentation” that are often mixed up:
+
+- **DOC**: a small, offline-friendly project documentation site (README/FAQ/ROADMAP/RELEASENOTES, etc.).  
+  This is **not** automatically generated API documentation like `cargo doc`/`rustdoc`.
+- **BOM**: a **build manifest** for a specific build (targets, inputs, flags, toolchain/OS, output paths).  
+  Purpose: debugging, traceability, reproducibility.
+- **SBOM**: a **Software Bill of Materials** in the supply-chain sense (components + dependencies, e.g. CycloneDX/SPDX).  
+  **SBOM export is planned.** The tack BOM intentionally avoids guesswork (e.g. it does not try to infer an exact OpenSSL version from `-lssl`).
+
+### Search / “cargo-like UI”
+The generated HTML is intentionally **CSS-first** and works offline.  
+Full-text search without JavaScript is very limited; without JS use the index page + browser search (Ctrl+F).  
+An optional minimal JS search (progressive enhancement) is possible, but remains optional.
 
 ## Quickstart
 
@@ -431,6 +526,13 @@ tack.exe --no-auto-tools list
 - `clean` – delete contents of `build/` (keep directory)
 - `clobber` – delete `build/` entirely
 
+### Exit codes
+
+- **0** – success
+- **1** – runtime failure (e.g., compiler/linker errors, I/O, asset copy failures)
+- **2** – usage/config failure (CLI args, invalid INI, missing template/CSS file, missing required template token)
+
+
 ## Configuration
 
 ### 1) `tack.ini` — data-only config (recommended)
@@ -438,6 +540,20 @@ tack.exe --no-auto-tools list
 Auto-loaded if present (or via `--config`), unless `--no-config` is set.
 
 See the German section above for the full key list. The format is the same.
+
+**DOC/BOM templates (optional, v0.7.1)**  
+`tack.ini` may also contain `[doc]` and `[bom]` sections with `template = PATH` and `css = PATH`.  
+A `templates/` folder next to `src/` is recommended. The template must contain `{{TACK_CONTENT_HTML}}` (required).
+
+Fail-fast behavior:
+- If `template = PATH` is set and the file is missing or not readable, tack exits with **code 2**.
+- If `css = PATH` is set and the file is missing or not readable, tack exits with **code 2**.
+- If the template does not contain `{{TACK_CONTENT_HTML}}`, tack exits with **code 2**.
+
+Marker contract:
+- tack always emits stable IDs (`#tack-nav`, `#tack-content`, `#tack-footer`).
+- Marker comments (`<!-- TACK:BEGIN ... -->`) are provided by the built-in layout or by your template. If you rely on markers with a custom template, wrap the placeholders with the marker comments (see the shipped templates).
+
 
 ### 2) `tackfile.c` — optional code config (runtime, fail-fast)
 
@@ -488,7 +604,6 @@ tack.exe build debug --strict
 ```
 
 ## Security posture
-
 `tack` is a developer tool: it scans your repo and spawns compilers/tools. It is **not** a hardened security product, but v0.6.1+ is much more robust (fail‑fast).
 
 Practical rules:

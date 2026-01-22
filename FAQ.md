@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.0
+# tack FAQ / FQA (DE/EN) — v0.7.1
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -63,6 +63,65 @@ tack baut Pfade dynamisch, nutzt aber trotzdem harte Limits (fail-fast). Wenn de
 
 ---
 
+### Was ist der Unterschied zwischen BOM und SBOM?
+
+**tack BOM** ist ein *Build-Manifest*: es beschreibt, *wie ein konkretes Build erzeugt wurde* (Targets, Inputs, Flags, Toolchain/OS, Outputs).
+
+Eine **SBOM** (Software Bill of Materials) ist ein Supply-Chain-Artefakt (Komponenten + Abhängigkeiten, z.B. CycloneDX/SPDX).  
+Ein SBOM-Export ist **geplant**. Das tack-BOM vermeidet bewusst Ratespiele (z.B. keine Versionsableitung aus Linker-Flags).
+
+### Erzeugt `tack doc` API-Dokumentation wie `cargo doc` / rustdoc?
+
+Nein. `tack doc` erzeugt eine kleine, offline-fähige Projekt-Doku-Site (README/FAQ/ROADMAP/RELEASENOTES usw.).  
+Automatische API-Dokumentation für C würde einen Parser/Indexer erfordern und ist aktuell nicht Teil des `doc`-Features.
+
+### Wird das erzeugte HTML Themes (Hell/Dunkel/Hoher Kontrast) und Templates unterstützen?
+
+Geplant. Ziel ist CSS-first (System hell/dunkel über `prefers-color-scheme`) und optional hoher Kontrast.  
+Ein simples Template-System (ein Layout + CSS) ist geplant und soll über `tack.ini` konfigurierbar sein.
+
+### Gibt es eine Volltextsuche in der HTML-Doku?
+
+Nicht standardmäßig. Die HTML-Ausgabe ist so entworfen, dass sie ohne JavaScript funktioniert.  
+Ohne JS gilt: Index-Seite + Browser-Suche (Strg+F). Eine optionale, kleine JS-Suche (Progressive Enhancement) ist denkbar.
+
+### Ergänzen oder überschreiben Werte in `tack.ini` die Flags aus Built-ins / tackfile?
+
+Pro Target ersetzen Listenwerte in `tack.ini` (z.B. `cflags`, `defines`, `ldflags`, `libs`) die entsprechenden Extra-Listen aus `tackfile.c` / Built-ins.  
+Diese Extra-Listen werden anschließend zu tacks internen Basis-Flags hinzugefügt (Warnungen + Profil-Flags wie `-g` / `-O2`).
+
+### Unterstützt die HTML-Ausgabe Templates und CSS?
+
+Ja. Standardmäßig nutzt tack ein eingebautes HTML-Layout. Ab v0.7.1 kann die Ausgabe für `tack doc` und `tack bom` optional über ein externes Template gestaltet werden:
+
+```ini
+[doc]
+template = templates/tack_template_min.html
+css      = templates/tack_doc.css
+
+[bom]
+; optional: wenn nicht gesetzt, verwendet BOM die DOC-Werte als Fallback
+template = templates/tack_template_min.html
+css      = templates/tack_doc.css
+```
+
+Empfohlen ist ein Ordner `templates/` neben `src/` (Assets, kein Quellcode). `css` wird in den Output kopiert und per `<link>` eingebunden; `template` wird nur gelesen.
+
+**Fail-Fast:** Wenn `template` oder `css` gesetzt ist, die Datei aber fehlt oder nicht gelesen werden kann, bricht tack mit **Exitcode 2** ab.
+
+### Welche Platzhalter unterstützt das HTML-Template?
+
+- `{{TACK_PAGE_TITLE}}` (escaped)
+- `{{TACK_PROJECT_TITLE}}` (escaped)
+- `{{TACK_HEAD_ASSETS}}`
+- `{{TACK_NAV_HTML}}`
+- `{{TACK_TOC_HTML}}` (derzeit leer, aber als Markerblock vorhanden)
+- `{{TACK_CONTENT_HTML}}` (**Pflicht**, sonst Fehler)
+- `{{TACK_FOOTER_HTML}}`
+
+Der Output enthält stabile IDs (`#tack-nav`, `#tack-content`, `#tack-footer`) als Vertrag für CSS-Hooks.
+Marker-Kommentare (`<!-- TACK:BEGIN ... -->`) liefert das eingebaute Layout oder (bei Template-Ausgabe) das Template selbst. Wenn Marker für Post-Processing benötigt werden, müssen sie im Template um die Platzhalter liegen (siehe shipped Templates).
+
 ## English (FAQ)
 
 ### Is tack a replacement for CMake/make?
@@ -112,6 +171,67 @@ tack intentionally aborts on:
 - recursion depth limits (scan/rm)
 - token/list limits
 - tackfile.c generator failures
+
+---
+
+### What is the difference between BOM and SBOM?
+
+**tack BOM** is a *build manifest*: it describes **how a specific build was produced** (targets, inputs, flags, toolchain/OS, outputs).
+
+An **SBOM** (Software Bill of Materials) is a supply-chain artifact (components + dependencies, e.g. CycloneDX/SPDX).  
+SBOM export is **planned**. tack BOM intentionally avoids guesswork (e.g. it does not try to infer exact library versions from linker flags).
+
+### Does `tack doc` generate API docs like `cargo doc` / rustdoc?
+
+No. `tack doc` is a small, offline project documentation site (README/FAQ/ROADMAP/RELEASENOTES, etc.).  
+Automatic API documentation for C would require a parser/indexer and is out of scope for the current `doc` feature.
+
+### Will the generated HTML support themes (light/dark/high-contrast) and templates?
+
+Planned. The goal is CSS-first output (system light/dark via `prefers-color-scheme`) and optional high-contrast support.  
+A simple template mechanism (single layout + CSS) is planned and will be configurable via `tack.ini`.
+
+### Is there full-text search in the generated docs?
+
+Not by default. The HTML output is designed to work without JavaScript.  
+Without JS, use the index page + browser search (Ctrl+F). An optional minimal JS search (progressive enhancement) may be added later.
+
+### Do values in `tack.ini` extend or replace flags from built-ins / tackfile?
+
+For a given target, list values in `tack.ini` (e.g. `cflags`, `defines`, `ldflags`, `libs`) **replace** the corresponding extra lists from `tackfile.c` / built-ins.  
+These extra lists are then appended to tack’s internal base flags (warnings + profile flags such as `-g` / `-O2`).
+
+### Does the HTML output support templates and CSS?
+
+Yes. By default, tack uses a built-in HTML layout. As of v0.7.1, `tack doc` and `tack bom` may optionally use an external template:
+
+```ini
+[doc]
+template = templates/tack_template_min.html
+css      = templates/tack_doc.css
+
+[bom]
+; optional: if not set, BOM falls back to DOC values
+template = templates/tack_template_min.html
+css      = templates/tack_doc.css
+```
+
+A `templates/` folder next to `src/` is recommended (assets, not source code). `css` is copied into the output and referenced via `<link>`; `template` is read only.
+
+Fail-fast: If `template` or `css` is set but the file is missing or not readable, tack exits with **code 2**.
+
+### Which placeholders does the HTML template support?
+
+- `{{TACK_PAGE_TITLE}}` (escaped)
+- `{{TACK_PROJECT_TITLE}}` (escaped)
+- `{{TACK_HEAD_ASSETS}}`
+- `{{TACK_NAV_HTML}}`
+- `{{TACK_TOC_HTML}}` (currently empty, but emitted as a marker block)
+- `{{TACK_CONTENT_HTML}}` (**required**, otherwise error)
+- `{{TACK_FOOTER_HTML}}`
+
+The output always includes stable IDs (`#tack-nav`, `#tack-content`, `#tack-footer`) as a contract for CSS hooks.
+Marker comments (`<!-- TACK:BEGIN ... -->`) are provided by the built-in layout or by your template. If you rely on markers with a custom template, wrap the placeholders with the marker comments (see the shipped templates).
 
 ---
 
