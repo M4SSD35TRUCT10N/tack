@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.7.1
+ * v0.7.2
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -38,6 +38,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
@@ -61,7 +62,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.7.1"
+#define TACK_VERSION "0.7.2"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -1076,7 +1077,26 @@ static void av_terminate(Argv *v) {
 
 /* --------------------------- dep parsing --------------------------- */
 
-static int depfile_needs_rebuild(const char *obj_path, const char *dep_path) {
+/* "Why rebuild" diagnostics (optional)
+ *
+ * The build engine is intentionally simple: it rebuilds when
+ *   - output is missing
+ *   - input is newer than output
+ *   - depfile or any listed dependency is missing/newer
+ *   - forced via --rebuild
+ */
+
+static void tack_snprintf(char *dst, size_t dst_sz, const char *fmt, ...) {
+  va_list ap;
+  if (!dst || dst_sz == 0) return;
+  va_start(ap, fmt);
+  (void)vsnprintf(dst, dst_sz, fmt, ap);
+  va_end(ap);
+  dst[dst_sz - 1] = '\0';
+}
+
+static int depfile_needs_rebuild_explain(const char *obj_path, const char *dep_path,
+                                        char *why, size_t why_sz) {
 #if USE_DEPFILES
   FILE *f;
   long obj_t;
@@ -1086,10 +1106,16 @@ static int depfile_needs_rebuild(const char *obj_path, const char *dep_path) {
   int seen_colon;
 
   obj_t = file_mtime(obj_path);
-  if (obj_t < 0) return 1;
+  if (obj_t < 0) {
+    tack_snprintf(why, why_sz, "output missing or unreadable");
+    return 1;
+  }
 
   f = fopen(dep_path, "rb");
-  if (!f) return 1;
+  if (!f) {
+    tack_snprintf(why, why_sz, "depfile missing: %s", dep_path);
+    return 1;
+  }
 
   ti = 0;
   seen_colon = 0;
@@ -1099,15 +1125,43 @@ static int depfile_needs_rebuild(const char *obj_path, const char *dep_path) {
       int n = fgetc(f);
       if (n == '\n' || n == '\r') continue;
       if (n == EOF) break;
-      /* escaped char (including space) becomes part of token */
+
+      /* In make-style depfiles, backslash is used for line continuations and to
+         escape whitespace. On Windows, dep generators may also emit backslashes
+         as path separators. Preserve them unless they clearly escape whitespace
+         or another backslash. */
+      if (n == ' ' || n == '\t' || n == '\\') {
       if (ti < (int)sizeof(tok) - 1) tok[ti++] = (char)n;
+      } else {
+        if (ti < (int)sizeof(tok) - 1) tok[ti++] = '\\';
+        if (ti < (int)sizeof(tok) - 1) tok[ti++] = (char)n;
+      }
       continue;
     }
 
     if (c == ':' && !seen_colon) {
+      int n = fgetc(f);
+
+      /* Windows depfiles may contain absolute paths like C:\path\file.h.
+         In that case the first ':' is part of the drive letter. Treat ':' as the
+         rule separator only if it is followed by whitespace. */
+      if (n == EOF) {
       tok[ti] = '\0';
       ti = 0;
       seen_colon = 1;
+        break;
+      }
+
+      if (isspace((unsigned char)n)) {
+        tok[ti] = '\0';
+        ti = 0;
+        seen_colon = 1;
+        continue;
+      }
+
+      /* Not a rule separator: keep ':' and the next char as part of the token. */
+      if (ti < (int)sizeof(tok) - 1) tok[ti++] = ':';
+      if (ti < (int)sizeof(tok) - 1) tok[ti++] = (char)n;
       continue;
     }
 
@@ -1117,7 +1171,16 @@ static int depfile_needs_rebuild(const char *obj_path, const char *dep_path) {
         ti = 0;
         if (seen_colon) {
           long dt = file_mtime(tok);
-          if (dt < 0 || dt > obj_t) { fclose(f); return 1; }
+          if (dt < 0) {
+            tack_snprintf(why, why_sz, "dependency missing: %s", tok);
+            fclose(f);
+            return 1;
+          }
+          if (dt > obj_t) {
+            tack_snprintf(why, why_sz, "dependency newer than output: %s", tok);
+            fclose(f);
+            return 1;
+          }
         }
       }
       continue;
@@ -1130,7 +1193,16 @@ static int depfile_needs_rebuild(const char *obj_path, const char *dep_path) {
     tok[ti] = '\0';
     {
       long dt = file_mtime(tok);
-      if (dt < 0 || dt > obj_t) { fclose(f); return 1; }
+      if (dt < 0) {
+        tack_snprintf(why, why_sz, "dependency missing: %s", tok);
+        fclose(f);
+        return 1;
+      }
+      if (dt > obj_t) {
+        tack_snprintf(why, why_sz, "dependency newer than output: %s", tok);
+        fclose(f);
+        return 1;
+      }
     }
   }
 
@@ -1138,23 +1210,85 @@ static int depfile_needs_rebuild(const char *obj_path, const char *dep_path) {
   return 0;
 #else
   (void)obj_path; (void)dep_path;
+  tack_snprintf(why, why_sz, "depfiles disabled (conservative rebuild)");
   return 1;
 #endif
 }
 
-static int obj_needs_rebuild(const char *obj_path, const char *src_path, const char *dep_path, int force) {
+static int obj_needs_rebuild_explain(const char *obj_path, const char *src_path,
+                                    const char *dep_path, int force,
+                                    char *why, size_t why_sz) {
   long obj_t, src_t;
-  if (force) return 1;
+
+  if (force) {
+    tack_snprintf(why, why_sz, "forced (--rebuild)");
+    return 1;
+  }
+
   obj_t = file_mtime(obj_path);
-  if (obj_t < 0) return 1;
+  if (obj_t < 0) {
+    tack_snprintf(why, why_sz, "output missing: %s", obj_path);
+    return 1;
+  }
+
   src_t = file_mtime(src_path);
-  if (src_t < 0) return 1;
-  if (src_t > obj_t) return 1;
+  if (src_t < 0) {
+    tack_snprintf(why, why_sz, "source missing: %s", src_path);
+    return 1;
+  }
+
+  if (src_t > obj_t) {
+    tack_snprintf(why, why_sz, "source newer than output: %s", src_path);
+    return 1;
+  }
+
 #if USE_DEPFILES
-  if (depfile_needs_rebuild(obj_path, dep_path)) return 1;
+  if (depfile_needs_rebuild_explain(obj_path, dep_path, why, why_sz)) return 1;
 #else
   (void)dep_path;
+  tack_snprintf(why, why_sz, "depfiles disabled (conservative rebuild)");
+  return 1;
 #endif
+
+  tack_snprintf(why, why_sz, "up to date");
+  return 0;
+}
+
+static int exe_needs_relink_explain(const char *out_exe, StrVec *inputs, int force,
+                                   char *why, size_t why_sz) {
+  int i;
+  long exe_t;
+
+  if (force) {
+    tack_snprintf(why, why_sz, "forced (--rebuild)");
+    return 1;
+  }
+
+  if (!file_exists(out_exe)) {
+    tack_snprintf(why, why_sz, "output missing: %s", out_exe);
+    return 1;
+  }
+
+  exe_t = file_mtime(out_exe);
+  if (exe_t < 0) {
+    tack_snprintf(why, why_sz, "output unreadable: %s", out_exe);
+    return 1;
+  }
+
+  for (i = 0; i < inputs->count; i++) {
+    const char *in = inputs->items[i];
+    long it = file_mtime(in);
+    if (it < 0) {
+      tack_snprintf(why, why_sz, "input missing: %s", in);
+      return 1;
+    }
+    if (it > exe_t) {
+      tack_snprintf(why, why_sz, "input newer than output: %s", in);
+      return 1;
+    }
+  }
+
+  tack_snprintf(why, why_sz, "up to date");
   return 0;
 }
 
@@ -2319,7 +2453,7 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
                            const char * const *inc_extra,
                            const char * const *def_extra,
                            const char * const *cflags_extra,
-                           Profile p, int verbose, int force, int jobs, int strict,
+                           Profile p, int verbose, int why, int force, int jobs, int strict,
                            StrVec *out_objs) {
   Proc *running;
   int running_n;
@@ -2344,7 +2478,14 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
 
     sv_push(out_objs, obj_path);
 
-    if (!obj_needs_rebuild(obj_path, src, dep_path, force)) continue;
+    {
+      char why_msg[512];
+      int need;
+      need = obj_needs_rebuild_explain(obj_path, src, dep_path, force,
+                                       why ? why_msg : 0, why ? sizeof(why_msg) : 0);
+      if (!need) continue;
+      if (why) printf("why rebuild: %s <- %s (%s)\n", obj_path, src, why_msg);
+    }
 
     /* build argv */
     {
@@ -2507,7 +2648,7 @@ static int link_executable(const char *cc, const char *out_exe,
 
 /* --------------------------- core + target build --------------------------- */
 
-static int build_core(Profile p, int verbose, int force, int jobs, int strict, StrVec *out_core_objs) {
+static int build_core(Profile p, int verbose, int why, int force, int jobs, int strict, StrVec *out_core_objs) {
   const char *cc;
   StrVec core_srcs;
   char root[512], objd[512], depd[512], bind[512];
@@ -2554,7 +2695,7 @@ static int build_core(Profile p, int verbose, int force, int jobs, int strict, S
 
   if (compile_sources(cc, &core_srcs, objd, depd,
                       inc_common, 0, 0, 0,
-                      p, verbose, force, jobs, strict,
+                      p, verbose, why, force, jobs, strict,
                       out_core_objs) != 0) {
     sv_free(&core_srcs);
     return 1;
@@ -2564,7 +2705,7 @@ static int build_core(Profile p, int verbose, int force, int jobs, int strict, S
   return 0;
 }
 
-static int build_one_target(const Target *t, Profile p, int verbose, int force, int jobs, int strict, int no_core) {
+static int build_one_target(const Target *t, Profile p, int verbose, int why, int force, int jobs, int strict, int no_core) {
   const char *cc;
   const TargetOverride *ov;
   int use_core;
@@ -2640,7 +2781,7 @@ static int build_one_target(const Target *t, Profile p, int verbose, int force, 
 
   /* build core (once per target build invocation) */
   if (use_core) {
-    if (build_core(p, verbose, force, jobs, strict, &core_objs) != 0) {
+    if (build_core(p, verbose, why, force, jobs, strict, &core_objs) != 0) {
       sv_free(&srcs); sv_free(&objs); sv_free(&core_objs);
       return 1;
     }
@@ -2652,7 +2793,7 @@ static int build_one_target(const Target *t, Profile p, int verbose, int force, 
                       ov ? ov->includes : 0,
                       ov ? ov->defines : 0,
                       ov ? ov->cflags : 0,
-                      p, verbose, force, jobs, strict,
+                      p, verbose, why, force, jobs, strict,
                       &objs) != 0) {
     sv_free(&srcs); sv_free(&objs); sv_free(&core_objs);
     return 1;
@@ -2669,12 +2810,12 @@ static int build_one_target(const Target *t, Profile p, int verbose, int force, 
     for (i = 0; i < objs.count; i++) sv_push(&all, objs.items[i]);
     for (i = 0; i < core_objs.count; i++) sv_push(&all, core_objs.items[i]);
 
-    need_link = force || !file_exists(out_exe);
-    if (!need_link) {
-      long exe_t = file_mtime(out_exe);
-      for (i = 0; i < all.count; i++) {
-        long ot = file_mtime(all.items[i]);
-        if (ot < 0 || ot > exe_t) { need_link = 1; break; }
+    {
+      char why_msg[512];
+      need_link = exe_needs_relink_explain(out_exe, &all, force,
+                                          why ? why_msg : 0, why ? sizeof(why_msg) : 0);
+      if (need_link && why) {
+        printf("why link: %s (%s)\n", out_exe, why_msg);
       }
     }
 
@@ -2818,9 +2959,9 @@ static void print_help(void) {
          "  tack doctor\n"
          "  tack init\n"
          "  tack list\n"
-         "  tack build [debug|release] [--target NAME] [-v] [--rebuild] [-j N] [--strict] [--no-core]\n"
-         "  tack run  [debug|release] [--target NAME] [-v] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]\n"
-         "  tack test [debug|release] [-v] [--rebuild] [--strict]\n"
+         "  tack build [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core]\n"
+         "  tack run  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]\n"
+         "  tack test [debug|release] [-v] [--why] [--rebuild] [--strict]\n"
          "  tack bom  [debug|release] [--target NAME] [-v] [--strict] [--no-core] [--outdir <dir>]\n"
          "  tack doc  [debug|release] [--target NAME] [-v] [--strict] [--no-core] [--outdir <dir>]\n"
          "  tack clean [-v]\n"
@@ -2842,7 +2983,8 @@ static void print_help(void) {
          "  init    = also provisions .gitignore and .fossil-settings/ignore-glob (non-destructive)\n"
          "  bom     = writes build/bom.md and build/bom.html\n"
          "  doc     = writes HTML into build/doc/ (README/FAQ/ROADMAP/RELEASENOTES + BOM)\n"
-         "  --strict enables -Wunsupported\n");
+         "  --strict enables -Wunsupported\n"
+         "  --why prints short \"why rebuild\" diagnostics for compile/link decisions\n");
 }
 
 static void cmd_version(void) { printf("tack %s\n", TACK_VERSION); }
@@ -3929,6 +4071,7 @@ int main(int argc, char **argv) {
   /* parse global options (must precede command) */
   argi = 1;
   while (argi < argc) {
+    if (streq(argv[argi], "-h") || streq(argv[argi], "--help")) { print_help(); return 0; }
     if (streq(argv[argi], "--no-config")) { g_no_config = 1; argi++; continue; }
     if (streq(argv[argi], "--no-code-config")) { g_no_code_config = 1; argi++; continue; }
     if (streq(argv[argi], "--config")) {
@@ -3971,7 +4114,7 @@ int main(int argc, char **argv) {
     const Target *t = find_target(&tv, default_target_name());
     int rc;
     if (!t) { fprintf(stderr, "tack: default target missing\n"); tv_free(&tv); config_free(); return 2; }
-    rc = build_one_target(t, PROF_DEBUG, 0, 0, 1, 0, 0);
+    rc = build_one_target(t, PROF_DEBUG, 0, 0, 0, 1, 0, 0);
     tv_free(&tv);
     config_free();
     return rc;
@@ -3986,6 +4129,7 @@ int main(int argc, char **argv) {
   if (streq(cmd, "clean") || streq(cmd, "clobber")) {
     int verbose = 0;
     for (; argi < argc; argi++) {
+      if (streq(argv[argi], "-h") || streq(argv[argi], "--help")) { print_help(); tv_free(&tv); config_free(); return 0; }
       if (streq(argv[argi], "-v") || streq(argv[argi], "--verbose")) verbose = 1;
       else {
         fprintf(stderr, "tack: %s: unknown arg: %s\n", cmd, argv[argi]);
@@ -4018,6 +4162,7 @@ int main(int argc, char **argv) {
     const Target *t = 0;
 
     for (; i < argc; i++) {
+      if (streq(argv[i], "-h") || streq(argv[i], "--help")) { print_help(); tv_free(&tv); config_free(); return 0; }
       if (streq(argv[i], "-v") || streq(argv[i], "--verbose")) verbose = 1;
       else if (streq(argv[i], "--strict")) strict = 1;
       else if (streq(argv[i], "--no-core")) no_core = 1;
@@ -4059,6 +4204,7 @@ int main(int argc, char **argv) {
 
   if (streq(cmd, "build") || streq(cmd, "run") || streq(cmd, "test")) {
     int verbose = 0;
+    int why = 0;
     int force = 0;
     int jobs = 1;
     int strict = 0;
@@ -4072,7 +4218,9 @@ int main(int argc, char **argv) {
     /* parse options; for run, args may follow '--' */
     for (; argi < argc; argi++) {
       if (streq(argv[argi], "--")) break;
+      if (streq(argv[argi], "-h") || streq(argv[argi], "--help")) { print_help(); tv_free(&tv); config_free(); return 0; }
       if (streq(argv[argi], "-v") || streq(argv[argi], "--verbose")) verbose = 1;
+      else if (streq(argv[argi], "--why") || streq(argv[argi], "--explain")) why = 1;
       else if (streq(argv[argi], "--rebuild")) force = 1;
       else if (streq(argv[argi], "--strict")) strict = 1;
       else if (streq(argv[argi], "--no-core")) no_core = 1;
@@ -4112,7 +4260,7 @@ int main(int argc, char **argv) {
     }
 
     if (streq(cmd, "build")) {
-      int rc = build_one_target(t, p, verbose, force, jobs, strict, no_core);
+      int rc = build_one_target(t, p, verbose, why, force, jobs, strict, no_core);
       tv_free(&tv);
       config_free();
       return rc;
@@ -4125,7 +4273,7 @@ int main(int argc, char **argv) {
 
       if (run_argi < argc && streq(argv[run_argi], "--")) run_argi++;
 
-      if (build_one_target(t, p, verbose, force, jobs, strict, no_core) != 0) { tv_free(&tv); config_free(); return 1; }
+      if (build_one_target(t, p, verbose, why, force, jobs, strict, no_core) != 0) { tv_free(&tv); config_free(); return 1; }
       exe_path(exe, sizeof(exe), t->id, p, t->bin_base);
 
       /* build argv: exe + rest args */

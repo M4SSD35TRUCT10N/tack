@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.1
+# tack ROADMAP (DE/EN) — v0.7.2
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -15,23 +15,21 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 
 ### Erledigt in v0.7.0
 - `tack init` legt optional `.gitignore` sowie `.fossil-settings/ignore-glob` an und **überschreibt nichts** (non-destructive, tack-Block wird nur angehängt, wenn er fehlt).
+
 ### Erledigt in v0.7.1
 - `tack bom`: erzeugt ein Build‑Manifest (BOM) als `build/bom.md` und `build/bom.html`.
 - `tack doc`: erzeugt offline HTML‑Doku in `build/doc/` (Wrapper um Markdown) und verlinkt die BOM.
 - Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - HTML-Ausgabe: stabile Template-Ankerpunkte (Marker + IDs) für CSS-Hooks und optionales Post-Processing.
 
+### Erledigt in v0.7.2
+- Bessere Diagnose-Ausgaben: `--why`/`--explain` erklärt Rebuild-Entscheidungen („why rebuild“).
+
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
 - Optional: bessere Windows Long‑Path Guidance
-- Optional: schnellere Incremental‑Builds (Caching / Rebuild-Reasons)
-- Optional: bessere Diagnose-Ausgaben (z.B. „why rebuild“)
-
-### Geplant: DOC/BOM HTML-Refinement (CSS-first)
-- Einheitliches HTML-Layout für DOC + BOM (Navigation, Typografie, Druck-Stile).
-- System hell/dunkel per CSS (`prefers-color-scheme`), optional hoher Kontrast.
-- Optional: Template-Support (ein Layout + CSS), konfigurierbar via `tack.ini`.
-- Suche: Index-first (ohne JS). Optional: minimale JS-Suche als Progressive Enhancement.
+- Optional: High-Contrast/Forced-Colors CSS-Feinschliff für DOC/BOM-Templates
+- Optional: schnellere Incremental‑Builds (Caching)
 
 ### Geplant: SBOM-Export
 - CycloneDX JSON Export (Komponenten + Abhängigkeitsgraph), konfigurierbar via `tack.ini`.
@@ -61,24 +59,21 @@ Before “big” releases and announcements, tack should be validated against re
 
 ### Done in v0.7.0
 - `tack init` optionally creates `.gitignore` and `.fossil-settings/ignore-glob` and **does not overwrite anything** (non-destructive, tack block is only appended if it is missing).
+
 ### Done in v0.7.1
 - `tack bom`: generates a build manifest (BOM) as `build/bom.md` and `build/bom.html`.
 - `tack doc`: generates offline HTML documentation in `build/doc/` (wrapper around Markdown) and links to the BOM.
 - Optional: HTML templates + CSS for DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - HTML output: stable template anchor markers (markers + IDs) for CSS hooks and optional post-processing.
 
+### Done in v0.7.2
+- Improved diagnostics: `--why`/`--explain` explains rebuild decisions (“why rebuild”).
+
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs
 - Optional: better Windows long-path guidance
-- Optional: faster incremental builds (caching / rebuild reasons)
-- Optional: improved diagnostics (“why rebuild”)
-
-
-### Planned: DOC/BOM HTML refinement (CSS-first)
-- Unified HTML layout for DOC + BOM (navigation, typography, print styles).
-- System light/dark via CSS (`prefers-color-scheme`), optional high-contrast.
-- Optional template support (single layout + CSS), configurable via `tack.ini`.
-- Search: index-first (no JS). Optional minimal JS search as progressive enhancement.
+- Optional: high-contrast / forced-colors CSS polish for DOC/BOM templates
+- Optional: faster incremental builds (caching)
 
 ### Planned: SBOM export
 - CycloneDX JSON export (components + dependency graph), configurable via `tack.ini`.
