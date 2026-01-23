@@ -604,15 +604,223 @@ static void scan_dir_recursive_suffix(StrVec *out, const char *dir, const char *
 static int rm_rf(const char *path);
 static int rm_rf_contents(const char *dir);
 
+/* Optional: collect rm failures for `tack clean -v` / `tack clobber -v` */
+static int g_rm_collect = 0;
+static StrVec g_rm_failed;
+static int g_rm_failed_inited = 0;
+
+static void rm_collect_begin(int enable) {
+  g_rm_collect = enable ? 1 : 0;
+  if (!g_rm_collect) return;
+  if (g_rm_failed_inited) sv_free(&g_rm_failed);
+  sv_init(&g_rm_failed);
+  g_rm_failed_inited = 1;
+}
+
+static void rm_collect_add_own(char *s) {
+  if (!g_rm_collect) { free(s); return; }
+  if (!g_rm_failed_inited) { sv_init(&g_rm_failed); g_rm_failed_inited = 1; }
+  sv_push_own(&g_rm_failed, s);
+}
+
+static void rm_collect_end_report(const char *ctx) {
+  int i;
+  if (!g_rm_collect) return;
+  if (g_rm_failed_inited && g_rm_failed.count > 0) {
+    fprintf(stderr, "tack: %s: could not remove %d path(s):\n", ctx, g_rm_failed.count);
+    for (i = 0; i < g_rm_failed.count; i++) fprintf(stderr, "  %s\n", g_rm_failed.items[i]);
+  }
+  if (g_rm_failed_inited) sv_free(&g_rm_failed);
+  g_rm_failed_inited = 0;
+  g_rm_collect = 0;
+}
+
+#ifdef _WIN32
+/* Windows can fail deleting read-only/hidden/system files or when a scanner briefly
+ * holds a handle. Make rm -rf more tolerant by clearing attributes + retrying.
+ * Also: print Win32 error names/messages to make failures actionable.
+ */
+
+static const char *win32_err_name(DWORD e) {
+  switch (e) {
+    case ERROR_ACCESS_DENIED: return "ERROR_ACCESS_DENIED";
+    case ERROR_SHARING_VIOLATION: return "ERROR_SHARING_VIOLATION";
+    case ERROR_LOCK_VIOLATION: return "ERROR_LOCK_VIOLATION";
+    case ERROR_DIR_NOT_EMPTY: return "ERROR_DIR_NOT_EMPTY";
+    case ERROR_PATH_NOT_FOUND: return "ERROR_PATH_NOT_FOUND";
+    case ERROR_FILE_NOT_FOUND: return "ERROR_FILE_NOT_FOUND";
+#ifdef ERROR_FILENAME_EXCED_RANGE
+    case ERROR_FILENAME_EXCED_RANGE: return "ERROR_FILENAME_EXCED_RANGE";
+#endif
+#ifdef ERROR_INVALID_NAME
+    case ERROR_INVALID_NAME: return "ERROR_INVALID_NAME";
+#endif
+#ifdef ERROR_ALREADY_EXISTS
+    case ERROR_ALREADY_EXISTS: return "ERROR_ALREADY_EXISTS";
+#endif
+    default: break;
+  }
+  return 0;
+}
+
+static void win32_err_text(DWORD e, char *buf, size_t cap) {
+  DWORD n;
+  if (!buf || cap == 0) return;
+  buf[0] = '\0';
+  n = FormatMessageA(
+        FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        0, e, 0, buf, (DWORD)(cap - 1), 0
+      );
+  if (n == 0) { buf[0] = '\0'; return; }
+  buf[n] = '\0';
+  /* trim trailing CR/LF/spaces */
+  while (n > 0) {
+    char c = buf[n - 1];
+    if (c == '\r' || c == '\n' || c == ' ' || c == '\t') { buf[n - 1] = '\0'; n--; }
+    else break;
+  }
+}
+
+static void win32_record_failure(const char *kind, const char *path, DWORD e) {
+  const char *name;
+  char msg[256];
+  size_t need;
+  char *s;
+
+  if (!g_rm_collect) return;
+
+  name = win32_err_name(e);
+  win32_err_text(e, msg, sizeof(msg));
+
+  /* kind + path + codes + names/messages */
+  need = strlen(kind) + strlen(path) + 64;
+  if (name) need += strlen(name) + 1;
+  if (msg[0]) need += strlen(msg) + 2;
+
+  s = (char*)xmalloc(need + 1);
+  s[0] = '\0';
+
+  strcat(s, kind);
+  strcat(s, ": ");
+  strcat(s, path);
+  strcat(s, " (winerr=");
+  {
+    char num[32];
+    sprintf(num, "%lu", (unsigned long)e);
+    strcat(s, num);
+  }
+  if (name) { strcat(s, " "); strcat(s, name); }
+  if (msg[0]) { strcat(s, ": "); strcat(s, msg); }
+  strcat(s, ")");
+
+  rm_collect_add_own(s);
+}
+
+static void win32_clear_attrs(const char *path) {
+  DWORD a, na;
+  a = GetFileAttributesA(path);
+  if (a == INVALID_FILE_ATTRIBUTES) return;
+  na = a & ~(FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM);
+  if (na == 0) na = FILE_ATTRIBUTE_NORMAL;
+  SetFileAttributesA(path, na);
+}
+
+static int win32_delete_file_retry(const char *path) {
+  int i;
+  for (i = 0; i < 20; i++) {
+    win32_clear_attrs(path);
+    if (DeleteFileA(path)) return 0;
+    {
+      DWORD e = GetLastError();
+      if (e == ERROR_FILE_NOT_FOUND || e == ERROR_PATH_NOT_FOUND) return 0;
+      if (e == ERROR_ACCESS_DENIED || e == ERROR_SHARING_VIOLATION || e == ERROR_LOCK_VIOLATION) {
+        Sleep((DWORD)(10 * (i + 1)));
+        continue;
+      }
+      break;
+    }
+  }
+  {
+    DWORD e = GetLastError();
+    const char *name = win32_err_name(e);
+    char msg[256];
+    win32_err_text(e, msg, sizeof(msg));
+
+    fprintf(stderr, "tack: rm: cannot delete file: %s (winerr=%lu", path, (unsigned long)e);
+    if (name) fprintf(stderr, " %s", name);
+    if (msg[0]) fprintf(stderr, ": %s", msg);
+    fprintf(stderr, ")\n");
+
+    win32_record_failure("file", path, e);
+  }
+  return 1;
+}
+
+static int win32_remove_dir_retry(const char *path) {
+  int i;
+  for (i = 0; i < 30; i++) {
+    win32_clear_attrs(path);
+    if (RemoveDirectoryA(path)) return 0;
+    {
+      DWORD e = GetLastError();
+      if (e == ERROR_FILE_NOT_FOUND || e == ERROR_PATH_NOT_FOUND) return 0;
+      if (e == ERROR_ACCESS_DENIED || e == ERROR_SHARING_VIOLATION || e == ERROR_LOCK_VIOLATION || e == ERROR_DIR_NOT_EMPTY) {
+        Sleep((DWORD)(10 * (i + 1)));
+        continue;
+      }
+      break;
+    }
+  }
+  {
+    DWORD e = GetLastError();
+    const char *name = win32_err_name(e);
+    char msg[256];
+    win32_err_text(e, msg, sizeof(msg));
+
+    fprintf(stderr, "tack: rm: cannot remove dir: %s (winerr=%lu", path, (unsigned long)e);
+    if (name) fprintf(stderr, " %s", name);
+    if (msg[0]) fprintf(stderr, ": %s", msg);
+    fprintf(stderr, ")\n");
+
+    win32_record_failure("dir", path, e);
+  }
+  return 1;
+}
+#endif
+
+
+#ifndef _WIN32
+static void posix_record_failure(const char *kind, const char *path, int err) {
+  const char *msg;
+  size_t need;
+  char *s;
+
+  if (!g_rm_collect) return;
+
+  msg = strerror(err);
+  if (!msg) msg = "unknown";
+
+  need = strlen(kind) + strlen(path) + strlen(msg) + 64;
+  s = (char*)xmalloc(need + 1);
+
+  sprintf(s, "%s: %s (errno=%d: %s)", kind, path, err, msg);
+  rm_collect_add_own(s);
+}
+#endif
+
 static int rm_rf_depth(const char *path, int depth) {
   if (depth > TACK_MAX_RM_DEPTH) tack_die("rm recursion too deep");
   if (!file_exists(path)) return 0;
 
   if (!is_dir_path_nofollow(path)) {
 #ifdef _WIN32
-    return DeleteFileA(path) ? 0 : 1;
+    return win32_delete_file_retry(path);
 #else
-    return unlink(path) == 0 ? 0 : 1;
+    if (unlink(path) == 0) return 0;
+#ifndef _WIN32
+    posix_record_failure("file", path, errno);
+#endif
+    return 1;
 #endif
   }
 
@@ -636,20 +844,20 @@ static int rm_rf_depth(const char *path, int depth) {
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
           if (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
             /* remove junction/symlink without following */
-            if (!RemoveDirectoryA(child)) { free(child); FindClose(h); return 1; }
+            if (win32_remove_dir_retry(child) != 0) { free(child); FindClose(h); return 1; }
             free(child);
           } else {
             if (rm_rf_depth(child, depth + 1) != 0) { free(child); FindClose(h); return 1; }
             free(child);
           }
         } else {
-          if (!DeleteFileA(child)) { free(child); FindClose(h); return 1; }
+          if (win32_delete_file_retry(child) != 0) { free(child); FindClose(h); return 1; }
           free(child);
         }
       } while (FindNextFileA(h, &fd));
       FindClose(h);
     }
-    return RemoveDirectoryA(path) ? 0 : 1;
+    return win32_remove_dir_retry(path);
   }
 #else
   {
@@ -657,7 +865,12 @@ static int rm_rf_depth(const char *path, int depth) {
     struct dirent *e;
 
     d = opendir(path);
-    if (!d) return 1;
+    if (!d) {
+#ifndef _WIN32
+      posix_record_failure("dir", path, errno);
+#endif
+      return 1;
+    }
 
     while ((e = readdir(d)) != 0) {
       char *child;
@@ -667,8 +880,14 @@ static int rm_rf_depth(const char *path, int depth) {
       if (rm_rf_depth(child, depth + 1) != 0) { free(child); closedir(d); return 1; }
       free(child);
     }
+
     closedir(d);
-    return rmdir(path) == 0 ? 0 : 1;
+
+    if (rmdir(path) == 0) return 0;
+#ifndef _WIN32
+    posix_record_failure("dir", path, errno);
+#endif
+    return 1;
   }
 #endif
 }
@@ -702,14 +921,14 @@ static int rm_rf_contents_depth(const char *dir, int depth) {
 
       if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
-          if (!RemoveDirectoryA(child)) { free(child); FindClose(h); return 1; }
+          if (win32_remove_dir_retry(child) != 0) { free(child); FindClose(h); return 1; }
           free(child);
         } else {
           if (rm_rf_depth(child, depth + 1) != 0) { free(child); FindClose(h); return 1; }
           free(child);
         }
       } else {
-        if (!DeleteFileA(child)) { free(child); FindClose(h); return 1; }
+        if (win32_delete_file_retry(child) != 0) { free(child); FindClose(h); return 1; }
         free(child);
       }
     } while (FindNextFileA(h, &fd));
@@ -723,7 +942,12 @@ static int rm_rf_contents_depth(const char *dir, int depth) {
     struct dirent *e;
 
     d = opendir(dir);
-    if (!d) return 1;
+    if (!d) {
+#ifndef _WIN32
+      posix_record_failure("dir", dir, errno);
+#endif
+      return 1;
+    }
 
     while ((e = readdir(d)) != 0) {
       char *child;
@@ -2599,8 +2823,8 @@ static void print_help(void) {
          "  tack test [debug|release] [-v] [--rebuild] [--strict]\n"
          "  tack bom  [debug|release] [--target NAME] [-v] [--strict] [--no-core] [--outdir <dir>]\n"
          "  tack doc  [debug|release] [--target NAME] [-v] [--strict] [--no-core] [--outdir <dir>]\n"
-         "  tack clean\n"
-         "  tack clobber\n");
+         "  tack clean [-v]\n"
+         "  tack clobber [-v]\n");
   printf("\nGlobal options (must come before the command):\n"
          "  --no-config         ignore tack.ini and tackfile.c\n"
          "  --no-code-config    ignore tackfile.c (still load INI)\n"
@@ -2614,6 +2838,7 @@ static void print_help(void) {
   printf("\nNotes:\n"
          "  clean   = remove contents under build/ (keep the build directory)\n"
          "  clobber = remove build/ itself\n"
+         "  clean/clobber -v prints remaining locked paths (if any)\n"
          "  init    = also provisions .gitignore and .fossil-settings/ignore-glob (non-destructive)\n"
          "  bom     = writes build/bom.md and build/bom.html\n"
          "  doc     = writes HTML into build/doc/ (README/FAQ/ROADMAP/RELEASENOTES + BOM)\n"
@@ -2916,10 +3141,16 @@ static int cmd_init(void) {
   return 0;
 }
 
-static int cmd_clean(void) {
+static int cmd_clean(int verbose) {
+  int rc;
   /* clean = remove contents under build/, keep build directory */
   if (!file_exists(g_build_dir)) return 0;
-  if (rm_rf_contents(g_build_dir) != 0) {
+
+  rm_collect_begin(verbose);
+  rc = rm_rf_contents(g_build_dir);
+  rm_collect_end_report("clean");
+
+  if (rc != 0) {
     fprintf(stderr, "tack: clean: failed\n");
     return 1;
   }
@@ -2927,10 +3158,16 @@ static int cmd_clean(void) {
   return 0;
 }
 
-static int cmd_clobber(void) {
+static int cmd_clobber(int verbose) {
+  int rc;
   /* clobber = remove build/ itself */
   if (!file_exists(g_build_dir)) return 0;
-  if (rm_rf(g_build_dir) != 0) {
+
+  rm_collect_begin(verbose);
+  rc = rm_rf(g_build_dir);
+  rm_collect_end_report("clobber");
+
+  if (rc != 0) {
     fprintf(stderr, "tack: clobber: failed\n");
     return 1;
   }
@@ -3496,6 +3733,9 @@ static int cmd_bom(Profile p, TargetVec *tv, const Target *t, int verbose, int s
   }
 }
 
+  /* Always give a minimal CLI confirmation (doc already prints its own summary). */
+  printf("tack: bom: wrote %s and %s\n", bom_md, bom_html);
+
   return 0;
 }
 
@@ -3743,8 +3983,20 @@ int main(int argc, char **argv) {
   if (streq(cmd, "version")) { cmd_version(); tv_free(&tv); config_free(); return 0; }
   if (streq(cmd, "doctor"))  { cmd_doctor(); tv_free(&tv); config_free(); return 0; }
   if (streq(cmd, "init"))    { int rc = cmd_init(); tv_free(&tv); config_free(); return rc; }
-  if (streq(cmd, "clean"))   { int rc = cmd_clean(); tv_free(&tv); config_free(); return rc; }
-  if (streq(cmd, "clobber")) { int rc = cmd_clobber(); tv_free(&tv); config_free(); return rc; }
+  if (streq(cmd, "clean") || streq(cmd, "clobber")) {
+    int verbose = 0;
+    for (; argi < argc; argi++) {
+      if (streq(argv[argi], "-v") || streq(argv[argi], "--verbose")) verbose = 1;
+      else {
+        fprintf(stderr, "tack: %s: unknown arg: %s\n", cmd, argv[argi]);
+        tv_free(&tv);
+        config_free();
+        return 2;
+      }
+    }
+    if (streq(cmd, "clean"))   { int rc = cmd_clean(verbose); tv_free(&tv); config_free(); return rc; }
+    else                       { int rc = cmd_clobber(verbose); tv_free(&tv); config_free(); return rc; }
+  }
   if (streq(cmd, "list"))    {
     if (g_no_config) printf("config: disabled (legacy mode)\n");
     else if (g_config_loaded) printf("config: %s\n", g_config_path);
