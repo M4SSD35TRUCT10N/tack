@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.1)
+# tack — Tiny ANSI-C Kit (v0.7.2)
 
 ---
 
@@ -48,17 +48,20 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.1)
+## Features (v0.7.2)
 
-- Single-file Build Driver (C89)
+- Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
-- Recursive Scanning: `src/**/*.c`, `tools/<name>/**/*.c`, `tests/**/*_test.c`
-- Target Discovery: `app` + `tool:<name>` (aus `tools/`, per Config abschaltbar)
-- Declarative Targets: add/modify/disable/remove (via `tack.ini` und/oder `tackfile.c`)
+- Rekursives Scanning: `src/**/*.c`, `tools/<name>/**/*.c`, `tests/**/*_test.c`
+- Target-Discovery: `app` + `tool:<name>` (aus `tools/`, per Config abschaltbar)
+- Deklarative Targets: hinzufügen/ändern/deaktivieren/entfernen (via `tack.ini` und/oder `tackfile.c`)
 - `tack list` zeigt Targets (Name + id + src + core + enabled)
 - Robuste Prozessausführung (kein `system()` für Builds)
-- Parallel Compile: `-j N`
+- Paralleles Kompilieren: `-j N`
 - Depfiles (`-MD -MF`) für Incremental Builds
+- Diagnose: `--why`/`--explain` erklärt Rebuild-Entscheidungen („why rebuild“)
+- Windows: robustere Depfile-Pfade (verhindert unnötige Rebuilds)
+- Help-Passthrough: `tack build --help` / `-h` zeigt die Kommando-Hilfe
 - Strict Mode: `--strict` aktiviert zusätzlich `-Wunsupported`
 - Echte Target-Konfiguration: Includes/Defines/CFLAGS/LDFLAGS/LIBS pro Target
 - Shared Core Code: `src/core/` wird 1× pro Profil gebaut und optional gelinkt
@@ -113,7 +116,8 @@ Windows:
 tcc -run src/tack.c init
 tcc -run src/tack.c list
 tcc -run src/tack.c build debug -v -j 8
-tcc -run src/tack.c run debug -- --hello "Berlin"
+tcc -run src/tack.c build debug --why -j 8
+tcc -run src/tack.c run debug -- --hello Berlin
 ```
 
 Linux/BSD:
@@ -121,12 +125,12 @@ Linux/BSD:
 tcc -run src/tack.c init
 tcc -run src/tack.c list
 tcc -run src/tack.c build debug -v -j 8
+tcc -run src/tack.c build debug --why -j 8
 tcc -run src/tack.c run debug -- --hello Berlin
 ```
 
-### Option B: `tack.exe` bauen (für CI/Teams)
+### Option B: `tack.exe` bauen (CI/Teams)
 
-Windows (tcc):
 ```bat
 tcc src/tack.c -o tack.exe
 tack.exe init
@@ -142,33 +146,34 @@ tack.exe --no-code-config build debug
 tack.exe --no-auto-tools list
 ```
 
-- `--config <path>`: explizite INI-Datei laden (höchste Priorität)
+- `--config <pfad>`: explizites laden der INI-Datei (höchste Priorität)
 - `--no-config`: **alle** Konfiguration deaktivieren (`tack.ini` und `tackfile.c`)
-- `--no-auto-tools`: Auto-Discovery von `tools/<name>` deaktivieren (praktisch für rein deklarative Builds)
+- `--no-code-config`: **nur** `tackfile.c` deaktivieren, laden der INI-Datei bleibt aktiv (CI/Team‑Modus)
+- `--no-auto-tools`: `tools/<name>` Auto-Discovery deaktivieren (für vollständig deklarative Builds)
 
 ## Kommandos
 
 - `help`, `version`, `doctor`
 - `init` – Grundstruktur & Hello-World erzeugen (legt auch `.gitignore` + Fossil-Ignore an, ohne zu überschreiben)
 - `list` – Targets anzeigen
-- `build [debug|release] ...` – Target bauen
-- `run [debug|release] ... -- <args...>` – Target bauen + ausführen
-- `test [debug|release] ...` – `_test.c` bauen + ausführen
-- `clean` – Inhalt von `build/` löschen, Ordner bleibt
+- `build [debug|release] ...` – Target bauen (optional: `--why`/`--explain`)
+- `run [debug|release] ... -- <args...>` – bauen + ausführen (optional: `--why`/`--explain`)
+- `test [debug|release] ...` – bauen + `_test.c` ausführen
+- `clean` – Inhalte von `build/` löschen (Ordner bleibt bestehen)
 - `clobber` – `build/` komplett löschen
 
-### Exitcodes
-
-- **0** – Erfolg
-- **1** – Laufzeitfehler (z.B. Compiler/Linker-Fehler, I/O, Kopieren von Assets)
-- **2** – Usage-/Konfigurationsfehler (CLI-Argumente, ungültige INI, fehlende Template/CSS-Datei, fehlendes Pflicht-Token im Template)
-
+Tipp: `tack build --help` (oder `-h`) zeigt die Hilfe **für dieses Sub‑Kommando**.
 
 ### Warum “clean” und “clobber” (statt distclean)?
 `distclean` stammt aus Make-Welten („putze auch generierte Konfig“).  
 Bei tack ist es klar getrennt:
 - **clean**: „Baureste weg, Struktur bleibt“
 - **clobber**: „alles weg“
+
+### Exit-Codes
+- **0** – Erfolg
+- **1** – Laufzeit-/Build-Fehler (Compiler/Linker, I/O, Asset-Copy, …)
+- **2** – Usage-/Config-Fehler (CLI, ungültiges INI, fehlendes Template/CSS, fehlender Template-Token)
 
 ## Konfiguration
 
@@ -190,7 +195,7 @@ Wenn `tack.ini` vorhanden ist (oder per `--config PATH` gesetzt wird), lädt tac
 **Schlüssel in `[target ...]`**
 - `src = <dir>`        (rekursiver `.c`-Scan)
 - `bin = <name>`       (Exe-Base-Name)
-- `id = <safe_id>` (optional; Ordnername unter `build/<id>/...`)
+- `id = <safe_id>`     (optional; Ordnername unter `build/<id>/...`)
 - `enabled = yes|no`
 - `remove = yes|no`
 - `core = yes|no`
@@ -381,11 +386,17 @@ Praktische Regeln:
 
 Empfehlung: Für Teams ist `tack.ini` der Default. `tackfile.c` nur bewusst nutzen.
 
+## Fehlersuche
+
+- Warnings aus `stdio.h` und fehlende `.exe`: `--strict` nur aktivieren, wenn das gewollt ist.
+- „… undeclared …“: häufig ist ein Kommentar versehentlich „kaputt“ (vorzeitig beendet).
+- Pfade mit Leerzeichen: tack nutzt spawn/exec statt Shell-`system()`; Quoting-Probleme sind dadurch reduziert.
+
 ## ROADMAP
 Weitere Infos, wie es mit tack weitergehen wird, stehen [hier](ROADMAP.md).
 
 ## FAQ
-Eine detailierte FAQ ist [hier](FAQ.md).
+Eine detaillierte FAQ ist [hier](FAQ.md).
 
 ## Lizenz
 MIT
@@ -420,7 +431,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.1)
+## Features (v0.7.2)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -431,6 +442,9 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - Robust process execution (no `system()` for builds)
 - Parallel compile: `-j N`
 - Depfiles (`-MD -MF`) for incremental builds
+- Diagnostics: `--why`/`--explain` explains rebuild decisions (“why rebuild”)
+- Windows: more robust depfile path handling (prevents unnecessary rebuilds)
+- Help passthrough: `tack build --help` / `-h` shows sub-command help
 - strict mode: `--strict` enables `-Wunsupported` (default suppresses it)
 - real per‑target config: includes/defines/cflags/ldflags/libs/core
 - Shared core code: `src/core/` built once per profile, optionally linked
@@ -532,7 +546,6 @@ tack.exe --no-auto-tools list
 - **1** – runtime failure (e.g., compiler/linker errors, I/O, asset copy failures)
 - **2** – usage/config failure (CLI args, invalid INI, missing template/CSS file, missing required template token)
 
-
 ## Configuration
 
 ### 1) `tack.ini` — data-only config (recommended)
@@ -553,7 +566,6 @@ Fail-fast behavior:
 Marker contract:
 - tack always emits stable IDs (`#tack-nav`, `#tack-content`, `#tack-footer`).
 - Marker comments (`<!-- TACK:BEGIN ... -->`) are provided by the built-in layout or by your template. If you rely on markers with a custom template, wrap the placeholders with the marker comments (see the shipped templates).
-
 
 ### 2) `tackfile.c` — optional code config (runtime, fail-fast)
 

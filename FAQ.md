@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.1
+# tack FAQ / FQA (DE/EN) — v0.7.2
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -58,6 +58,29 @@ tack bricht bewusst ab, wenn:
 
 Das ist Absicht: lieber **klarer Fehler** statt undefiniertes Verhalten.
 
+### Wie finde ich heraus, warum tack neu baut („why rebuild“)?
+
+Nutze `--why` (Alias: `--explain`). Das ist rein diagnostisch und löst **keinen** Rebuild aus.
+
+Beispiele:
+```bat
+tack build debug --why -j 8
+tack build release --why -j 8
+```
+
+Typische Gründe sind z.B. „missing output“, „input newer than output“, „depfile missing/changed“ oder „forced (--rebuild)“.
+
+### Warum funktioniert `tack build --help` (oder `-h`)?
+
+`tack help` zeigt die allgemeine Hilfe. Mit `tack build --help` (oder `-h`) wird die Hilfe **für dieses Sub‑Kommando** angezeigt.
+
+Beispiele:
+```bat
+tack build --help
+tack run --help
+tack test --help
+```
+
 ### Windows: Was ist mit langen Pfaden?
 tack baut Pfade dynamisch, nutzt aber trotzdem harte Limits (fail-fast). Wenn dein Windows Setup Long-Paths unterstützt, hilft das. Bei extrem langen Repo-Pfaden bekommst du eine klare Fehlermeldung.
 
@@ -69,7 +92,12 @@ Abhilfe: den Pfad explizit angeben.
 - relativ zum aktuellen Ordner: `tack --config .\tack.ini build release -j 8`
 - oder absolut: `tack --config C:\path\to\tack.ini build release -j 8`
 
----
+### Windows: Warum wurde bei mir immer neu gebaut?
+
+Wenn tack bei unveränderten Quellen in jedem Lauf neu baut, ist das fast immer ein Depfile-Problem (Pfadformat/Parsing) oder ein Zeitstempel-Thema.
+
+- Ab **v0.7.2** werden typische Windows-Depfile-Pfade (z.B. `C:\...` / Backslashes) robuster verarbeitet.
+- Wenn es trotzdem passiert: einmal mit `--why` laufen lassen und die Diagnose-Zeile anschauen (z.B. „depfile missing/changed“, „input newer than output“).
 
 ### Was ist der Unterschied zwischen BOM und SBOM?
 
@@ -85,8 +113,11 @@ Automatische API-Dokumentation für C würde einen Parser/Indexer erfordern und 
 
 ### Wird das erzeugte HTML Themes (Hell/Dunkel/Hoher Kontrast) und Templates unterstützen?
 
-Geplant. Ziel ist CSS-first (System hell/dunkel über `prefers-color-scheme`) und optional hoher Kontrast.  
-Ein simples Template-System (ein Layout + CSS) ist geplant und soll über `tack.ini` konfigurierbar sein.
+Ja, weitgehend.
+
+- Hell/Dunkel: CSS-first über `prefers-color-scheme`.
+- Templates + CSS: ab v0.7.1 via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
+- Hoher Kontrast: funktioniert grundsätzlich mit systemweiten High-Contrast/Forced-Colors-Settings; Feinschliff (z.B. `forced-colors`/`prefers-contrast`) bleibt optional.
 
 ### Gibt es eine Volltextsuche in der HTML-Doku?
 
@@ -129,6 +160,8 @@ Empfohlen ist ein Ordner `templates/` neben `src/` (Assets, kein Quellcode). `cs
 
 Der Output enthält stabile IDs (`#tack-nav`, `#tack-content`, `#tack-footer`) als Vertrag für CSS-Hooks.
 Marker-Kommentare (`<!-- TACK:BEGIN ... -->`) liefert das eingebaute Layout oder (bei Template-Ausgabe) das Template selbst. Wenn Marker für Post-Processing benötigt werden, müssen sie im Template um die Platzhalter liegen (siehe shipped Templates).
+
+---
 
 ## English (FAQ)
 
@@ -188,7 +221,12 @@ tack intentionally aborts on:
 - token/list limits
 - tackfile.c generator failures
 
----
+### Windows: Why did it rebuild every time?
+
+If tack rebuilds on every run without source changes, it is usually a depfile path/parse issue or a timestamp issue.
+
+- Since **v0.7.2**, typical Windows depfile paths (e.g. `C:\...` / backslashes) are handled more robustly.
+- If it still happens: run once with `--why` and look at the reason (e.g. “depfile missing/changed”, “input newer than output”).
 
 ### What is the difference between BOM and SBOM?
 
@@ -204,8 +242,11 @@ Automatic API documentation for C would require a parser/indexer and is out of s
 
 ### Will the generated HTML support themes (light/dark/high-contrast) and templates?
 
-Planned. The goal is CSS-first output (system light/dark via `prefers-color-scheme`) and optional high-contrast support.  
-A simple template mechanism (single layout + CSS) is planned and will be configurable via `tack.ini`.
+Yes, mostly.
+
+- Light/dark: CSS-first via `prefers-color-scheme`.
+- Templates + CSS: available since v0.7.1 via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
+- High-contrast: works with system high-contrast / forced-colors settings; extra polish (e.g. `forced-colors`/`prefers-contrast`) remains optional.
 
 ### Is there full-text search in the generated docs?
 
@@ -248,6 +289,29 @@ Fail-fast: If `template` or `css` is set but the file is missing or not readable
 
 The output always includes stable IDs (`#tack-nav`, `#tack-content`, `#tack-footer`) as a contract for CSS hooks.
 Marker comments (`<!-- TACK:BEGIN ... -->`) are provided by the built-in layout or by your template. If you rely on markers with a custom template, wrap the placeholders with the marker comments (see the shipped templates).
+
+### How do I see why tack rebuilds (“why rebuild”)?
+
+Use `--why` (alias: `--explain`). It is diagnostics-only and does **not** trigger a rebuild by itself.
+
+Examples:
+```bat
+tack build debug --why -j 8
+tack build release --why -j 8
+```
+
+Typical reasons include “missing output”, “input newer than output”, “depfile missing/changed”, or “forced (--rebuild)”.
+
+### Why does `tack build --help` (or `-h`) work?
+
+`tack help` prints the general help. `tack build --help` (or `-h`) prints the help **for that sub-command**.
+
+Examples:
+```bat
+tack build --help
+tack run --help
+tack test --help
+```
 
 ---
 
