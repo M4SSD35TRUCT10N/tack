@@ -9,6 +9,9 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.6
+- Dokumentations-Sync: README/FAQ/ROADMAP/Release Notes auf den aktuellen Implementationsstand (Features/Optionen) abgeglichen.
+
 ### v0.7.5
 - `tack sbom`: deterministischer SBOM-Export als JSON (`build/sbom.json`, Format `tack-sbom-1`).
 
@@ -52,6 +55,9 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.6
+- Documentation sync: aligned README/FAQ/ROADMAP/Release Notes with the current implementation (features/options).
 
 ### v0.7.5
 - `tack sbom`: deterministic SBOM export as JSON (`build/sbom.json`, format `tack-sbom-1`).

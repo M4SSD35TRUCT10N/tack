@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.7.5
+ * v0.7.6
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -62,7 +62,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.7.5"
+#define TACK_VERSION "0.7.6"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192

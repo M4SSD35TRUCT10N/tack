@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.4
+# tack FAQ / FQA (DE/EN) — v0.7.6
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 

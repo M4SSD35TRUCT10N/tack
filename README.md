@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.5)
+# tack — Tiny ANSI-C Kit (v0.7.6)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.5)
+## Features (v0.7.6)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -466,7 +466,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.5)
+## Features (v0.7.6)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -477,6 +477,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - Robust process execution (no `system()` for builds)
 - Parallel compile: `-j N`
 - Depfiles (`-MD -MF`) for incremental builds
+- Optional compile cache in `.tack-cache/` for faster incremental builds (disable with `--no-cache`)
 - Diagnostics: `--why`/`--explain` explains rebuild decisions (“why rebuild”)
 - Windows: more robust depfile path handling (prevents unnecessary rebuilds)
 - Help passthrough: `tack build --help` / `-h` shows sub-command help
@@ -561,11 +562,14 @@ tack.exe --config tack.ci.ini build release
 tack.exe --no-config build debug
 tack.exe --no-code-config build debug
 tack.exe --no-auto-tools list
+tack.exe --no-cache build debug
 ```
 
 - `--config <path>`: load explicit INI (highest priority)
 - `--no-config`: disable **all** configuration (`tack.ini` and `tackfile.c`)
+- `--no-code-config`: disable **only** `tackfile.c` (INI stays active)
 - `--no-auto-tools`: disable `tools/<name>` auto discovery (useful for fully declarative builds)
+- `--no-cache`: disable the compile cache (`.tack-cache/`)
 
 ## Compile cache (.tack-cache/)
 

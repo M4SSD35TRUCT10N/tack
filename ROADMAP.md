@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.5
+# tack ROADMAP (DE/EN) — v0.7.6
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -30,6 +30,9 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 
 ### Erledigt in v0.7.5
 - `tack sbom`: deterministischer SBOM-Export als JSON (`build/sbom.json`), ohne Versions-Ratespiele aus Linker-Flags.
+
+### Erledigt in v0.7.6
+- Dokumentations-Sync: README/FAQ/ROADMAP/Release Notes konsistent zur Implementation gehalten.
 
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
@@ -71,6 +74,9 @@ Before “big” releases and announcements, tack should be validated against re
 
 ### Done in v0.7.5
 - `tack sbom`: deterministic SBOM export as JSON (`build/sbom.json`), without guessing versions from linker flags.
+
+### Done in v0.7.6
+- Documentation sync: kept README/FAQ/ROADMAP/Release Notes consistent with the implementation.
 
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs
