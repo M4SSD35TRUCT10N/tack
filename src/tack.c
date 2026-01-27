@@ -528,7 +528,11 @@ static void path_join(char *out, size_t cap, const char *a, const char *b) {
 
   la = strlen(a);
   lb = strlen(b);
+#ifdef _WIN32
+  need_sep = (la > 0 && a[la - 1] != '\\' && a[la - 1] != '/') ? 1 : 0;
+#else
   need_sep = (la > 0 && a[la - 1] != PATH_SEP) ? 1 : 0;
+#endif
   need = la + (size_t)need_sep + lb + 1;
 
   if (need > cap) tack_die("path too long");
@@ -814,6 +818,33 @@ static void win32_err_text(DWORD e, char *buf, size_t cap) {
   }
 }
 
+static void win32_ulong_to_dec(char *buf, size_t cap, unsigned long v) {
+  char tmp[32];
+  size_t i = 0;
+  size_t n;
+
+  if (!buf || cap == 0) return;
+
+  if (v == 0) {
+    if (cap > 1) { buf[0] = '0'; buf[1] = '\0'; }
+    else { buf[0] = '\0'; }
+    return;
+  }
+
+  while (v > 0 && i + 1 < sizeof(tmp)) {
+    tmp[i++] = (char)('0' + (v % 10));
+    v /= 10;
+  }
+
+  if (i + 1 > cap) { buf[0] = '\0'; return; }
+
+  n = 0;
+  while (i > 0) {
+    buf[n++] = tmp[--i];
+  }
+  buf[n] = '\0';
+}
+
 static void win32_record_failure(const char *kind, const char *path, DWORD e) {
   const char *name;
   char msg[256];
@@ -833,18 +864,18 @@ static void win32_record_failure(const char *kind, const char *path, DWORD e) {
   s = (char*)xmalloc(need + 1);
   s[0] = '\0';
 
-  strcat(s, kind);
-  strcat(s, ": ");
-  strcat(s, path);
-  strcat(s, " (winerr=");
+  tack_copy(s, need + 1, kind);
+  tack_cat(s, need + 1, ": ");
+  tack_cat(s, need + 1, path);
+  tack_cat(s, need + 1, " (winerr=");
   {
     char num[32];
-    sprintf(num, "%lu", (unsigned long)e);
-    strcat(s, num);
+    win32_ulong_to_dec(num, sizeof(num), (unsigned long)e);
+    tack_cat(s, need + 1, num);
   }
-  if (name) { strcat(s, " "); strcat(s, name); }
-  if (msg[0]) { strcat(s, ": "); strcat(s, msg); }
-  strcat(s, ")");
+  if (name) { tack_cat(s, need + 1, " "); tack_cat(s, need + 1, name); }
+  if (msg[0]) { tack_cat(s, need + 1, ": "); tack_cat(s, need + 1, msg); }
+  tack_cat(s, need + 1, ")");
 
   rm_collect_add_own(s);
 }
@@ -5291,6 +5322,7 @@ static int parse_int(const char *s) {
   return v;
 }
 
+#ifndef TACK_TEST
 int main(int argc, char **argv) {
   TargetVec tv;
   const char *cmd;
@@ -5537,3 +5569,4 @@ int main(int argc, char **argv) {
   config_free();
   return 2;
 }
+#endif
