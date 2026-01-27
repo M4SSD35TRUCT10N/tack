@@ -120,7 +120,34 @@ Wenn tack bei unveränderten Quellen in jedem Lauf neu baut, ist das fast immer 
 **tack BOM** ist ein *Build-Manifest*: es beschreibt, *wie ein konkretes Build erzeugt wurde* (Targets, Inputs, Flags, Toolchain/OS, Outputs).
 
 Eine **SBOM** (Software Bill of Materials) ist ein Supply-Chain-Artefakt (Komponenten + Abhängigkeiten, z.B. CycloneDX/SPDX).  
-Ein SBOM-Export ist **geplant**. Das tack-BOM vermeidet bewusst Ratespiele (z.B. keine Versionsableitung aus Linker-Flags).
+`tack sbom` erzeugt eine **deterministische JSON-SBOM** (`build/sbom.json`) aus den bekannten Build-Inputs.  
+Das tack-BOM vermeidet bewusst Ratespiele (z.B. keine Versionsableitung aus Linker-Flags).
+
+**Aufbau der SBOM relativ zum Quellbaum (Beispiel):**
+
+Angenommen, dein Projekt hat folgende Struktur:
+
+```
+src/
+  app/main.c
+  util/log.c
+src/core/
+  core.c
+include/
+  app.h
+tools/pack/
+  pack.c
+```
+
+Wenn du `tack sbom --target app` ausführst, schreibt tack eine JSON-Datei mit:
+
+- `target.src`: **Root** für die Target-Sourcen (`src/app` oder `src/` je nach Konvention).
+- `sources.target`: **alle `.c`-Dateien** unter dem Target-Root (rekursiv), z.B. `src/app/main.c`, `src/util/log.c`.
+- `sources.core`: **alle `.c`-Dateien** unter `src/core/`, sofern Core aktiv ist.
+- `flags.includes`: **Include-Pfade**, die tack effektiv nutzt (z.B. `include`, `src/app`, `src`, `src/core`).
+
+Wichtig: Die SBOM enthält nur **bekannte Build-Inputs** (Dateipfade, Flags, libs).  
+Sie versucht **nicht**, Abhängigkeitsversionen zu erraten oder fremde Komponenten zu „auflösen“.
 
 ### Erzeugt `tack doc` API-Dokumentation wie `cargo doc` / rustdoc?
 
@@ -265,7 +292,34 @@ If tack rebuilds on every run without source changes, it is usually a depfile pa
 **tack BOM** is a *build manifest*: it describes **how a specific build was produced** (targets, inputs, flags, toolchain/OS, outputs).
 
 An **SBOM** (Software Bill of Materials) is a supply-chain artifact (components + dependencies, e.g. CycloneDX/SPDX).  
-SBOM export is **planned**. tack BOM intentionally avoids guesswork (e.g. it does not try to infer exact library versions from linker flags).
+`tack sbom` emits a **deterministic JSON SBOM** (`build/sbom.json`) from known build inputs.  
+tack BOM intentionally avoids guesswork (e.g. it does not try to infer exact library versions from linker flags).
+
+**How the SBOM maps to the source tree (example):**
+
+Assume your project layout looks like this:
+
+```
+src/
+  app/main.c
+  util/log.c
+src/core/
+  core.c
+include/
+  app.h
+tools/pack/
+  pack.c
+```
+
+When you run `tack sbom --target app`, tack writes a JSON file with:
+
+- `target.src`: the **root** of the target sources (`src/app` or `src/` depending on layout).
+- `sources.target`: **all `.c` files** under the target root (recursive), e.g. `src/app/main.c`, `src/util/log.c`.
+- `sources.core`: **all `.c` files** under `src/core/` when core is enabled.
+- `flags.includes`: the **effective include paths** used by tack (e.g. `include`, `src/app`, `src`, `src/core`).
+
+Note: The SBOM only contains **known build inputs** (file paths, flags, libs).  
+It **does not** try to resolve third-party component versions or infer dependencies.
 
 ### Does `tack doc` generate API docs like `cargo doc` / rustdoc?
 
@@ -348,4 +402,3 @@ tack test --help
 ---
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
-

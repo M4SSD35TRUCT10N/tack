@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.7.4
+ * v0.7.5
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -62,7 +62,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.7.4"
+#define TACK_VERSION "0.7.5"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -3413,6 +3413,7 @@ static void print_help(void) {
   puts("  tack clean [-v]");
   puts("  tack clobber [-v]");
   puts("  tack bom");
+  puts("  tack sbom");
   puts("  tack doc");
   puts("");
 
@@ -3430,6 +3431,7 @@ static void print_help(void) {
   puts("  - clean/clobber -v prints remaining locked paths (if any)");
   puts("  - init    = also provisions .gitignore and .fossil-settings/ignore-glob (non-destructive)");
   puts("  - bom     = writes build/bom.md and build/bom.html");
+  puts("  - sbom    = writes build/sbom.json (deterministic JSON)");
   puts("  - doc     = writes HTML into build/doc/ (README/FAQ/ROADMAP/RELEASENOTES + BOM)");
   puts("  - --strict enables -Wunsupported");
   puts("  - --why prints short \"why rebuild\" diagnostics for compile/link decisions");
@@ -3495,6 +3497,7 @@ static const char *TACK_GITIGNORE_BLOCK =
   "# generated docs/BOM (optional)\n"
   "/build/bom.md\n"
   "/build/bom.html\n"
+  "/build/sbom.json\n"
   "/build/doc/\n";
 
 static const char *GITIGNORE_FULL_LINES[] = {
@@ -3511,6 +3514,7 @@ static const char *GITIGNORE_FULL_LINES[] = {
   "# generated docs/BOM (optional)\n",
   "/build/bom.md\n",
   "/build/bom.html\n",
+  "/build/sbom.json\n",
   "/build/doc/\n",
   "###############################################################################\n",
   "# Generic C / toolchain ignores\n",
@@ -3777,6 +3781,89 @@ static void write_html_escaped(FILE *f, const char *s) {
     else fputc((int)*p, f);
     p++;
   }
+}
+
+static void json_write_indent(FILE *f, int n) {
+  int i;
+  for (i = 0; i < n; i++) fputc(' ', f);
+}
+
+static void json_write_string(FILE *f, const char *s) {
+  const unsigned char *p = (const unsigned char*)(s ? s : "");
+  static const char hex[] = "0123456789abcdef";
+
+  fputc('"', f);
+  while (*p) {
+    unsigned char c = *p++;
+    if (c == '"') fputs("\\\"", f);
+    else if (c == '\\') fputs("\\\\", f);
+    else if (c == '\b') fputs("\\b", f);
+    else if (c == '\f') fputs("\\f", f);
+    else if (c == '\n') fputs("\\n", f);
+    else if (c == '\r') fputs("\\r", f);
+    else if (c == '\t') fputs("\\t", f);
+    else if (c < 0x20) {
+      fputs("\\u00", f);
+      fputc(hex[(c >> 4) & 0x0f], f);
+      fputc(hex[c & 0x0f], f);
+    } else {
+      fputc((int)c, f);
+    }
+  }
+  fputc('"', f);
+}
+
+static void json_write_bool(FILE *f, int v) {
+  fputs(v ? "true" : "false", f);
+}
+
+static void json_write_null(FILE *f) {
+  fputs("null", f);
+}
+
+static int cmp_cstr_ptr(const void *a, const void *b) {
+  const char * const *sa = (const char * const *)a;
+  const char * const *sb = (const char * const *)b;
+  return strcmp(*sa, *sb);
+}
+
+static void sv_sort_unique(StrVec *v) {
+  int i;
+  int w = 0;
+  if (!v || v->count <= 1) return;
+  qsort(v->items, (size_t)v->count, sizeof(char*), cmp_cstr_ptr);
+  for (i = 0; i < v->count; i++) {
+    if (w == 0 || strcmp(v->items[i], v->items[w - 1]) != 0) {
+      v->items[w++] = v->items[i];
+    } else {
+      free(v->items[i]);
+    }
+  }
+  v->count = w;
+}
+
+static void sv_append_list(StrVec *v, const char * const *lst) {
+  int i;
+  if (!v || !lst) return;
+  for (i = 0; lst[i]; i++) sv_push(v, lst[i]);
+}
+
+static void json_write_string_array(FILE *f, int indent, const StrVec *v) {
+  int i;
+  fputs("[", f);
+  if (!v || v->count == 0) {
+    fputs("]", f);
+    return;
+  }
+  fputc('\n', f);
+  for (i = 0; i < v->count; i++) {
+    json_write_indent(f, indent + 2);
+    json_write_string(f, v->items[i]);
+    if (i + 1 < v->count) fputc(',', f);
+    fputc('\n', f);
+  }
+  json_write_indent(f, indent);
+  fputc(']', f);
 }
 
 static void fprint_time_local(FILE *f) {
@@ -4314,6 +4401,241 @@ static int cmd_bom(Profile p, TargetVec *tv, const Target *t, int verbose, int s
   return 0;
 }
 
+static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int strict, int no_core,
+                    const char *outdir) {
+  FILE *f;
+  char sbom_path[512];
+  const TargetOverride *ov;
+  int use_core_effective;
+  const char *inc_common[5];
+  const char *tackfile_mode = "none";
+
+  StrVec includes;
+  StrVec defines;
+  StrVec cflags;
+  StrVec ldflags;
+  StrVec libs;
+  StrVec srcs;
+  StrVec core_srcs;
+
+  (void)tv;
+
+  if (!outdir) outdir = g_build_dir;
+
+  ensure_dir(outdir);
+  path_join(sbom_path, sizeof(sbom_path), outdir, "sbom.json");
+
+  if (verbose) printf("tack: sbom: writing %s\n", sbom_path);
+
+  f = fopen(sbom_path, "wb");
+  if (!f) {
+    fprintf(stderr, "tack: sbom: cannot write %s\n", sbom_path);
+    return 1;
+  }
+
+  ov = find_override(t->name);
+  use_core_effective = (ov && ov->use_core) ? 1 : 0;
+  if (no_core) use_core_effective = 0;
+
+  inc_common[0] = g_inc_dir;
+  inc_common[1] = t->src_dir;
+  inc_common[2] = g_src_dir;
+  if (file_exists(g_core_dir) && is_dir_path(g_core_dir)) inc_common[3] = g_core_dir;
+  else inc_common[3] = 0;
+  inc_common[4] = 0;
+
+  sv_init(&includes);
+  sv_init(&defines);
+  sv_init(&cflags);
+  sv_init(&ldflags);
+  sv_init(&libs);
+  sv_init(&srcs);
+  sv_init(&core_srcs);
+
+  sv_append_list(&includes, inc_common);
+  if (ov && ov->includes) sv_append_list(&includes, (const char * const *)ov->includes);
+  if (ov && ov->defines) sv_append_list(&defines, (const char * const *)ov->defines);
+  if (ov && ov->cflags) sv_append_list(&cflags, (const char * const *)ov->cflags);
+  if (ov && ov->ldflags) sv_append_list(&ldflags, (const char * const *)ov->ldflags);
+  if (ov && ov->libs) sv_append_list(&libs, (const char * const *)ov->libs);
+
+  if (gather_target_sources(&srcs, t) != 0 || srcs.count == 0) {
+    fprintf(stderr, "tack: sbom: cannot gather sources for %s\n", t->name);
+    sv_free(&includes);
+    sv_free(&defines);
+    sv_free(&cflags);
+    sv_free(&ldflags);
+    sv_free(&libs);
+    sv_free(&srcs);
+    sv_free(&core_srcs);
+    fclose(f);
+    return 1;
+  }
+
+  if (use_core_effective) {
+    if (file_exists(g_core_dir) && is_dir_path(g_core_dir)) {
+      scan_dir_recursive_suffix(&core_srcs, g_core_dir, ".c");
+    }
+  }
+
+  sv_sort_unique(&includes);
+  sv_sort_unique(&defines);
+  sv_sort_unique(&cflags);
+  sv_sort_unique(&ldflags);
+  sv_sort_unique(&libs);
+  sv_sort_unique(&srcs);
+  sv_sort_unique(&core_srcs);
+
+  if (g_no_config) {
+    tackfile_mode = "disabled";
+  } else {
+#ifdef TACK_USE_TACKFILE
+    tackfile_mode = "compile-time";
+#else
+    if (file_exists("tackfile.c")) tackfile_mode = "runtime";
+    else tackfile_mode = "none";
+#endif
+  }
+
+  fputs("{\n", f);
+  json_write_indent(f, 2);
+  fputs("\"format\": ", f);
+  json_write_string(f, "tack-sbom-1");
+  fputs(",\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"tool\": {\n", f);
+  json_write_indent(f, 4);
+  fputs("\"name\": ", f);
+  json_write_string(f, "tack");
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"version\": ", f);
+  json_write_string(f, TACK_VERSION);
+  fputc('\n', f);
+  json_write_indent(f, 2);
+  fputs("},\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"compiler\": ", f);
+  json_write_string(f, get_cc());
+  fputs(",\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"profile\": ", f);
+  json_write_string(f, profile_name(p));
+  fputs(",\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"strict\": ", f);
+  json_write_bool(f, strict);
+  fputs(",\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"no_core\": ", f);
+  json_write_bool(f, no_core);
+  fputs(",\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"config\": {\n", f);
+  json_write_indent(f, 4);
+  fputs("\"enabled\": ", f);
+  json_write_bool(f, g_no_config ? 0 : 1);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"tack_ini\": ", f);
+  if (g_no_config || !g_config_loaded) json_write_null(f);
+  else json_write_string(f, g_config_path);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"tackfile\": ", f);
+  json_write_string(f, tackfile_mode);
+  fputc('\n', f);
+  json_write_indent(f, 2);
+  fputs("},\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"target\": {\n", f);
+  json_write_indent(f, 4);
+  fputs("\"name\": ", f);
+  json_write_string(f, t->name);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"id\": ", f);
+  json_write_string(f, t->id);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"src\": ", f);
+  json_write_string(f, t->src_dir);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"bin\": ", f);
+  json_write_string(f, t->bin_base);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"enabled\": ", f);
+  json_write_bool(f, t->enabled ? 1 : 0);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"core\": ", f);
+  json_write_bool(f, use_core_effective ? 1 : 0);
+  fputc('\n', f);
+  json_write_indent(f, 2);
+  fputs("},\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"flags\": {\n", f);
+  json_write_indent(f, 4);
+  fputs("\"includes\": ", f);
+  json_write_string_array(f, 4, &includes);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"defines\": ", f);
+  json_write_string_array(f, 4, &defines);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"cflags\": ", f);
+  json_write_string_array(f, 4, &cflags);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"ldflags\": ", f);
+  json_write_string_array(f, 4, &ldflags);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"libs\": ", f);
+  json_write_string_array(f, 4, &libs);
+  fputc('\n', f);
+  json_write_indent(f, 2);
+  fputs("},\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"sources\": {\n", f);
+  json_write_indent(f, 4);
+  fputs("\"core\": ", f);
+  json_write_string_array(f, 4, &core_srcs);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"target\": ", f);
+  json_write_string_array(f, 4, &srcs);
+  fputc('\n', f);
+  json_write_indent(f, 2);
+  fputs("}\n", f);
+
+  fputs("}\n", f);
+  fclose(f);
+
+  sv_free(&includes);
+  sv_free(&defines);
+  sv_free(&cflags);
+  sv_free(&ldflags);
+  sv_free(&libs);
+  sv_free(&srcs);
+  sv_free(&core_srcs);
+
+  printf("tack: sbom: wrote %s\n", sbom_path);
+  return 0;
+}
+
 static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int no_core,
                    const char *outdir, Profile p) {
   char docdir[512];
@@ -4583,7 +4905,7 @@ int main(int argc, char **argv) {
   }
 
 
-  if (streq(cmd, "bom") || streq(cmd, "doc")) {
+  if (streq(cmd, "bom") || streq(cmd, "sbom") || streq(cmd, "doc")) {
     int verbose = 0;
     int strict = 0;
     int no_core = 0;
@@ -4625,6 +4947,11 @@ int main(int argc, char **argv) {
 
     if (streq(cmd, "bom")) {
       int rc = cmd_bom(p, &tv, t, verbose, strict, no_core, outdir);
+      tv_free(&tv);
+      config_free();
+      return rc;
+    } else if (streq(cmd, "sbom")) {
+      int rc = cmd_sbom(p, &tv, t, verbose, strict, no_core, outdir);
       tv_free(&tv);
       config_free();
       return rc;
