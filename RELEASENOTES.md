@@ -10,6 +10,7 @@
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
 ### v0.7.6
+- Dokumentations-Sync: README/FAQ/ROADMAP/Release Notes auf den aktuellen Implementationsstand (Features/Optionen) abgeglichen.
 - `tack sbom`: Mehrformat-Ausgabe (Default `tack`), Format/Output steuerbar via `[sbom]` in `tack.ini` (CycloneDX/SPDX-Optionen dokumentiert, noch nicht implementiert).
 
 ### v0.7.5
@@ -57,6 +58,7 @@
 > Until then, this file tracks versions/milestones.
 
 ### v0.7.6
+- Documentation sync: aligned README/FAQ/ROADMAP/Release Notes with the current implementation (features/options).
 - `tack sbom`: multi-format output (default `tack`), format/output controlled via `[sbom]` in `tack.ini` (CycloneDX/SPDX options documented, not implemented yet).
 
 ### v0.7.5
