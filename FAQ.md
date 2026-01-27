@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.7
+# tack FAQ / FQA (DE/EN) — v0.7.8
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -37,6 +37,37 @@ Standard ist **tcc**. Über `TACK_CC` kannst du z.B. `gcc` oder `clang` nutzen, 
 ### Warum lehnt tack `TACK_CC="clang -std=c89"` ab?
 Weil tack den Compiler als argv[0] startet. Flags würden als Teil des Programnamens verstanden.  
 Lösung: `TACK_CC=clang` und `cflags = -std=c89` in `tack.ini`.
+
+### Wie nutze ich profil-spezifische Target-Overrides?
+Du kannst in `tack.ini` pro Target eigene Overrides für `debug` und `release` definieren, z.B.:
+
+```ini
+[target "app"]
+core = yes
+includes = include; src
+
+[target "app".debug]
+defines = APP_DEBUG=1
+cflags = -O0
+
+[target "app".release]
+cflags = -O3
+```
+
+In den Profil-Sektionen sind nur `core`, `includes`, `defines`, `cflags`, `ldflags`, `libs` erlaubt.  
+Profilwerte überschreiben die Basis-Listen aus `[target "NAME"]` (oder aus `tackfile.c`/Built-ins) für das jeweilige Profil.
+
+**Defines vs. CFLAGS:**  
+`defines = FOO=1` ist funktional identisch zu `cflags = -DFOO=1`. tack wandelt `defines` intern in `-D`‑Flags um.  
+Für Präprozessor‑Makros ist `defines` die klarere Variante; `cflags` ist für allgemeine Compiler‑Flags gedacht.
+
+Beispiel (äquivalent):
+```ini
+[target "app".release]
+defines = TACK_RELEASE=1
+; oder:
+; cflags = -DTACK_RELEASE=1
+```
 
 ### Was ist der Unterschied zwischen `--no-config` und `--no-code-config`?
 - `--no-config`: ignoriert **INI + tackfile.c** (alles aus)
@@ -240,6 +271,37 @@ Important: `TACK_CC` is the compiler program, not “compiler + flags”. Put fl
 ### Why does tack reject `TACK_CC="clang -std=c89"`?
 Because tack starts the compiler as argv[0]. Flags would be part of the program name.  
 Fix: `TACK_CC=clang` and `cflags = -std=c89` in `tack.ini`.
+
+### How do I use profile-specific target overrides?
+You can define per-target overrides for `debug` and `release` in `tack.ini`, for example:
+
+```ini
+[target "app"]
+core = yes
+includes = include; src
+
+[target "app".debug]
+defines = APP_DEBUG=1
+cflags = -O0
+
+[target "app".release]
+cflags = -O3
+```
+
+In profile sections, only `core`, `includes`, `defines`, `cflags`, `ldflags`, `libs` are allowed.  
+Profile values replace the base lists from `[target "NAME"]` (or `tackfile.c`/built-ins) for that profile.
+
+**Defines vs. CFLAGS:**  
+`defines = FOO=1` is functionally identical to `cflags = -DFOO=1`. tack converts `defines` into `-D` flags internally.  
+Use `defines` for preprocessor macros and `cflags` for general compiler flags.
+
+Example (equivalent):
+```ini
+[target "app".release]
+defines = TACK_RELEASE=1
+; or:
+; cflags = -DTACK_RELEASE=1
+```
 
 ### `--no-config` vs `--no-code-config`?
 - `--no-config`: ignore **INI + tackfile.c**
