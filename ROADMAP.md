@@ -34,10 +34,15 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 ### Erledigt in v0.7.6
 - Dokumentations-Sync: README/FAQ/ROADMAP/Release Notes konsistent zur Implementation gehalten.
 
+### Erledigt in v0.7.7
+- Fehlerbereinigung nach vorschnellen Pull-Request-Merges
+
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
 - Optional: bessere Windows Long‑Path Guidance
 - Optional: High-Contrast/Forced-Colors CSS-Feinschliff für DOC/BOM-Templates
+- Optional: Multiple SBOM-JSONs je Target
+- Release-/Debug-Schlüssel bzw. -Profile je Target
 
 ### Paketmanagement (Idee / Untersuchungen)
 C hat kein Standard‑Paketmanagement wie Rust. Ein tack‑eigenes System wäre ein USP, aber nur mit sehr klarer Scope‑Definition:
@@ -78,10 +83,15 @@ Before “big” releases and announcements, tack should be validated against re
 ### Done in v0.7.6
 - Documentation sync: kept README/FAQ/ROADMAP/Release Notes consistent with the implementation.
 
+### Done in v0.7.7
+- Bugfix release due to badly controlled pull request merges
+
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs
 - Optional: better Windows long-path guidance
 - Optional: high-contrast / forced-colors CSS polish for DOC/BOM templates
+- Optional: multiple SBOM-JSONs per target
+- release/debug keys or profile per target
 
 ### Package management (idea / research)
 C has no standard package manager. A tack-native approach could be a USP, but needs strict scope:
