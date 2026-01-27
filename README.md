@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.7)
+# tack — Tiny ANSI-C Kit (v0.7.8)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.7)
+## Features (v0.7.8)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -65,6 +65,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - Help-Passthrough: `tack build --help` / `-h` zeigt die Kommando-Hilfe
 - Strict Mode: `--strict` aktiviert zusätzlich `-Wunsupported`
 - Echte Target-Konfiguration: Includes/Defines/CFLAGS/LDFLAGS/LIBS pro Target
+- Profil-spezifische Target-Overrides in `tack.ini` (`[target "...".debug]` / `[target "...".release]`)
 - Shared Core Code: `src/core/` wird 1× pro Profil gebaut und optional gelinkt
 - `tack bom`: erzeugt ein Build-Manifest (BOM) als `build/bom.md` und `build/bom.html`.
 - `tack sbom`: erzeugt eine SBOM in mehreren Formaten (Default: tack‑JSON unter `build/sbom.json`; CycloneDX/SPDX mit formatabhängigen Defaults, steuerbar via `tack.ini`).
@@ -242,6 +243,35 @@ Wenn `tack.ini` vorhanden ist (oder per `--config PATH` gesetzt wird), lädt tac
 - `ldflags  = ...`     (Tokens, per `;` getrennt)
 - `libs     = ...`     (Tokens, per `;` getrennt)
 
+**Profil-spezifische Overrides in `tack.ini`**
+Du kannst pro Target zusätzliche Overrides für `debug`/`release` definieren:
+
+- `[target "NAME".debug]`
+- `[target "NAME".release]`
+
+In diesen Profil-Sektionen gelten nur die Extra-Listen + `core`:
+
+- `core = yes|no`
+- `includes = ...`
+- `defines  = ...`
+- `cflags   = ...`
+- `ldflags  = ...`
+- `libs     = ...`
+
+**Merge-Regel:** Profilwerte überschreiben die Basis-Listen aus `[target "NAME"]` (oder aus `tackfile.c`/Built-ins) pro Profil. Nicht gesetzte Felder bleiben unverändert.
+
+**Defines vs. CFLAGS (Profil-Overrides)**  
+`defines = FOO=1` ist semantisch identisch zu `cflags = -DFOO=1`: tack wandelt `defines` intern in `-D`‑Flags um.  
+Für Präprozessor‑Makros ist `defines` die klarere/lesbarere Variante; `cflags` ist für allgemeine Compiler‑Flags gedacht.
+
+Beispiel (äquivalent):
+```ini
+[target "app".release]
+defines = TACK_RELEASE=1
+; oder:
+; cflags = -DTACK_RELEASE=1
+```
+
 **Schlüssel in `[sbom]`**
 - `format = tack|tack-sbom-1|cyclonedx|cyclonedx-1.4|spdx|spdx-2.3` (Default: `tack-sbom-1`)
 - `spec_version = ...` (optional; z. B. `1.4` für CycloneDX oder `2.3` für SPDX; für tack wird daraus `tack-sbom-<spec>`)
@@ -251,6 +281,7 @@ Wenn `tack.ini` vorhanden ist (oder per `--config PATH` gesetzt wird), lädt tac
 - `includes`, `defines`, `cflags`, `ldflags`, `libs` sind **Extra-Listen**. tack ergänzt sie zu seinen internen Basis-Flags (Warnungen + Profil-Flags wie `-g`/`-O2`).  
 - Pro Target gilt: Werte aus `tack.ini` **ersetzen** die entsprechenden Extra-Listen aus `tackfile.c`/Built-ins (es wird nicht „zusammenaddiert“).  
 - Built-ins bleiben als Fallback aktiv, solange in `tack.ini` kein Target-Override für den betreffenden Schlüssel gesetzt ist.
+- Profil-Sektionen überschreiben die Basis-Listen nur für das jeweilige Profil (`debug`/`release`).
 
 **Listen-Format:** Primär Semikolon-getrennt (`;`). Ab **v0.6.5** werden zusätzlich **Whitespace** als Trenner sowie **quotierte Tokens** unterstützt (z. B. Pfade mit Leerzeichen). Empfehlung: `;` nutzen, weil es am klarsten ist.  
 Leerzeichen um Tokens herum sind ok, aber Tokens sollten keine eingebetteten Leerzeichen enthalten.
@@ -271,6 +302,9 @@ src = tools/gen
 bin = gen
 core = yes
 libs = -lws2_32
+
+[target "tool:gen".debug]
+cflags = -DTACK_DEBUG_TOOLS=1
 
 [target "tool:old"]
 enabled = no
@@ -473,7 +507,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.7)
+## Features (v0.7.8)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -490,6 +524,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - Help passthrough: `tack build --help` / `-h` shows sub-command help
 - strict mode: `--strict` enables `-Wunsupported` (default suppresses it)
 - real per‑target config: includes/defines/cflags/ldflags/libs/core
+- profile-specific target overrides in `tack.ini` (`[target "...".debug]` / `[target "...".release]`)
 - Shared core code: `src/core/` built once per profile, optionally linked
 - `tack bom`: generates a build manifest (BOM) as `build/bom.md` and `build/bom.html`.
 - `tack sbom`: generates an SBOM in multiple formats (default: tack JSON at `build/sbom.json`; CycloneDX/SPDX with format-specific defaults, controlled via `tack.ini`).
@@ -633,6 +668,24 @@ Delete the `.tack-cache/` folder (e.g. `rm -rf .tack-cache`).
 Auto-loaded if present (or via `--config`), unless `--no-config` is set.
 
 See the German section above for the full key list. The format is the same.
+
+Profile-specific target overrides are supported via sections like:
+- `[target "NAME".debug]`
+- `[target "NAME".release]`
+
+These sections accept only `core`, `includes`, `defines`, `cflags`, `ldflags`, `libs`. Profile values replace the base lists for that profile when set.
+
+**Defines vs. CFLAGS (profile overrides)**  
+`defines = FOO=1` is semantically identical to `cflags = -DFOO=1`: tack turns `defines` into `-D` flags internally.  
+Use `defines` for preprocessor macros and `cflags` for general compiler flags.
+
+Example (equivalent):
+```ini
+[target "app".release]
+defines = TACK_RELEASE=1
+; or:
+; cflags = -DTACK_RELEASE=1
+```
 
 **SBOM output (optional)**  
 Use `[sbom]` in `tack.ini`:

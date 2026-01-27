@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.7.7
+ * v0.7.8
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -62,7 +62,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.7.7"
+#define TACK_VERSION "0.7.8"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -1802,8 +1802,21 @@ typedef struct {
   int use_core;                     /* 1 = link src/core into this target */
 } TargetOverride;
 
+typedef struct {
+  const char *name;                 /* target name (same as base override) */
+  Profile profile;                  /* debug/release */
+  const char * const *includes;     /* profile-specific -I dirs */
+  const char * const *defines;      /* profile-specific -D... */
+  const char * const *cflags;       /* profile-specific compile flags */
+  const char * const *ldflags;      /* profile-specific link flags */
+  const char * const *libs;         /* profile-specific libs */
+  int core_set;                     /* profile-specific core override set? */
+  int core;                         /* profile-specific core value */
+} TargetProfileOverride;
+
 /* runtime INI overrides (higher priority than tackfile/built-ins) */
 static const TargetOverride *find_ini_override(const char *name);
+static const TargetProfileOverride *find_ini_profile_override(const char *name, Profile p);
 
 typedef struct {
   const char *name;      /* CLI name (e.g. "app" or "tool:foo") */
@@ -1891,6 +1904,29 @@ static const TargetOverride *find_override(const char *name) {
     if (streq(g_overrides[i].name, name)) return &g_overrides[i];
   }
   return 0;
+}
+
+typedef struct {
+  const char * const *includes;
+  const char * const *defines;
+  const char * const *cflags;
+  const char * const *ldflags;
+  const char * const *libs;
+  int use_core;
+} EffectiveOverride;
+
+static void get_effective_override(const char *name, Profile p, EffectiveOverride *out) {
+  const TargetOverride *base = find_override(name);
+  const TargetProfileOverride *prof = find_ini_profile_override(name, p);
+
+  out->includes = (prof && prof->includes) ? prof->includes : (base ? base->includes : 0);
+  out->defines = (prof && prof->defines) ? prof->defines : (base ? base->defines : 0);
+  out->cflags = (prof && prof->cflags) ? prof->cflags : (base ? base->cflags : 0);
+  out->ldflags = (prof && prof->ldflags) ? prof->ldflags : (base ? base->ldflags : 0);
+  out->libs = (prof && prof->libs) ? prof->libs : (base ? base->libs : 0);
+
+  if (prof && prof->core_set) out->use_core = prof->core ? 1 : 0;
+  else out->use_core = base ? base->use_core : 0;
 }
 
 /* --------------------------- discovered targets --------------------------- */
@@ -2047,10 +2083,27 @@ typedef struct {
 } IniTargetCfg;
 
 typedef struct {
+  char *name;
+  Profile profile;
+  int core_set, core;
+  StrVec includes;
+  StrVec defines;
+  StrVec cflags;
+  StrVec ldflags;
+  StrVec libs;
+} IniProfileCfg;
+
+typedef struct {
   IniTargetCfg *items;
   int count;
   int cap;
 } IniTargetVec;
+
+typedef struct {
+  IniProfileCfg *items;
+  int count;
+  int cap;
+} IniProfileVec;
 
 typedef struct {
   TargetOverride *items;
@@ -2058,11 +2111,21 @@ typedef struct {
   int cap;
 } IniOverrideVec;
 
+typedef struct {
+  TargetProfileOverride *items;
+  int count;
+  int cap;
+} IniProfileOverrideVec;
+
 static IniTargetVec g_ini_targets;
+static IniProfileVec g_ini_profile_targets;
 static IniOverrideVec g_ini_overrides;
+static IniProfileOverrideVec g_ini_profile_overrides;
 
 static void ini_targets_init(void) { g_ini_targets.items = 0; g_ini_targets.count = 0; g_ini_targets.cap = 0; }
+static void ini_profile_targets_init(void) { g_ini_profile_targets.items = 0; g_ini_profile_targets.count = 0; g_ini_profile_targets.cap = 0; }
 static void ini_overrides_init(void) { g_ini_overrides.items = 0; g_ini_overrides.count = 0; g_ini_overrides.cap = 0; }
+static void ini_profile_overrides_init(void) { g_ini_profile_overrides.items = 0; g_ini_profile_overrides.count = 0; g_ini_profile_overrides.cap = 0; }
 
 static void free_strlist(char **lst) {
   int i;
@@ -2089,6 +2152,21 @@ static void ini_targets_free(void) {
   g_ini_targets.items = 0; g_ini_targets.count = 0; g_ini_targets.cap = 0;
 }
 
+static void ini_profile_targets_free(void) {
+  int i;
+  for (i = 0; i < g_ini_profile_targets.count; i++) {
+    IniProfileCfg *t = &g_ini_profile_targets.items[i];
+    free(t->name);
+    sv_free(&t->includes);
+    sv_free(&t->defines);
+    sv_free(&t->cflags);
+    sv_free(&t->ldflags);
+    sv_free(&t->libs);
+  }
+  free(g_ini_profile_targets.items);
+  g_ini_profile_targets.items = 0; g_ini_profile_targets.count = 0; g_ini_profile_targets.cap = 0;
+}
+
 static void ini_overrides_free(void) {
   int i;
   for (i = 0; i < g_ini_overrides.count; i++) {
@@ -2102,6 +2180,21 @@ static void ini_overrides_free(void) {
   }
   free(g_ini_overrides.items);
   g_ini_overrides.items = 0; g_ini_overrides.count = 0; g_ini_overrides.cap = 0;
+}
+
+static void ini_profile_overrides_free(void) {
+  int i;
+  for (i = 0; i < g_ini_profile_overrides.count; i++) {
+    TargetProfileOverride *ov = &g_ini_profile_overrides.items[i];
+    free((char*)ov->name);
+    free_strlist((char**)ov->includes);
+    free_strlist((char**)ov->defines);
+    free_strlist((char**)ov->cflags);
+    free_strlist((char**)ov->ldflags);
+    free_strlist((char**)ov->libs);
+  }
+  free(g_ini_profile_overrides.items);
+  g_ini_profile_overrides.items = 0; g_ini_profile_overrides.count = 0; g_ini_profile_overrides.cap = 0;
 }
 
 /* tiny trimming helpers */
@@ -2120,6 +2213,19 @@ static int strieq(const char *a, const char *b) {
     if (tolower(ca) != tolower(cb)) return 0;
   }
   return *a == '\0' && *b == '\0';
+}
+
+static int striendswith(const char *s, const char *suffix) {
+  size_t n = strlen(s);
+  size_t m = strlen(suffix);
+  size_t i;
+  if (m > n) return 0;
+  for (i = 0; i < m; i++) {
+    unsigned char ca = (unsigned char)s[n - m + i];
+    unsigned char cb = (unsigned char)suffix[i];
+    if (tolower(ca) != tolower(cb)) return 0;
+  }
+  return 1;
 }
 
 static int parse_bool(const char *v, int *out) {
@@ -2229,6 +2335,35 @@ static IniTargetCfg *ini_get_or_add_target(const char *name) {
   }
 }
 
+static IniProfileCfg *ini_get_or_add_profile_target(const char *name, Profile profile) {
+  int i;
+  for (i = 0; i < g_ini_profile_targets.count; i++) {
+    if (g_ini_profile_targets.items[i].profile == profile &&
+        streq(g_ini_profile_targets.items[i].name, name)) {
+      return &g_ini_profile_targets.items[i];
+    }
+  }
+  if (g_ini_profile_targets.count + 1 > g_ini_profile_targets.cap) {
+    int ncap = g_ini_profile_targets.cap ? g_ini_profile_targets.cap * 2 : 8;
+    g_ini_profile_targets.items = (IniProfileCfg*)xrealloc(g_ini_profile_targets.items,
+                                                         (size_t)ncap * sizeof(IniProfileCfg));
+    g_ini_profile_targets.cap = ncap;
+  }
+  {
+    IniProfileCfg *t = &g_ini_profile_targets.items[g_ini_profile_targets.count++];
+    memset(t, 0, sizeof(*t));
+    t->name = xstrdup(name);
+    t->profile = profile;
+    sv_init(&t->includes);
+    sv_init(&t->defines);
+    sv_init(&t->cflags);
+    sv_init(&t->ldflags);
+    sv_init(&t->libs);
+    t->core_set = 0; t->core = 0;
+    return t;
+  }
+}
+
 static char **sv_to_strlist_own(StrVec *v) {
   char **lst;
   int i;
@@ -2264,11 +2399,52 @@ static TargetOverride *ini_get_or_add_override(const char *name) {
   }
 }
 
+static TargetProfileOverride *ini_get_or_add_profile_override(const char *name, Profile profile) {
+  int i;
+  for (i = 0; i < g_ini_profile_overrides.count; i++) {
+    if (g_ini_profile_overrides.items[i].profile == profile &&
+        streq(g_ini_profile_overrides.items[i].name, name)) {
+      return &g_ini_profile_overrides.items[i];
+    }
+  }
+  if (g_ini_profile_overrides.count + 1 > g_ini_profile_overrides.cap) {
+    int ncap = g_ini_profile_overrides.cap ? g_ini_profile_overrides.cap * 2 : 8;
+    g_ini_profile_overrides.items = (TargetProfileOverride*)xrealloc(g_ini_profile_overrides.items,
+                                                                     (size_t)ncap * sizeof(TargetProfileOverride));
+    g_ini_profile_overrides.cap = ncap;
+  }
+  {
+    TargetProfileOverride *ov = &g_ini_profile_overrides.items[g_ini_profile_overrides.count++];
+    memset(ov, 0, sizeof(*ov));
+    ov->name = xstrdup(name);
+    ov->profile = profile;
+    ov->includes = 0;
+    ov->defines = 0;
+    ov->cflags = 0;
+    ov->ldflags = 0;
+    ov->libs = 0;
+    ov->core_set = 0;
+    ov->core = 0;
+    return ov;
+  }
+}
+
 /* INI override lookup (used by find_override) */
 static const TargetOverride *find_ini_override(const char *name) {
   int i;
   for (i = 0; i < g_ini_overrides.count; i++) {
     if (streq(g_ini_overrides.items[i].name, name)) return &g_ini_overrides.items[i];
+  }
+  return 0;
+}
+
+static const TargetProfileOverride *find_ini_profile_override(const char *name, Profile p) {
+  int i;
+  for (i = 0; i < g_ini_profile_overrides.count; i++) {
+    if (g_ini_profile_overrides.items[i].profile == p &&
+        streq(g_ini_profile_overrides.items[i].name, name)) {
+      return &g_ini_profile_overrides.items[i];
+    }
   }
   return 0;
 }
@@ -2279,8 +2455,9 @@ static int ini_load_file(const char *path) {
   char line[TACK_MAX_LINE];
   int lineno = 0;
 
-  enum { SEC_NONE = 0, SEC_PROJECT = 1, SEC_TARGET = 2, SEC_DOC = 3, SEC_BOM = 4, SEC_SBOM = 5 } sec = SEC_NONE;
+  enum { SEC_NONE = 0, SEC_PROJECT = 1, SEC_TARGET = 2, SEC_TARGET_PROFILE = 3, SEC_DOC = 4, SEC_BOM = 5, SEC_SBOM = 6 } sec = SEC_NONE;
   IniTargetCfg *cur_t = 0;
+  IniProfileCfg *cur_tp = 0;
 
   f = fopen(path, "rb");
   if (!f) return 1;
@@ -2310,6 +2487,7 @@ static int ini_load_file(const char *path) {
       s = trim(s);
 
       cur_t = 0;
+      cur_tp = 0;
       sec = SEC_NONE;
 
       if (strieq(s, "project")) {
@@ -2325,6 +2503,8 @@ static int ini_load_file(const char *path) {
         char *p;
         char *tname;
         size_t tn;
+        int has_profile = 0;
+        Profile prof = PROF_DEBUG;
 
         p = s + 6;
         tname = 0;
@@ -2332,19 +2512,39 @@ static int ini_load_file(const char *path) {
         p = trim(p);
         if (*p == '"') {
           char *q = strchr(p + 1, '"');
+          char *after;
           if (!q) continue;
           tn = (size_t)(q - (p + 1));
           if (tn > TACK_MAX_NAME) tack_die("target name too long");
           tname = (char*)xmalloc(tn + 1);
           memcpy(tname, p + 1, tn);
           tname[tn] = '\0';
+          after = trim(q + 1);
+          if (*after == '.') {
+            if (strieq(after + 1, "debug")) { has_profile = 1; prof = PROF_DEBUG; }
+            else if (strieq(after + 1, "release")) { has_profile = 1; prof = PROF_RELEASE; }
+            else continue;
+          }
         } else {
+          const char *suffix = 0;
+          if (striendswith(p, ".debug")) { suffix = ".debug"; prof = PROF_DEBUG; has_profile = 1; }
+          else if (striendswith(p, ".release")) { suffix = ".release"; prof = PROF_RELEASE; has_profile = 1; }
           tn = strlen(p);
+          if (suffix && tn > strlen(suffix)) tn -= strlen(suffix);
           if (tn > TACK_MAX_NAME) tack_die("target name too long");
-          tname = xstrdup(p);
+          tname = (char*)xmalloc(tn + 1);
+          memcpy(tname, p, tn);
+          tname[tn] = '\0';
         }
-        cur_t = ini_get_or_add_target(tname);
-        sec = SEC_TARGET;
+        if (tname[0]) {
+          if (has_profile) {
+            cur_tp = ini_get_or_add_profile_target(tname, prof);
+            sec = SEC_TARGET_PROFILE;
+          } else {
+            cur_t = ini_get_or_add_target(tname);
+            sec = SEC_TARGET;
+          }
+        }
         free(tname);
         continue;
       }
@@ -2405,6 +2605,24 @@ static int ini_load_file(const char *path) {
             tack_check_len("sbom output", val, TACK_MAX_CONFIG_PATH);
             g_config_sbom_output = xstrdup(val);
           }
+        }
+        continue;
+      }
+
+      if (sec == SEC_TARGET_PROFILE && cur_tp) {
+        if (strieq(key, "core")) {
+          int b;
+          if (parse_bool(val, &b)) { cur_tp->core_set = 1; cur_tp->core = b; }
+        } else if (strieq(key, "includes")) {
+          sv_free(&cur_tp->includes); sv_init(&cur_tp->includes); split_list_tokens(&cur_tp->includes, val, 0);
+        } else if (strieq(key, "defines")) {
+          sv_free(&cur_tp->defines); sv_init(&cur_tp->defines); split_list_tokens(&cur_tp->defines, val, 1);
+        } else if (strieq(key, "cflags")) {
+          sv_free(&cur_tp->cflags); sv_init(&cur_tp->cflags); split_list_tokens(&cur_tp->cflags, val, 1);
+        } else if (strieq(key, "ldflags")) {
+          sv_free(&cur_tp->ldflags); sv_init(&cur_tp->ldflags); split_list_tokens(&cur_tp->ldflags, val, 1);
+        } else if (strieq(key, "libs")) {
+          sv_free(&cur_tp->libs); sv_init(&cur_tp->libs); split_list_tokens(&cur_tp->libs, val, 1);
         }
         continue;
       }
@@ -2472,12 +2690,37 @@ static void ini_materialize_overrides(void) {
   }
 }
 
+static void ini_materialize_profile_overrides(void) {
+  int i;
+  for (i = 0; i < g_ini_profile_targets.count; i++) {
+    IniProfileCfg *t = &g_ini_profile_targets.items[i];
+    int need = 0;
+    if (t->includes.count) need = 1;
+    if (t->defines.count) need = 1;
+    if (t->cflags.count) need = 1;
+    if (t->ldflags.count) need = 1;
+    if (t->libs.count) need = 1;
+    if (t->core_set) need = 1;
+
+    if (need) {
+      TargetProfileOverride *ov = ini_get_or_add_profile_override(t->name, t->profile);
+      if (t->includes.count) ov->includes = (const char * const *)sv_to_strlist_own(&t->includes);
+      if (t->defines.count) ov->defines = (const char * const *)sv_to_strlist_own(&t->defines);
+      if (t->cflags.count) ov->cflags = (const char * const *)sv_to_strlist_own(&t->cflags);
+      if (t->ldflags.count) ov->ldflags = (const char * const *)sv_to_strlist_own(&t->ldflags);
+      if (t->libs.count) ov->libs = (const char * const *)sv_to_strlist_own(&t->libs);
+      if (t->core_set) { ov->core_set = 1; ov->core = t->core ? 1 : 0; }
+    }
+  }
+}
+
 static void apply_ini_targets(TargetVec *out) {
   int i;
   if (!g_config_loaded) return;
 
   /* ensure overrides are ready */
   ini_materialize_overrides();
+  ini_materialize_profile_overrides();
 
   for (i = 0; i < g_ini_targets.count; i++) {
     IniTargetCfg *t = &g_ini_targets.items[i];
@@ -2767,9 +3010,13 @@ static void config_reset(void) {
   g_config_sbom_output = 0;
 
   ini_targets_free();
+  ini_profile_targets_free();
   ini_overrides_free();
+  ini_profile_overrides_free();
   ini_targets_init();
+  ini_profile_targets_init();
   ini_overrides_init();
+  ini_profile_overrides_init();
 
   g_config_loaded = 0;
   g_config_path[0] = '\0';
@@ -2810,12 +3057,15 @@ static int config_auto_load(void) {
 
   /* finally build override list */
   ini_materialize_overrides();
+  ini_materialize_profile_overrides();
   return 0;
 }
 
 static void config_free(void) {
   ini_targets_free();
+  ini_profile_targets_free();
   ini_overrides_free();
+  ini_profile_overrides_free();
   
   free(g_config_default_target);
   g_config_default_target = 0;
@@ -3284,7 +3534,7 @@ static int build_core(Profile p, int verbose, int why, int force, int jobs, int 
 
 static int build_one_target(const Target *t, Profile p, int verbose, int why, int force, int jobs, int strict, int no_core) {
   const char *cc;
-  const TargetOverride *ov;
+  EffectiveOverride ov;
   int use_core;
 
   StrVec srcs;
@@ -3298,10 +3548,9 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
 
   cc = get_cc();
 
-  ov = find_override(t->name);
+  get_effective_override(t->name, p, &ov);
 
-  use_core = 0;
-  if (ov) use_core = ov->use_core;
+  use_core = ov.use_core;
   if (no_core) use_core = 0;
 
   /* prepare dirs */
@@ -3367,9 +3616,9 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
   /* compile target sources */
   if (compile_sources(cc, &srcs, objd, depd,
                       inc_common,
-                      ov ? ov->includes : 0,
-                      ov ? ov->defines : 0,
-                      ov ? ov->cflags : 0,
+                      ov.includes,
+                      ov.defines,
+                      ov.cflags,
                       p, verbose, why, force, jobs, strict,
                       &objs) != 0) {
     sv_free(&srcs); sv_free(&objs); sv_free(&core_objs);
@@ -3399,10 +3648,10 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
     if (need_link) {
       int rc = link_executable(cc, out_exe, &all,
                                inc_common,
-                               ov ? ov->includes : 0,
-                               ov ? ov->defines : 0,
-                               ov ? ov->ldflags : 0,
-                               ov ? ov->libs : 0,
+                               ov.includes,
+                               ov.defines,
+                               ov.ldflags,
+                               ov.libs,
                                p, verbose, strict);
       sv_free(&all);
       if (rc != 0) { sv_free(&srcs); sv_free(&objs); sv_free(&core_objs); return 1; }
@@ -4369,7 +4618,7 @@ static int cmd_bom(Profile p, TargetVec *tv, const Target *t, int verbose, int s
   FILE *f;
   char bom_md[512];
   char bom_html[512];
-  const TargetOverride *ov;
+  EffectiveOverride ov;
   int use_core_effective;
 
   StrVec srcs;
@@ -4430,8 +4679,8 @@ static int cmd_bom(Profile p, TargetVec *tv, const Target *t, int verbose, int s
   fprintf(f, "- bin: `%s`\n", t->bin_base);
   fprintf(f, "- enabled: **%s**\n", t->enabled ? "yes" : "no");
 
-  ov = find_override(t->name);
-  use_core_effective = (ov && ov->use_core) ? 1 : 0;
+  get_effective_override(t->name, p, &ov);
+  use_core_effective = ov.use_core ? 1 : 0;
   if (no_core) use_core_effective = 0;
   fprintf(f, "- core: **%s**\n\n", use_core_effective ? "yes" : "no");
 
@@ -4463,11 +4712,11 @@ static int cmd_bom(Profile p, TargetVec *tv, const Target *t, int verbose, int s
   inc_common[4] = 0;
 
   md_list_strings(f, "Include search path (common)", inc_common);
-  if (ov && ov->includes) md_list_strings(f, "Target includes (extra)", ov->includes);
-  if (ov && ov->defines) md_list_strings(f, "Target defines (extra)", ov->defines);
-  if (ov && ov->cflags) md_list_strings(f, "Target cflags (extra)", ov->cflags);
-  if (ov && ov->ldflags) md_list_strings(f, "Target ldflags (extra)", ov->ldflags);
-  if (ov && ov->libs) md_list_strings(f, "Target libs (extra)", ov->libs);
+  if (ov.includes) md_list_strings(f, "Target includes (extra)", ov.includes);
+  if (ov.defines) md_list_strings(f, "Target defines (extra)", ov.defines);
+  if (ov.cflags) md_list_strings(f, "Target cflags (extra)", ov.cflags);
+  if (ov.ldflags) md_list_strings(f, "Target ldflags (extra)", ov.ldflags);
+  if (ov.libs) md_list_strings(f, "Target libs (extra)", ov.libs);
 
   sv_init(&srcs);
   if (gather_target_sources(&srcs, t) != 0 || srcs.count == 0) {
@@ -4957,7 +5206,7 @@ static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int 
   char sbom_path[TACK_MAX_CONFIG_PATH + 1];
   char format_buf[64];
   char spec_buf[32];
-  const TargetOverride *ov;
+  EffectiveOverride ov;
   int use_core_effective;
   const char *inc_common[5];
   const char *tackfile_mode = "none";
@@ -5040,8 +5289,8 @@ static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int 
     return 1;
   }
 
-  ov = find_override(t->name);
-  use_core_effective = (ov && ov->use_core) ? 1 : 0;
+  get_effective_override(t->name, p, &ov);
+  use_core_effective = ov.use_core ? 1 : 0;
   if (no_core) use_core_effective = 0;
 
   inc_common[0] = g_inc_dir;
@@ -5060,11 +5309,11 @@ static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int 
   sv_init(&core_srcs);
 
   sv_append_list(&includes, inc_common);
-  if (ov && ov->includes) sv_append_list(&includes, (const char * const *)ov->includes);
-  if (ov && ov->defines) sv_append_list(&defines, (const char * const *)ov->defines);
-  if (ov && ov->cflags) sv_append_list(&cflags, (const char * const *)ov->cflags);
-  if (ov && ov->ldflags) sv_append_list(&ldflags, (const char * const *)ov->ldflags);
-  if (ov && ov->libs) sv_append_list(&libs, (const char * const *)ov->libs);
+  if (ov.includes) sv_append_list(&includes, (const char * const *)ov.includes);
+  if (ov.defines) sv_append_list(&defines, (const char * const *)ov.defines);
+  if (ov.cflags) sv_append_list(&cflags, (const char * const *)ov.cflags);
+  if (ov.ldflags) sv_append_list(&ldflags, (const char * const *)ov.ldflags);
+  if (ov.libs) sv_append_list(&libs, (const char * const *)ov.libs);
 
   if (gather_target_sources(&srcs, t) != 0 || srcs.count == 0) {
     fprintf(stderr, "tack: sbom: cannot gather sources for %s\n", t->name);
