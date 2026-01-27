@@ -9,9 +9,11 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.3
+- Optionaler Compile-Cache (`.tack-cache/`) für schnellere Incremental Builds, abschaltbar via `--no-cache`.
+
 ### v0.7.2
 - `--why` / `--explain`: kurze Diagnoseausgaben, *warum* tack einen Compile- oder Link‑Schritt ausführt (z.B. "output missing", "source newer", "dependency newer", "forced (--rebuild)").
-- Optionaler Compile-Cache (`.tack-cache/`) für schnellere Incremental Builds, abschaltbar via `--no-cache`.
 
 ### v0.7.1
 - `tack bom`: erzeugt ein Build‑Manifest (BOM) als `build/bom.md` und `build/bom.html`.
@@ -43,9 +45,11 @@
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
 
+### v0.7.3
+- Optional compile cache (`.tack-cache/`) for faster incremental builds, disable with `--no-cache`.
+
 ### v0.7.2
 - `--why` / `--explain`: short diagnostics that explain *why* tack runs a compile/link step (e.g. "output missing", "source newer", "dependency newer", "forced (--rebuild)").
-- Optional compile cache (`.tack-cache/`) for faster incremental builds, disable with `--no-cache`.
 
 ### v0.7.1
 - `tack bom`: writes a build manifest (BOM) as `build/bom.md` and `build/bom.html`.
