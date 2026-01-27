@@ -11,6 +11,7 @@
 
 ### v0.7.6
 - Dokumentations-Sync: README/FAQ/ROADMAP/Release Notes auf den aktuellen Implementationsstand (Features/Optionen) abgeglichen.
+- `tack sbom`: Mehrformat-Ausgabe (Default `tack`), Format/Output steuerbar via `[sbom]` in `tack.ini` (CycloneDX/SPDX-Optionen dokumentiert, noch nicht implementiert).
 
 ### v0.7.5
 - `tack sbom`: deterministischer SBOM-Export als JSON (`build/sbom.json`, Format `tack-sbom-1`).
@@ -58,6 +59,7 @@
 
 ### v0.7.6
 - Documentation sync: aligned README/FAQ/ROADMAP/Release Notes with the current implementation (features/options).
+- `tack sbom`: multi-format output (default `tack`), format/output controlled via `[sbom]` in `tack.ini` (CycloneDX/SPDX options documented, not implemented yet).
 
 ### v0.7.5
 - `tack sbom`: deterministic SBOM export as JSON (`build/sbom.json`, format `tack-sbom-1`).
