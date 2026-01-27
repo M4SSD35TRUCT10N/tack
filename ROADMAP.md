@@ -29,7 +29,7 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 - Optional: schnelleres Incremental-Building via Compile-Cache (`.tack-cache/`).
 
 ### Erledigt in v0.7.5
-- `tack sbom`: deterministischer SBOM-Export als JSON (`build/sbom.json`), ohne Versions-Ratespiele aus Linker-Flags.
+- `tack sbom`: deterministischer SBOM-Export als JSON (tack/CycloneDX/SPDX; formatabhängige Default-Ausgaben), ohne Versions-Ratespiele aus Linker-Flags.
 
 ### Erledigt in v0.7.6
 - Dokumentations-Sync: README/FAQ/ROADMAP/Release Notes konsistent zur Implementation gehalten.
@@ -73,7 +73,7 @@ Before “big” releases and announcements, tack should be validated against re
 - Optional: faster incremental builds via a compile cache (`.tack-cache/`).
 
 ### Done in v0.7.5
-- `tack sbom`: deterministic SBOM export as JSON (`build/sbom.json`), without guessing versions from linker flags.
+- `tack sbom`: deterministic SBOM export as JSON (tack/CycloneDX/SPDX; format-specific defaults), without guessing versions from linker flags.
 
 ### Done in v0.7.6
 - Documentation sync: kept README/FAQ/ROADMAP/Release Notes consistent with the implementation.

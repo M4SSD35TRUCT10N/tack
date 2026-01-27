@@ -9,6 +9,10 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.7
+- Bugfix-Release: C89-Compile-Fixes nach fehlerhaftem Merge (SBOM-Pfad/Variablen/Braces bereinigt).
+- `tack sbom`: CycloneDX/SPDX-Ausgabe vollständig implementiert; `[sbom]` unterstützt `format`, `spec_version`, `output` inkl. formatabhängiger Defaults.
+
 ### v0.7.6
 - Dokumentations-Sync: README/FAQ/ROADMAP/Release Notes auf den aktuellen Implementationsstand (Features/Optionen) abgeglichen.
 - `tack sbom`: Mehrformat-Ausgabe (Default `tack`), Format/Output steuerbar via `[sbom]` in `tack.ini` (CycloneDX/SPDX-Optionen dokumentiert, noch nicht implementiert).
@@ -56,6 +60,10 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.7
+- Bugfix release: C89 compile fixes after a faulty merge (SBOM path/variables/braces cleaned up).
+- `tack sbom`: CycloneDX/SPDX output fully implemented; `[sbom]` supports `format`, `spec_version`, `output` with format-specific defaults.
 
 ### v0.7.6
 - Documentation sync: aligned README/FAQ/ROADMAP/Release Notes with the current implementation (features/options).
