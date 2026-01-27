@@ -90,11 +90,13 @@
  *   --no-code-config    ignore tackfile.c (still use tack.ini / --config)
  *   --config <path>    use explicit INI file (highest priority)
  *   --no-auto-tools    disable tool discovery at runtime
+ *   --no-cache         disable compile cache
  */
 static int g_no_config = 0;
 static int g_no_code_config = 0; /* ignore tackfile.c but still load INI */
 static const char *g_config_path_cli = 0;
 static int g_no_auto_tools_cli = 0;
+static int g_no_cache = 0;
 
 static int g_config_loaded = 0;
 static char g_config_path[TACK_MAX_CONFIG_PATH + 1] = {0};
@@ -107,6 +109,7 @@ static char *g_config_bom_css = 0;      /* owned */
 
 static const char *g_cc_default = "tcc";
 static const char *g_build_dir  = "build";
+static const char *g_cache_dir  = ".tack-cache";
 
 static const char *g_src_dir    = "src";
 static const char *g_inc_dir    = "include";
@@ -1075,6 +1078,38 @@ static void av_terminate(Argv *v) {
   av_push(v, 0);
 }
 
+/* --------------------------- cache helpers --------------------------- */
+
+static unsigned long fnv1a_update(unsigned long h, const unsigned char *data, size_t n) {
+  size_t i;
+  for (i = 0; i < n; i++) {
+    h ^= (unsigned long)data[i];
+    h *= 16777619u;
+  }
+  return h;
+}
+
+static unsigned long fnv1a_str(unsigned long h, const char *s) {
+  if (!s) return h;
+  return fnv1a_update(h, (const unsigned char*)s, strlen(s));
+}
+
+static void cache_key_from_argv(char *out, size_t out_cap, char **argv) {
+  unsigned long h = 2166136261u;
+  int i;
+
+  h = fnv1a_str(h, "tack-cache-v1");
+
+  for (i = 0; argv && argv[i]; i++) {
+    if (streq(argv[i], "-o") || streq(argv[i], "-MF")) { i++; continue; }
+    if (streq(argv[i], "-MD")) continue;
+    h = fnv1a_str(h, argv[i]);
+    h = fnv1a_str(h, "\n");
+  }
+
+  snprintf(out, out_cap, "%08lx", h);
+}
+
 /* --------------------------- dep parsing --------------------------- */
 
 /* "Why rebuild" diagnostics (optional)
@@ -1213,6 +1248,214 @@ static int depfile_needs_rebuild_explain(const char *obj_path, const char *dep_p
   tack_snprintf(why, why_sz, "depfiles disabled (conservative rebuild)");
   return 1;
 #endif
+}
+
+static int depfile_collect_deps(const char *dep_path, StrVec *deps) {
+#if USE_DEPFILES
+  FILE *f;
+  int c;
+  char tok[2048];
+  int ti;
+  int seen_colon;
+
+  f = fopen(dep_path, "rb");
+  if (!f) return 1;
+
+  ti = 0;
+  seen_colon = 0;
+
+  while ((c = fgetc(f)) != EOF) {
+    if (c == '\\') {
+      int n = fgetc(f);
+      if (n == '\n' || n == '\r') continue;
+      if (n == EOF) break;
+      if (n == ' ' || n == '\t' || n == '\\') {
+        if (ti < (int)sizeof(tok) - 1) tok[ti++] = (char)n;
+      } else {
+        if (ti < (int)sizeof(tok) - 1) tok[ti++] = '\\';
+        if (ti < (int)sizeof(tok) - 1) tok[ti++] = (char)n;
+      }
+      continue;
+    }
+
+    if (c == ':' && !seen_colon) {
+      int n = fgetc(f);
+      if (n == EOF) {
+        tok[ti] = '\0';
+        ti = 0;
+        seen_colon = 1;
+        break;
+      }
+      if (isspace((unsigned char)n)) {
+        tok[ti] = '\0';
+        ti = 0;
+        seen_colon = 1;
+        continue;
+      }
+      if (ti < (int)sizeof(tok) - 1) tok[ti++] = ':';
+      if (ti < (int)sizeof(tok) - 1) tok[ti++] = (char)n;
+      continue;
+    }
+
+    if (isspace((unsigned char)c)) {
+      if (ti > 0) {
+        tok[ti] = '\0';
+        ti = 0;
+        if (seen_colon) sv_push(deps, tok);
+      }
+      continue;
+    }
+
+    if (ti < (int)sizeof(tok) - 1) tok[ti++] = (char)c;
+  }
+
+  if (ti > 0 && seen_colon) {
+    tok[ti] = '\0';
+    sv_push(deps, tok);
+  }
+
+  fclose(f);
+  return 0;
+#else
+  (void)dep_path; (void)deps;
+  return 1;
+#endif
+}
+
+static void cache_entry_paths(char *obj_path, size_t obj_cap,
+                              char *dep_path, size_t dep_cap,
+                              char *meta_path, size_t meta_cap,
+                              const char *key) {
+  char objd[512];
+  char depd[512];
+  char metad[512];
+  char obj_name[128];
+  char dep_name[128];
+  char meta_name[128];
+
+  path_join(objd, sizeof(objd), g_cache_dir, "obj");
+  path_join(depd, sizeof(depd), g_cache_dir, "dep");
+  path_join(metad, sizeof(metad), g_cache_dir, "meta");
+
+  tack_copy(obj_name, sizeof(obj_name), key);
+  tack_cat(obj_name, sizeof(obj_name), ".o");
+  tack_copy(dep_name, sizeof(dep_name), key);
+  tack_cat(dep_name, sizeof(dep_name), ".d");
+  tack_copy(meta_name, sizeof(meta_name), key);
+  tack_cat(meta_name, sizeof(meta_name), ".meta");
+
+  path_join(obj_path, obj_cap, objd, obj_name);
+  path_join(dep_path, dep_cap, depd, dep_name);
+  path_join(meta_path, meta_cap, metad, meta_name);
+}
+
+static int cache_meta_valid(const char *meta_path) {
+  FILE *f;
+  char line[4096];
+
+  f = fopen(meta_path, "rb");
+  if (!f) return 0;
+
+  while (fgets(line, sizeof(line), f)) {
+    char *tab = strchr(line, '\t');
+    char *path;
+    char *endptr;
+    long recorded;
+    long current;
+    size_t len;
+
+    if (!tab) { fclose(f); return 0; }
+    *tab = '\0';
+    recorded = strtol(line, &endptr, 10);
+    if (endptr == line) { fclose(f); return 0; }
+
+    path = tab + 1;
+    len = strlen(path);
+    while (len > 0 && (path[len - 1] == '\n' || path[len - 1] == '\r')) {
+      path[--len] = '\0';
+    }
+
+    current = file_mtime(path);
+    if (current < 0 || current != recorded) { fclose(f); return 0; }
+  }
+
+  fclose(f);
+  return 1;
+}
+
+static void cache_ensure_dirs(void) {
+  char objd[512];
+  char depd[512];
+  char metad[512];
+
+  ensure_dir(g_cache_dir);
+  path_join(objd, sizeof(objd), g_cache_dir, "obj");
+  path_join(depd, sizeof(depd), g_cache_dir, "dep");
+  path_join(metad, sizeof(metad), g_cache_dir, "meta");
+  ensure_dir(objd);
+  ensure_dir(depd);
+  ensure_dir(metad);
+}
+
+static int cache_restore(const char *key, const char *obj_path, const char *dep_path) {
+  char cache_obj[512];
+  char cache_dep[512];
+  char cache_meta[512];
+
+  if (!file_exists(g_cache_dir)) return 0;
+
+  cache_entry_paths(cache_obj, sizeof(cache_obj),
+                    cache_dep, sizeof(cache_dep),
+                    cache_meta, sizeof(cache_meta),
+                    key);
+
+  if (!file_exists(cache_obj) || !file_exists(cache_dep) || !file_exists(cache_meta)) return 0;
+  if (!cache_meta_valid(cache_meta)) return 0;
+
+  if (copy_file(cache_obj, obj_path) != 0) return 0;
+  if (copy_file(cache_dep, dep_path) != 0) return 0;
+
+  return 1;
+}
+
+static int cache_write_meta(const char *dep_path, const char *meta_path) {
+  FILE *f;
+  StrVec deps;
+  int i;
+
+  sv_init(&deps);
+  if (depfile_collect_deps(dep_path, &deps) != 0) { sv_free(&deps); return 1; }
+
+  f = fopen(meta_path, "wb");
+  if (!f) { sv_free(&deps); return 1; }
+
+  for (i = 0; i < deps.count; i++) {
+    long mt = file_mtime(deps.items[i]);
+    if (mt < 0) { fclose(f); sv_free(&deps); return 1; }
+    fprintf(f, "%ld\t%s\n", mt, deps.items[i]);
+  }
+
+  fclose(f);
+  sv_free(&deps);
+  return 0;
+}
+
+static void cache_store(const char *key, const char *obj_path, const char *dep_path) {
+  char cache_obj[512];
+  char cache_dep[512];
+  char cache_meta[512];
+
+  if (!file_exists(obj_path) || !file_exists(dep_path)) return;
+
+  cache_ensure_dirs();
+  cache_entry_paths(cache_obj, sizeof(cache_obj),
+                    cache_dep, sizeof(cache_dep),
+                    cache_meta, sizeof(cache_meta),
+                    key);
+
+  if (cache_write_meta(dep_path, cache_meta) != 0) return;
+  if (copy_file(obj_path, cache_obj) != 0) return;
+  if (copy_file(dep_path, cache_dep) != 0) return;
 }
 
 static int obj_needs_rebuild_explain(const char *obj_path, const char *src_path,
@@ -2448,6 +2691,14 @@ static void push_common_warnings(Argv *av, int strict) {
 }
 
 /* spawn compile jobs with -j pool */
+typedef struct {
+  Proc proc;
+  char obj_path[1024];
+  char dep_path[1024];
+  char cache_key[64];
+  int cache_enabled;
+} CompileJob;
+
 static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const char *depd,
                            const char * const *inc_common,
                            const char * const *inc_extra,
@@ -2455,19 +2706,21 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
                            const char * const *cflags_extra,
                            Profile p, int verbose, int why, int force, int jobs, int strict,
                            StrVec *out_objs) {
-  Proc *running;
+  CompileJob *running;
   int running_n;
   int i;
 
   if (jobs < 1) jobs = 1;
 
-  running = (Proc*)xmalloc((size_t)jobs * sizeof(Proc));
+  running = (CompileJob*)xmalloc((size_t)jobs * sizeof(CompileJob));
   running_n = 0;
 
   for (i = 0; i < srcs->count; i++) {
     const char *src = srcs->items[i];
     char sid[512], obj_name[768], dep_name[768];
     char obj_path[1024], dep_path[1024];
+    char why_msg[512];
+    int need;
 
     sanitize_path_to_id(sid, sizeof(sid), src);
     tack_copy(obj_name, sizeof(obj_name), sid); tack_cat(obj_name, sizeof(obj_name), ".o");
@@ -2478,19 +2731,16 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
 
     sv_push(out_objs, obj_path);
 
-    {
-      char why_msg[512];
-      int need;
-      need = obj_needs_rebuild_explain(obj_path, src, dep_path, force,
-                                       why ? why_msg : 0, why ? sizeof(why_msg) : 0);
-      if (!need) continue;
-      if (why) printf("why rebuild: %s <- %s (%s)\n", obj_path, src, why_msg);
-    }
+    need = obj_needs_rebuild_explain(obj_path, src, dep_path, force,
+                                     why ? why_msg : 0, why ? sizeof(why_msg) : 0);
+    if (!need) continue;
 
     /* build argv */
     {
       Argv av;
       StrVec tmp_defs;
+      char cache_key[64] = {0};
+      int cache_enabled = (!g_no_cache && !force);
       av_init(&av);
       sv_init(&tmp_defs);
 
@@ -2546,20 +2796,42 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
 
       if (verbose) print_argv(av.a);
 
+      if (cache_enabled) {
+        cache_key_from_argv(cache_key, sizeof(cache_key), av.a);
+        if (cache_restore(cache_key, obj_path, dep_path)) {
+          if (verbose || why) printf("cache hit: %s <- %s\n", obj_path, src);
+          sv_free(&tmp_defs);
+          av_free(&av);
+          continue;
+        }
+      }
+
+      if (why) printf("why rebuild: %s <- %s (%s)\n", obj_path, src, why_msg);
+
       if (jobs == 1) {
         int rc = run_argv_wait(av.a, 0);
         sv_free(&tmp_defs);
         av_free(&av);
         if (rc != 0) { free(running); return 1; }
+        if (cache_enabled) cache_store(cache_key, obj_path, dep_path);
       } else {
         if (running_n >= jobs) {
-          int rcw = proc_wait(&running[0]);
+          int rcw = proc_wait(&running[0].proc);
           int m;
+          if (rcw == 0 && running[0].cache_enabled) {
+            cache_store(running[0].cache_key, running[0].obj_path, running[0].dep_path);
+          }
           for (m = 1; m < running_n; m++) running[m - 1] = running[m];
           running_n--;
           if (rcw != 0) { sv_free(&tmp_defs); av_free(&av); free(running); return 1; }
         }
-        if (proc_spawn_nowait(av.a, &running[running_n]) != 0) { sv_free(&tmp_defs); av_free(&av); free(running); return 1; }
+        if (proc_spawn_nowait(av.a, &running[running_n].proc) != 0) { sv_free(&tmp_defs); av_free(&av); free(running); return 1; }
+        running[running_n].cache_enabled = cache_enabled;
+        if (cache_enabled) {
+          tack_copy(running[running_n].cache_key, sizeof(running[running_n].cache_key), cache_key);
+          tack_copy(running[running_n].obj_path, sizeof(running[running_n].obj_path), obj_path);
+          tack_copy(running[running_n].dep_path, sizeof(running[running_n].dep_path), dep_path);
+        }
         running_n++;
         sv_free(&tmp_defs);
         av_free(&av);
@@ -2570,7 +2842,10 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
   if (jobs > 1) {
     int k;
     for (k = 0; k < running_n; k++) {
-      int rc = proc_wait(&running[k]);
+      int rc = proc_wait(&running[k].proc);
+      if (rc == 0 && running[k].cache_enabled) {
+        cache_store(running[k].cache_key, running[k].obj_path, running[k].dep_path);
+      }
       if (rc != 0) { free(running); return 1; }
     }
   }
@@ -2970,7 +3245,8 @@ static void print_help(void) {
          "  --no-config         ignore tack.ini and tackfile.c\n"
          "  --no-code-config    ignore tackfile.c (still load INI)\n"
          "  --config <path>     use explicit INI file (highest priority)\n"
-         "  --no-auto-tools     disable tool discovery\n");
+         "  --no-auto-tools     disable tool discovery\n"
+         "  --no-cache          disable compile cache\n");
   printf("\nConventions:\n"
          "  app         : src/ or src/app/\n"
          "  shared core : src/core/ (linked if enabled for target)\n"
@@ -2984,7 +3260,8 @@ static void print_help(void) {
          "  bom     = writes build/bom.md and build/bom.html\n"
          "  doc     = writes HTML into build/doc/ (README/FAQ/ROADMAP/RELEASENOTES + BOM)\n"
          "  --strict enables -Wunsupported\n"
-         "  --why prints short \"why rebuild\" diagnostics for compile/link decisions\n");
+         "  --why prints short \"why rebuild\" diagnostics for compile/link decisions\n"
+         "  cache   = stored under .tack-cache/ (use --no-cache to disable)\n");
 }
 
 static void cmd_version(void) { printf("tack %s\n", TACK_VERSION); }
@@ -2999,6 +3276,7 @@ static void cmd_doctor(void) {
   printf("OS: POSIX\n");
 #endif
   printf("Build dir : %s\n", g_build_dir);
+  printf("Cache dir : %s (%s)\n", g_cache_dir, g_no_cache ? "disabled" : "enabled");
   printf("Dirs      : src=%s include=%s tests=%s tools=%s core=%s\n",
          g_src_dir, g_inc_dir, g_tests_dir, g_tools_dir, g_core_dir);
 
@@ -4082,6 +4360,7 @@ int main(int argc, char **argv) {
       continue;
     }
     if (streq(argv[argi], "--no-auto-tools")) { g_no_auto_tools_cli = 1; argi++; continue; }
+    if (streq(argv[argi], "--no-cache")) { g_no_cache = 1; argi++; continue; }
     break;
   }
 
@@ -4302,4 +4581,3 @@ int main(int argc, char **argv) {
   config_free();
   return 2;
 }
-

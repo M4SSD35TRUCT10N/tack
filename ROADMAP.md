@@ -24,12 +24,12 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 
 ### Erledigt in v0.7.2
 - Bessere Diagnose-Ausgaben: `--why`/`--explain` erklärt Rebuild-Entscheidungen („why rebuild“).
+- Optional: schnelleres Incremental-Building via Compile-Cache (`.tack-cache/`).
 
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
 - Optional: bessere Windows Long‑Path Guidance
 - Optional: High-Contrast/Forced-Colors CSS-Feinschliff für DOC/BOM-Templates
-- Optional: schnellere Incremental‑Builds (Caching)
 
 ### Geplant: SBOM-Export
 - CycloneDX JSON Export (Komponenten + Abhängigkeitsgraph), konfigurierbar via `tack.ini`.
@@ -68,12 +68,12 @@ Before “big” releases and announcements, tack should be validated against re
 
 ### Done in v0.7.2
 - Improved diagnostics: `--why`/`--explain` explains rebuild decisions (“why rebuild”).
+- Optional: faster incremental builds via a compile cache (`.tack-cache/`).
 
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs
 - Optional: better Windows long-path guidance
 - Optional: high-contrast / forced-colors CSS polish for DOC/BOM templates
-- Optional: faster incremental builds (caching)
 
 ### Planned: SBOM export
 - CycloneDX JSON export (components + dependency graph), configurable via `tack.ini`.

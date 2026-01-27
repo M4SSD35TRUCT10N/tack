@@ -59,6 +59,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - Robuste Prozessausführung (kein `system()` für Builds)
 - Paralleles Kompilieren: `-j N`
 - Depfiles (`-MD -MF`) für Incremental Builds
+- Optionaler Compile-Cache in `.tack-cache/` für schnellere Incremental Builds (abschaltbar mit `--no-cache`)
 - Diagnose: `--why`/`--explain` erklärt Rebuild-Entscheidungen („why rebuild“)
 - Windows: robustere Depfile-Pfade (verhindert unnötige Rebuilds)
 - Help-Passthrough: `tack build --help` / `-h` zeigt die Kommando-Hilfe
@@ -144,12 +145,14 @@ tack.exe --config tack.ci.ini build release
 tack.exe --no-config build debug
 tack.exe --no-code-config build debug
 tack.exe --no-auto-tools list
+tack.exe --no-cache build debug
 ```
 
 - `--config <pfad>`: explizites laden der INI-Datei (höchste Priorität)
 - `--no-config`: **alle** Konfiguration deaktivieren (`tack.ini` und `tackfile.c`)
 - `--no-code-config`: **nur** `tackfile.c` deaktivieren, laden der INI-Datei bleibt aktiv (CI/Team‑Modus)
 - `--no-auto-tools`: `tools/<name>` Auto-Discovery deaktivieren (für vollständig deklarative Builds)
+- `--no-cache`: Compile-Cache deaktivieren (`.tack-cache/`)
 
 ## Kommandos
 
