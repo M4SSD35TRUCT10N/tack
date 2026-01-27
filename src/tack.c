@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.7.6
+ * v0.7.7
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -62,7 +62,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.7.6"
+#define TACK_VERSION "0.7.7"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -108,7 +108,7 @@ static char *g_config_bom_template = 0; /* owned */
 static char *g_config_bom_css = 0;      /* owned */
 static char *g_config_sbom_format = 0;       /* owned */
 static char *g_config_sbom_spec_version = 0; /* owned */
-static char *g_config_sbom_output = 0;       /* owned 
+static char *g_config_sbom_output = 0;       /* owned */
 
 static const char *g_cc_default = "tcc";
 static const char *g_build_dir  = "build";
@@ -130,11 +130,6 @@ static const char *default_target_name(void) {
 #else
   return g_default_target;
 #endif
-}
-
-static const char *sbom_format_effective(void) {
-  if (g_config_sbom_format && g_config_sbom_format[0]) return g_config_sbom_format;
-  return "tack";
 }
 
 /* Warnings: keep strict, but avoid killing builds due to GCC attributes in system headers */
@@ -506,13 +501,13 @@ static void ensure_dir_recursive(const char *path) {
 
 static void ensure_parent_dir_recursive(const char *path) {
   const char *slash = 0;
-  const char *p;
+  const char *cursor;
   char dir[512];
   size_t len;
 
   if (!path || !path[0]) return;
-  for (p = path; *p; p++) {
-    if (*p == '/' || *p == '\\') slash = p;
+  for (cursor = path; *cursor; cursor++) {
+    if (*cursor == '/' || *cursor == '\\') slash = cursor;
   }
   if (!slash) return;
   len = (size_t)(slash - path);
@@ -2360,45 +2355,25 @@ static int ini_load_file(const char *path) {
       if (sec == SEC_SBOM) {
         if (strieq(key, "format")) {
           free(g_config_sbom_format);
-          tack_check_len("sbom format", val, TACK_MAX_NAME);
-          g_config_sbom_format = xstrdup(val);
-        } else if (strieq(key, "spec_version")) {
-          free(g_config_sbom_spec_version);
-          tack_check_len("sbom spec_version", val, TACK_MAX_NAME);
-          g_config_sbom_spec_version = xstrdup(val);
-        } else if (strieq(key, "output")) {
-          free(g_config_sbom_output);
-          tack_check_len("sbom output", val, TACK_MAX_CONFIG_PATH);
-          g_config_sbom_output = xstrdup(val);
-          if (strieq(val, "tack")) {
-            free(g_config_sbom_format);
-            g_config_sbom_format = xstrdup("tack");
-          } else if (strieq(val, "cyclonedx")) {
-            free(g_config_sbom_format);
-            g_config_sbom_format = xstrdup("cyclonedx");
-          } else if (strieq(val, "spdx")) {
-            free(g_config_sbom_format);
-            g_config_sbom_format = xstrdup("spdx");
-          } else {
-            fprintf(stderr, "tack: ini: invalid sbom.format: %s\n", val);
-            exit(2);
+          g_config_sbom_format = 0;
+          if (val[0]) {
+            tack_check_len("sbom format", val, TACK_MAX_NAME);
+            g_config_sbom_format = xstrdup(val);
           }
         } else if (strieq(key, "spec_version")) {
           free(g_config_sbom_spec_version);
           g_config_sbom_spec_version = 0;
           if (val[0]) {
-            tack_check_len("sbom.spec_version", val, TACK_MAX_TOKEN);
+            tack_check_len("sbom spec_version", val, TACK_MAX_NAME);
             g_config_sbom_spec_version = xstrdup(val);
           }
         } else if (strieq(key, "output")) {
           free(g_config_sbom_output);
           g_config_sbom_output = 0;
           if (val[0]) {
-            tack_check_len("sbom.output", val, TACK_MAX_CONFIG_PATH);
+            tack_check_len("sbom output", val, TACK_MAX_CONFIG_PATH);
             g_config_sbom_output = xstrdup(val);
           }
-          free(g_config_sbom_format);
-          g_config_sbom_format = xstrdup(val);
         }
         continue;
       }
@@ -3555,11 +3530,10 @@ static void print_help(void) {
   puts("  - clean/clobber -v prints remaining locked paths (if any)");
   puts("  - init    = also provisions .gitignore and .fossil-settings/ignore-glob (non-destructive)");
   puts("  - bom     = writes build/bom.md and build/bom.html");
-  puts("  - sbom    = writes SBOM (default: build/sbom.json; format/output via [sbom])");
-  puts("  - sbom    = writes build/sbom.json (tack-sbom-1), build/sbom.cdx.json (cyclonedx),");
-  puts("             build/sbom.spdx.json (spdx)");
+  puts("  - sbom    = writes SBOM (default: build/sbom.json for tack-sbom-1;");
+  puts("             build/sbom.cdx.json for cyclonedx; build/sbom.spdx.json for spdx)");
   puts("  - doc     = writes HTML into build/doc/ (README/FAQ/ROADMAP/RELEASENOTES + BOM)");
-  puts("  - sbom format is set via [sbom] format = tack-sbom-1 | cyclonedx | spdx");
+  puts("  - sbom format is set via [sbom] format = tack-sbom-1 | cyclonedx | cyclonedx-1.4 | spdx | spdx-2.3");
   puts("  - --strict enables -Wunsupported");
   puts("  - --why prints short \"why rebuild\" diagnostics for compile/link decisions");
   puts("  - cache   = stored under .tack-cache/ (validated via mtime + size + hash; use --no-cache to disable)");
@@ -4532,97 +4506,6 @@ static int cmd_bom(Profile p, TargetVec *tv, const Target *t, int verbose, int s
   return 0;
 }
 
-static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int strict, int no_core,
-                    const char *outdir) {
-  FILE *f;
-  char sbom_path[TACK_MAX_CONFIG_PATH + 1];
-  char format_buf[128];
-  char dirbuf[TACK_MAX_CONFIG_PATH + 1];
-  const TargetOverride *ov;
-  int use_core_effective;
-  const char *format;
-  int format_tack = 0;
-  const char *inc_common[5];
-  const char *tackfile_mode = "none";
-  const char *sbom_format;
-  const char *sbom_spec_version;
-  const char *sbom_output;
-  const char *format_string = "tack-sbom-1";
-
-  StrVec includes;
-  StrVec defines;
-  StrVec cflags;
-  StrVec ldflags;
-  StrVec libs;
-  StrVec srcs;
-  StrVec core_srcs;
-
-  (void)tv;
-
-  if (!outdir) outdir = g_build_dir;
-  sbom_format = g_config_sbom_format ? g_config_sbom_format : "tack";
-  sbom_spec_version = g_config_sbom_spec_version;
-  sbom_output = g_config_sbom_output;
-
-  if (strieq(sbom_format, "tack")) {
-    if (sbom_spec_version && sbom_spec_version[0]) {
-      tack_copy(format_buf, sizeof(format_buf), "tack-sbom-");
-      tack_cat(format_buf, sizeof(format_buf), sbom_spec_version);
-      format_string = format_buf;
-    }
-  } else {
-    fprintf(stderr, "tack: sbom: format %s not supported (only tack)\n", sbom_format);
-    return 2;
-  }
-
-  format = sbom_format_effective();
-  if (strieq(format, "tack") || strieq(format, "tack-sbom-1")) {
-    format_tack = 1;
-  } else if (strieq(format, "cyclonedx") || strieq(format, "spdx")) {
-    tack_die("sbom format not implemented (use format=tack)");
-  } else {
-    tack_die("unknown sbom format");
-  }
-
-  if (g_config_sbom_spec_version && g_config_sbom_spec_version[0]) {
-    /* reserved for future sbom formats (CycloneDX/SPDX) */
-  }
-
-  if (g_config_sbom_output && g_config_sbom_output[0]) {
-    if (strlen(g_config_sbom_output) >= sizeof(sbom_path)) tack_die("sbom output path too long");
-    tack_copy(sbom_path, sizeof(sbom_path), g_config_sbom_output);
-    ensure_parent_dir_recursive(sbom_path);
-  if (sbom_output && sbom_output[0]) {
-    const char *p;
-    const char *last_sep = 0;
-
-    if (outdir && outdir[0] && !is_abs_path(sbom_output)) {
-      ensure_dir(outdir);
-      path_join(sbom_path, sizeof(sbom_path), outdir, sbom_output);
-    } else {
-      tack_copy(sbom_path, sizeof(sbom_path), sbom_output);
-    }
-
-    for (p = sbom_path; *p; p++) {
-      if (*p == '/' || *p == '\\') last_sep = p;
-    }
-    if (last_sep && last_sep > sbom_path) {
-      size_t dlen = (size_t)(last_sep - sbom_path);
-      if (dlen >= sizeof(dirbuf)) tack_die("sbom output path too long");
-      memcpy(dirbuf, sbom_path, dlen);
-      dirbuf[dlen] = '\0';
-      ensure_dir(dirbuf);
-    }
-  } else {
-    ensure_dir(outdir);
-    path_join(sbom_path, sizeof(sbom_path), outdir, "sbom.json");
-  }
-
-  if (verbose) printf("tack: sbom: writing %s\n", sbom_path);
-
-  f = fopen(sbom_path, "wb");
-  if (!f) {
-    fprintf(stderr, "tack: sbom: cannot write %s\n", sbom_path);
 typedef enum {
   SBOM_FORMAT_TACK = 0,
   SBOM_FORMAT_CYCLONEDX = 1,
@@ -4638,6 +4521,8 @@ typedef struct {
   int no_core;
   int config_enabled;
   const char *config_path;
+  const char *sbom_format_string;
+  const char *sbom_spec_version;
   int use_core_effective;
   const StrVec *includes;
   const StrVec *defines;
@@ -4679,14 +4564,10 @@ static int sbom_format_from_string(const char *s, SbomFormat *out) {
 }
 
 static void write_sbom_tack(FILE *f, const SbomData *d) {
+  const char *format_string = d->sbom_format_string ? d->sbom_format_string : "tack-sbom-1";
   fputs("{\n", f);
   json_write_indent(f, 2);
   fputs("\"format\": ", f);
-  if (format_tack) {
-    json_write_string(f, "tack-sbom-1");
-  } else {
-    json_write_string(f, format);
-  }
   json_write_string(f, format_string);
   fputs(",\n", f);
 
@@ -4867,6 +4748,7 @@ static void write_cdx_components(FILE *f, int indent, const StrVec *core_srcs, c
 }
 
 static void write_sbom_cyclonedx(FILE *f, const SbomData *d) {
+  const char *spec_version = d->sbom_spec_version ? d->sbom_spec_version : "1.4";
   fputs("{\n", f);
   json_write_indent(f, 2);
   fputs("\"bomFormat\": ", f);
@@ -4874,7 +4756,7 @@ static void write_sbom_cyclonedx(FILE *f, const SbomData *d) {
   fputs(",\n", f);
   json_write_indent(f, 2);
   fputs("\"specVersion\": ", f);
-  json_write_string(f, "1.4");
+  json_write_string(f, spec_version);
   fputs(",\n", f);
   json_write_indent(f, 2);
   fputs("\"version\": 1,\n", f);
@@ -4927,16 +4809,34 @@ static void write_sbom_cyclonedx(FILE *f, const SbomData *d) {
 static void write_sbom_spdx(FILE *f, const SbomData *d) {
   char namespace_buf[512];
   char creator_buf[128];
+  char version_buf[32];
+  const char *spec_version = d->sbom_spec_version ? d->sbom_spec_version : "2.3";
+  int has_prefix = 0;
+  if (spec_version) {
+    if ((spec_version[0] == 'S' || spec_version[0] == 's') &&
+        (spec_version[1] == 'P' || spec_version[1] == 'p') &&
+        (spec_version[2] == 'D' || spec_version[2] == 'd') &&
+        (spec_version[3] == 'X' || spec_version[3] == 'x') &&
+        spec_version[4] == '-') {
+      has_prefix = 1;
+    }
+  }
 
   tack_copy(namespace_buf, sizeof(namespace_buf), "https://tack.invalid/spdx/");
   tack_cat(namespace_buf, sizeof(namespace_buf), d->t->name);
   tack_copy(creator_buf, sizeof(creator_buf), "Tool: tack ");
   tack_cat(creator_buf, sizeof(creator_buf), TACK_VERSION);
+  if (has_prefix) {
+    tack_copy(version_buf, sizeof(version_buf), spec_version);
+  } else {
+    tack_copy(version_buf, sizeof(version_buf), "SPDX-");
+    tack_cat(version_buf, sizeof(version_buf), spec_version);
+  }
 
   fputs("{\n", f);
   json_write_indent(f, 2);
   fputs("\"spdxVersion\": ", f);
-  json_write_string(f, "SPDX-2.3");
+  json_write_string(f, version_buf);
   fputs(",\n", f);
   json_write_indent(f, 2);
   fputs("\"dataLicense\": ", f);
@@ -5023,14 +4923,23 @@ static void write_sbom_spdx(FILE *f, const SbomData *d) {
 static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int strict, int no_core,
                     const char *outdir) {
   FILE *f;
-  char sbom_path[512];
+  char sbom_path[TACK_MAX_CONFIG_PATH + 1];
+  char format_buf[64];
+  char spec_buf[32];
   const TargetOverride *ov;
   int use_core_effective;
   const char *inc_common[5];
   const char *tackfile_mode = "none";
   SbomFormat format;
   const char *format_cfg;
+  const char *spec_version;
+  const char *format_string;
+  const char *format_name;
+  const char *output_cfg;
   SbomData data;
+  const char *cursor;
+  const char *dash;
+  size_t n;
 
   StrVec includes;
   StrVec defines;
@@ -5044,15 +4953,55 @@ static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int 
 
   if (!outdir) outdir = g_build_dir;
 
-  ensure_dir(outdir);
   format_cfg = g_config_sbom_format ? g_config_sbom_format : "tack-sbom-1";
   if (!sbom_format_from_string(format_cfg, &format)) {
     fprintf(stderr, "tack: sbom: unknown format '%s'\n", format_cfg);
     return 1;
   }
-  path_join(sbom_path, sizeof(sbom_path), outdir, sbom_format_filename(format));
 
-  if (verbose) printf("tack: sbom: writing %s (%s)\n", sbom_path, sbom_format_name(format));
+  spec_version = g_config_sbom_spec_version;
+  format_string = 0;
+  spec_buf[0] = '\0';
+  dash = 0;
+  if (!spec_version || !spec_version[0]) {
+    for (cursor = format_cfg; cursor && *cursor; cursor++) {
+      if (*cursor == '-') dash = cursor;
+    }
+    if (dash && dash[1]) {
+      n = strlen(dash + 1);
+      if (n >= sizeof(spec_buf)) tack_die("sbom spec_version too long");
+      memcpy(spec_buf, dash + 1, n);
+      spec_buf[n] = '\0';
+      spec_version = spec_buf;
+    }
+  }
+  if (!spec_version || !spec_version[0]) {
+    if (format == SBOM_FORMAT_CYCLONEDX) spec_version = "1.4";
+    else if (format == SBOM_FORMAT_SPDX) spec_version = "2.3";
+    else spec_version = "1";
+  }
+  if (format == SBOM_FORMAT_TACK) {
+    tack_copy(format_buf, sizeof(format_buf), "tack-sbom-");
+    tack_cat(format_buf, sizeof(format_buf), spec_version);
+    format_string = format_buf;
+  }
+  format_name = (format == SBOM_FORMAT_TACK) ? format_string : sbom_format_name(format);
+
+  output_cfg = g_config_sbom_output;
+  if (output_cfg && output_cfg[0]) {
+    if (outdir && outdir[0] && !is_abs_path(output_cfg)) {
+      ensure_dir(outdir);
+      path_join(sbom_path, sizeof(sbom_path), outdir, output_cfg);
+    } else {
+      tack_copy(sbom_path, sizeof(sbom_path), output_cfg);
+    }
+    ensure_parent_dir_recursive(sbom_path);
+  } else {
+    ensure_dir(outdir);
+    path_join(sbom_path, sizeof(sbom_path), outdir, sbom_format_filename(format));
+  }
+
+  if (verbose) printf("tack: sbom: writing %s (%s)\n", sbom_path, format_name);
 
   f = fopen(sbom_path, "wb");
   if (!f) {
@@ -5133,6 +5082,8 @@ static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int 
   data.no_core = no_core;
   data.config_enabled = g_no_config ? 0 : 1;
   data.config_path = g_config_loaded ? g_config_path : 0;
+  data.sbom_format_string = format_string;
+  data.sbom_spec_version = spec_version;
   data.use_core_effective = use_core_effective;
   data.includes = &includes;
   data.defines = &defines;
@@ -5155,7 +5106,7 @@ static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int 
   sv_free(&srcs);
   sv_free(&core_srcs);
 
-  printf("tack: sbom: wrote %s (%s)\n", sbom_path, sbom_format_name(format));
+  printf("tack: sbom: wrote %s (%s)\n", sbom_path, format_name);
   return 0;
 }
 

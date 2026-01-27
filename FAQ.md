@@ -120,7 +120,8 @@ Wenn tack bei unveränderten Quellen in jedem Lauf neu baut, ist das fast immer 
 **tack BOM** ist ein *Build-Manifest*: es beschreibt, *wie ein konkretes Build erzeugt wurde* (Targets, Inputs, Flags, Toolchain/OS, Outputs).
 
 Eine **SBOM** (Software Bill of Materials) ist ein Supply-Chain-Artefakt (Komponenten + Abhängigkeiten, z.B. CycloneDX/SPDX).  
-`tack sbom` erzeugt eine **deterministische JSON-SBOM** (`build/sbom.json`) aus den bekannten Build-Inputs.  
+`tack sbom` erzeugt eine **deterministische JSON-SBOM** aus den bekannten Build-Inputs (Default: `tack-sbom-1` unter `build/sbom.json`).  
+Über `[sbom]` in `tack.ini` kannst du Format, Spec-Version und Ausgabepfad steuern (CycloneDX/SPDX werden unterstützt; Standard-Dateien: `build/sbom.cdx.json` und `build/sbom.spdx.json`).  
 Das tack-BOM vermeidet bewusst Ratespiele (z.B. keine Versionsableitung aus Linker-Flags).
 
 **Aufbau der SBOM relativ zum Quellbaum (Beispiel):**
@@ -292,7 +293,8 @@ If tack rebuilds on every run without source changes, it is usually a depfile pa
 **tack BOM** is a *build manifest*: it describes **how a specific build was produced** (targets, inputs, flags, toolchain/OS, outputs).
 
 An **SBOM** (Software Bill of Materials) is a supply-chain artifact (components + dependencies, e.g. CycloneDX/SPDX).  
-`tack sbom` emits a **deterministic JSON SBOM** (`build/sbom.json`) from known build inputs.  
+`tack sbom` emits a **deterministic JSON SBOM** from known build inputs (default: `tack-sbom-1` at `build/sbom.json`).  
+Use `[sbom]` in `tack.ini` to control the format, spec version, and output path (CycloneDX/SPDX are supported; default files: `build/sbom.cdx.json` and `build/sbom.spdx.json`).  
 tack BOM intentionally avoids guesswork (e.g. it does not try to infer exact library versions from linker flags).
 
 **How the SBOM maps to the source tree (example):**
