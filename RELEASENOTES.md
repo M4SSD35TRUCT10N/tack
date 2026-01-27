@@ -11,6 +11,7 @@
 
 ### v0.7.2
 - `--why` / `--explain`: kurze Diagnoseausgaben, *warum* tack einen Compile- oder Link‑Schritt ausführt (z.B. "output missing", "source newer", "dependency newer", "forced (--rebuild)").
+- Optionaler Compile-Cache (`.tack-cache/`) für schnellere Incremental Builds, abschaltbar via `--no-cache`.
 
 ### v0.7.1
 - `tack bom`: erzeugt ein Build‑Manifest (BOM) als `build/bom.md` und `build/bom.html`.
@@ -44,6 +45,7 @@
 
 ### v0.7.2
 - `--why` / `--explain`: short diagnostics that explain *why* tack runs a compile/link step (e.g. "output missing", "source newer", "dependency newer", "forced (--rebuild)").
+- Optional compile cache (`.tack-cache/`) for faster incremental builds, disable with `--no-cache`.
 
 ### v0.7.1
 - `tack bom`: writes a build manifest (BOM) as `build/bom.md` and `build/bom.html`.
@@ -72,4 +74,3 @@
 ---
 
 **Backlinks:** [README](README.md) • [FAQ](FAQ.md) • [Roadmap](ROADMAP.md)
-
