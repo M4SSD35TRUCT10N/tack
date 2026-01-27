@@ -107,6 +107,8 @@ static char *g_config_doc_css = 0;      /* owned */
 static char *g_config_bom_template = 0; /* owned */
 static char *g_config_bom_css = 0;      /* owned */
 static char *g_config_sbom_format = 0;  /* owned */
+static char *g_config_sbom_spec_version = 0; /* owned */
+static char *g_config_sbom_output = 0;  /* owned */
 
 static const char *g_cc_default = "tcc";
 static const char *g_build_dir  = "build";
@@ -531,6 +533,17 @@ static int ends_with(const char *s, const char *suffix) {
   size_t ls = strlen(s), lf = strlen(suffix);
   if (lf > ls) return 0;
   return memcmp(s + (ls - lf), suffix, lf) == 0;
+}
+
+static int is_abs_path(const char *p) {
+  if (!p || !p[0]) return 0;
+#ifdef _WIN32
+  if (p[0] == '/' || p[0] == '\\') return 1;
+  if (isalpha((unsigned char)p[0]) && p[1] == ':') return 1;
+  return 0;
+#else
+  return p[0] == '/';
+#endif
 }
 
 /* Make safe id from display name (filesystem-friendly) */
@@ -2303,6 +2316,33 @@ static int ini_load_file(const char *path) {
 
       if (sec == SEC_SBOM) {
         if (strieq(key, "format")) {
+          if (strieq(val, "tack")) {
+            free(g_config_sbom_format);
+            g_config_sbom_format = xstrdup("tack");
+          } else if (strieq(val, "cyclonedx")) {
+            free(g_config_sbom_format);
+            g_config_sbom_format = xstrdup("cyclonedx");
+          } else if (strieq(val, "spdx")) {
+            free(g_config_sbom_format);
+            g_config_sbom_format = xstrdup("spdx");
+          } else {
+            fprintf(stderr, "tack: ini: invalid sbom.format: %s\n", val);
+            exit(2);
+          }
+        } else if (strieq(key, "spec_version")) {
+          free(g_config_sbom_spec_version);
+          g_config_sbom_spec_version = 0;
+          if (val[0]) {
+            tack_check_len("sbom.spec_version", val, TACK_MAX_TOKEN);
+            g_config_sbom_spec_version = xstrdup(val);
+          }
+        } else if (strieq(key, "output")) {
+          free(g_config_sbom_output);
+          g_config_sbom_output = 0;
+          if (val[0]) {
+            tack_check_len("sbom.output", val, TACK_MAX_CONFIG_PATH);
+            g_config_sbom_output = xstrdup(val);
+          }
           free(g_config_sbom_format);
           g_config_sbom_format = xstrdup(val);
         }
@@ -2644,9 +2684,20 @@ static void config_reset(void) {
   /* reset INI state and project globals for layered loads */
   free(g_config_default_target);
   g_config_default_target = 0;
+
   g_config_disable_auto_tools = 0;
+
+  free(g_config_doc_template); g_config_doc_template = 0;
+  free(g_config_doc_css);      g_config_doc_css = 0;
+  free(g_config_bom_template); g_config_bom_template = 0;
+  free(g_config_bom_css);      g_config_bom_css = 0;
+
   free(g_config_sbom_format);
   g_config_sbom_format = 0;
+  free(g_config_sbom_spec_version);
+  g_config_sbom_spec_version = 0;
+  free(g_config_sbom_output);
+  g_config_sbom_output = 0;
 
   ini_targets_free();
   ini_overrides_free();
@@ -2698,13 +2749,18 @@ static int config_auto_load(void) {
 static void config_free(void) {
   ini_targets_free();
   ini_overrides_free();
+  
   free(g_config_default_target);
   g_config_default_target = 0;
+  
   free(g_config_doc_template); g_config_doc_template = 0;
   free(g_config_doc_css); g_config_doc_css = 0;
   free(g_config_bom_template); g_config_bom_template = 0;
   free(g_config_bom_css); g_config_bom_css = 0;
   free(g_config_sbom_format); g_config_sbom_format = 0;
+  free(g_config_sbom_spec_version); g_config_sbom_spec_version = 0;
+  free(g_config_sbom_output); g_config_sbom_output = 0;
+
   g_config_loaded = 0;
   g_config_path[0] = '\0';
 }
@@ -4414,6 +4470,78 @@ static int cmd_bom(Profile p, TargetVec *tv, const Target *t, int verbose, int s
   return 0;
 }
 
+static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int strict, int no_core,
+                    const char *outdir) {
+  FILE *f;
+  char sbom_path[TACK_MAX_CONFIG_PATH + 1];
+  char format_buf[128];
+  char dirbuf[TACK_MAX_CONFIG_PATH + 1];
+  const TargetOverride *ov;
+  int use_core_effective;
+  const char *inc_common[5];
+  const char *tackfile_mode = "none";
+  const char *sbom_format;
+  const char *sbom_spec_version;
+  const char *sbom_output;
+  const char *format_string = "tack-sbom-1";
+
+  StrVec includes;
+  StrVec defines;
+  StrVec cflags;
+  StrVec ldflags;
+  StrVec libs;
+  StrVec srcs;
+  StrVec core_srcs;
+
+  (void)tv;
+
+  if (!outdir) outdir = g_build_dir;
+  sbom_format = g_config_sbom_format ? g_config_sbom_format : "tack";
+  sbom_spec_version = g_config_sbom_spec_version;
+  sbom_output = g_config_sbom_output;
+
+  if (strieq(sbom_format, "tack")) {
+    if (sbom_spec_version && sbom_spec_version[0]) {
+      tack_copy(format_buf, sizeof(format_buf), "tack-sbom-");
+      tack_cat(format_buf, sizeof(format_buf), sbom_spec_version);
+      format_string = format_buf;
+    }
+  } else {
+    fprintf(stderr, "tack: sbom: format %s not supported (only tack)\n", sbom_format);
+    return 2;
+  }
+
+  if (sbom_output && sbom_output[0]) {
+    const char *p;
+    const char *last_sep = 0;
+
+    if (outdir && outdir[0] && !is_abs_path(sbom_output)) {
+      ensure_dir(outdir);
+      path_join(sbom_path, sizeof(sbom_path), outdir, sbom_output);
+    } else {
+      tack_copy(sbom_path, sizeof(sbom_path), sbom_output);
+    }
+
+    for (p = sbom_path; *p; p++) {
+      if (*p == '/' || *p == '\\') last_sep = p;
+    }
+    if (last_sep && last_sep > sbom_path) {
+      size_t dlen = (size_t)(last_sep - sbom_path);
+      if (dlen >= sizeof(dirbuf)) tack_die("sbom output path too long");
+      memcpy(dirbuf, sbom_path, dlen);
+      dirbuf[dlen] = '\0';
+      ensure_dir(dirbuf);
+    }
+  } else {
+    ensure_dir(outdir);
+    path_join(sbom_path, sizeof(sbom_path), outdir, "sbom.json");
+  }
+
+  if (verbose) printf("tack: sbom: writing %s\n", sbom_path);
+
+  f = fopen(sbom_path, "wb");
+  if (!f) {
+    fprintf(stderr, "tack: sbom: cannot write %s\n", sbom_path);
 typedef enum {
   SBOM_FORMAT_TACK = 0,
   SBOM_FORMAT_CYCLONEDX = 1,
@@ -4473,7 +4601,7 @@ static void write_sbom_tack(FILE *f, const SbomData *d) {
   fputs("{\n", f);
   json_write_indent(f, 2);
   fputs("\"format\": ", f);
-  json_write_string(f, "tack-sbom-1");
+  json_write_string(f, format_string);
   fputs(",\n", f);
 
   json_write_indent(f, 2);
