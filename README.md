@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.4)
+# tack — Tiny ANSI-C Kit (v0.7.5)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.4)
+## Features (v0.7.5)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -67,6 +67,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - Echte Target-Konfiguration: Includes/Defines/CFLAGS/LDFLAGS/LIBS pro Target
 - Shared Core Code: `src/core/` wird 1× pro Profil gebaut und optional gelinkt
 - `tack bom`: erzeugt ein Build-Manifest (BOM) als `build/bom.md` und `build/bom.html`.
+- `tack sbom`: erzeugt eine deterministische SBOM als JSON (`build/sbom.json`).
 - `tack doc`: erzeugt offline HTML-Doku in `build/doc/` (Wrapper um Markdown) und verlinkt die BOM.
 - Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - HTML-Ausgabe: stabile Template-Ankerpunkte (Marker + IDs) für CSS-Hooks und optionales Post-Processing.
@@ -94,14 +95,16 @@ Dieses Repo legt `tack` unter `src/tack.c` ab. Du kannst es aber auch in die Rep
 
 ## BOM, SBOM und DOC – was ist was?
 
-tack kann zwei Arten von „Dokumentation“ ausgeben, die oft verwechselt werden:
+tack kann drei Arten von „Dokumentation“ ausgeben, die oft verwechselt werden:
 
 - **DOC**: eine kleine, offline-fähige Projekt-Doku-Site (README/FAQ/ROADMAP/RELEASENOTES usw.).  
   Das ist **keine** automatisch generierte API-Dokumentation wie bei `cargo doc`/`rustdoc`.
 - **BOM**: ein **Build-Manifest** für das konkrete Build (Targets, Inputs, Flags, Toolchain/OS, Output-Pfade).  
   Zweck: Debugging, Nachvollziehbarkeit, Reproduzierbarkeit.
 - **SBOM**: eine **Software Bill Of Materials** im Supply-Chain-Sinne (Komponenten + Abhängigkeiten, z.B. CycloneDX/SPDX).  
-  **SBOM-Export ist geplant.** Das tack-BOM vermeidet bewusst Ratespiele (z.B. wird aus `-lssl` keine konkrete OpenSSL-Version „erraten“).
+  `tack sbom` erzeugt eine **deterministische JSON-SBOM** (`build/sbom.json`) aus den bekannten Build‑Inputs.  
+  Das Format ist **tack‑spezifisch** (`format: "tack-sbom-1"`); CycloneDX/SPDX sind **nicht** implementiert.  
+  Es werden **keine** Versions‑Ratespiele aus Linker‑Flags betrieben (z.B. kein OpenSSL‑Guess aus `-lssl`).
 
 ### Suche / „cargo-like UI“
 Die erzeugten HTML-Seiten sind bewusst **CSS-first** und funktionieren offline.  
@@ -190,6 +193,9 @@ Den Ordner `.tack-cache/` löschen (z.B. `rm -rf .tack-cache`).
 - `test [debug|release] ...` – bauen + `_test.c` ausführen
 - `clean` – Inhalte von `build/` löschen (Ordner bleibt bestehen)
 - `clobber` – `build/` komplett löschen
+- `bom` – Build-Manifest als Markdown/HTML
+- `sbom` – deterministische SBOM als JSON
+- `doc` – Offline-HTML-Doku (README/FAQ/ROADMAP/RELEASENOTES + BOM)
 
 Tipp: `tack build --help` (oder `-h`) zeigt die Hilfe **für dieses Sub‑Kommando**.
 
@@ -215,7 +221,7 @@ Wenn `tack.ini` vorhanden ist (oder per `--config PATH` gesetzt wird), lädt tac
 - `[target "NAME"]` (oder ohne Quotes: `[target tool:foo]`)
 - `[doc]` (optional: HTML-Template/CSS für `tack doc`)
 - `[bom]` (optional: HTML-Template/CSS für `tack bom`)
-- `[sbom]` (reserviert für zukünftigen SBOM-Export)
+- `[sbom]` (aktuell ohne Schlüssel; reserviert für zukünftige SBOM-Metadaten)
 
 **Schlüssel in `[project]`**
 - `default_target = app`
@@ -460,7 +466,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.4)
+## Features (v0.7.5)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -478,6 +484,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - real per‑target config: includes/defines/cflags/ldflags/libs/core
 - Shared core code: `src/core/` built once per profile, optionally linked
 - `tack bom`: generates a build manifest (BOM) as `build/bom.md` and `build/bom.html`.
+- `tack sbom`: generates a deterministic SBOM JSON (`build/sbom.json`).
 - `tack doc`: generates offline HTML docs in `build/doc/` (wrapper around Markdown) and links the BOM.
 - Optional: HTML templates + CSS for DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - HTML output: stable template anchor markers (markers + IDs) for CSS hooks and optional post-processing.
@@ -504,14 +511,16 @@ This repo keeps tack at `src/tack.c`. You may also place it in the repo root —
 
 ## BOM, SBOM and DOC — what is what?
 
-tack can output two kinds of “documentation” that are often mixed up:
+tack can output three kinds of “documentation” that are often mixed up:
 
 - **DOC**: a small, offline-friendly project documentation site (README/FAQ/ROADMAP/RELEASENOTES, etc.).  
   This is **not** automatically generated API documentation like `cargo doc`/`rustdoc`.
 - **BOM**: a **build manifest** for a specific build (targets, inputs, flags, toolchain/OS, output paths).  
   Purpose: debugging, traceability, reproducibility.
 - **SBOM**: a **Software Bill of Materials** in the supply-chain sense (components + dependencies, e.g. CycloneDX/SPDX).  
-  **SBOM export is planned.** The tack BOM intentionally avoids guesswork (e.g. it does not try to infer an exact OpenSSL version from `-lssl`).
+  `tack sbom` emits a **deterministic JSON SBOM** (`build/sbom.json`) from known build inputs.  
+  The output is **tack-specific** (`format: "tack-sbom-1"`); CycloneDX/SPDX are **not** implemented.  
+  It intentionally avoids guesswork (e.g. it does not try to infer exact OpenSSL versions from `-lssl`).
 
 ### Search / “cargo-like UI”
 The generated HTML is intentionally **CSS-first** and works offline.  
@@ -594,6 +603,9 @@ Delete the `.tack-cache/` folder (e.g. `rm -rf .tack-cache`).
 - `test [debug|release] ...` – build + execute `_test.c`
 - `clean` – delete contents of `build/` (keep directory)
 - `clobber` – delete `build/` entirely
+- `bom` – build manifest as Markdown/HTML
+- `sbom` – deterministic SBOM as JSON
+- `doc` – offline HTML docs (README/FAQ/ROADMAP/RELEASENOTES + BOM)
 
 ### Exit codes
 

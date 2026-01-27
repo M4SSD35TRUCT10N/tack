@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.4
+# tack ROADMAP (DE/EN) — v0.7.5
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -28,18 +28,13 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 ### Erledigt in v0.7.4
 - Optional: schnelleres Incremental-Building via Compile-Cache (`.tack-cache/`).
 
+### Erledigt in v0.7.5
+- `tack sbom`: deterministischer SBOM-Export als JSON (`build/sbom.json`), ohne Versions-Ratespiele aus Linker-Flags.
+
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
 - Optional: bessere Windows Long‑Path Guidance
 - Optional: High-Contrast/Forced-Colors CSS-Feinschliff für DOC/BOM-Templates
-
-### Geplant: SBOM-Export
-- CycloneDX JSON Export (Komponenten + Abhängigkeitsgraph), konfigurierbar via `tack.ini`.
-- Deterministische Ausgabe (keine Versions-Ratespiele aus Linker-Flags).
-- Optional: Datei-Hashes (z.B. SHA-256) und Lizenz-Hinweise, sofern vorhanden.
-- SPDX Export ggf. später (höhere Komplexität).
-
----
 
 ### Paketmanagement (Idee / Untersuchungen)
 C hat kein Standard‑Paketmanagement wie Rust. Ein tack‑eigenes System wäre ein USP, aber nur mit sehr klarer Scope‑Definition:
@@ -74,16 +69,13 @@ Before “big” releases and announcements, tack should be validated against re
 ### Done in v0.7.4
 - Optional: faster incremental builds via a compile cache (`.tack-cache/`).
 
+### Done in v0.7.5
+- `tack sbom`: deterministic SBOM export as JSON (`build/sbom.json`), without guessing versions from linker flags.
+
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs
 - Optional: better Windows long-path guidance
 - Optional: high-contrast / forced-colors CSS polish for DOC/BOM templates
-
-### Planned: SBOM export
-- CycloneDX JSON export (components + dependency graph), configurable via `tack.ini`.
-- Deterministic output (avoid guessing versions from linker flags).
-- Optional file hashes (e.g. SHA-256) and license hints when present.
-- SPDX export may follow later (higher complexity).
 
 ### Package management (idea / research)
 C has no standard package manager. A tack-native approach could be a USP, but needs strict scope:
