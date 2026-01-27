@@ -9,6 +9,11 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.4
+- Bugfix-Release: Compile-Cache validiert Abhängigkeiten jetzt über `mtime` + Dateigröße + Content-Hash (32-bit FNV-1a), um false positives auf Dateisystemen mit grober Timestamp-Auflösung zu vermeiden.
+- Cache-Entries werden atomarer geschrieben (Tempfiles + `rename()`), um partielle Einträge zu vermeiden.
+- Striktere C89/ANSI-C-Kompatibilität (kein `snprintf`/`vsnprintf`; stabiler 32-bit Cache-Key).
+
 ### v0.7.3
 - Optionaler Compile-Cache (`.tack-cache/`) für schnellere Incremental Builds, abschaltbar via `--no-cache`.
 
@@ -44,6 +49,11 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.4
+- Bugfix release: compile cache now validates dependencies via `mtime` + file size + content hash (32-bit FNV-1a) to avoid false positives on file systems with coarse timestamp resolution.
+- Cache entries are written more atomically (temp files + `rename()`) to reduce partial entries.
+- Stricter C89/ANSI-C compatibility (no `snprintf`/`vsnprintf`; stable 32-bit cache key).
 
 ### v0.7.3
 - Optional compile cache (`.tack-cache/`) for faster incremental builds, disable with `--no-cache`.

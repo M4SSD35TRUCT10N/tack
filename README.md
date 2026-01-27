@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.3)
+# tack — Tiny ANSI-C Kit (v0.7.4)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.3)
+## Features (v0.7.4)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -153,6 +153,32 @@ tack.exe --no-cache build debug
 - `--no-code-config`: **nur** `tackfile.c` deaktivieren, laden der INI-Datei bleibt aktiv (CI/Team‑Modus)
 - `--no-auto-tools`: `tools/<name>` Auto-Discovery deaktivieren (für vollständig deklarative Builds)
 - `--no-cache`: Compile-Cache deaktivieren (`.tack-cache/`)
+
+## Compile-Cache (.tack-cache/)
+
+`tack` kann Kompilergebnisse cachen, um wiederholte Builds zu beschleunigen. Der Cache liegt im Projekt-Root:
+
+- `.tack-cache/`
+
+### Was wird gecacht?
+Pro Compile-Schritt (pro Ziel/Profil):
+
+- Objektdatei (`.o`)
+- Depfile (`.d`)
+- Meta-Datei (`.meta`) mit Abhängigkeits-Fingerprints
+
+### Wie wird die Gültigkeit geprüft?
+Damit Cache-Hits auch auf Dateisystemen mit grober Timestamp-Auflösung zuverlässig sind, validiert `tack` die Abhängigkeiten aus dem Depfile über:
+
+- `mtime` (Modifikationszeit)
+- Dateigröße
+- Content-Hash (schneller 32-bit FNV-1a; nicht kryptografisch)
+
+### Cache deaktivieren
+- `--no-cache`
+
+### Cache löschen (Reset)
+Den Ordner `.tack-cache/` löschen (z.B. `rm -rf .tack-cache`).
 
 ## Kommandos
 
@@ -434,7 +460,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.3)
+## Features (v0.7.4)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -531,6 +557,32 @@ tack.exe --no-auto-tools list
 - `--config <path>`: load explicit INI (highest priority)
 - `--no-config`: disable **all** configuration (`tack.ini` and `tackfile.c`)
 - `--no-auto-tools`: disable `tools/<name>` auto discovery (useful for fully declarative builds)
+
+## Compile cache (.tack-cache/)
+
+`tack` can cache compile outputs to speed up repeated builds. The cache lives in the project root:
+
+- `.tack-cache/`
+
+### What is cached?
+Per compile step (per target/profile):
+
+- object file (`.o`)
+- depfile (`.d`)
+- meta file (`.meta`) with dependency fingerprints
+
+### How is validity checked?
+To avoid false cache hits on file systems with coarse timestamp resolution, `tack` validates dependencies listed in the depfile via:
+
+- `mtime` (modification time)
+- file size
+- content hash (fast 32-bit FNV-1a; not cryptographic)
+
+### Disable cache
+- `--no-cache`
+
+### Reset / clear cache
+Delete the `.tack-cache/` folder (e.g. `rm -rf .tack-cache`).
 
 ## Commands
 

@@ -1,10 +1,26 @@
-# tack FAQ / FQA (DE/EN) — v0.7.3
+# tack FAQ / FQA (DE/EN) — v0.7.4
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
 ---
 
 ## Deutsch (FAQ)
+
+### Nutzt tack einen Compile-Cache?
+Ja. `tack` kann Kompilergebnisse in `.tack-cache/` ablegen, um wiederholte Builds zu beschleunigen.
+
+Die Cache-Validierung nutzt:
+- `mtime` (Modifikationszeit)
+- Dateigröße
+- Content-Hash (32-bit FNV-1a; nicht kryptografisch)
+
+### Wie kann ich den Cache deaktivieren?
+Nutze:
+- `--no-cache`
+
+### Wie kann ich den Cache löschen?
+Lösche den Ordner:
+- `.tack-cache/`
 
 ### Ist tack ein Ersatz für CMake/make?
 tack ersetzt für viele Projekte das klassische Build-Skript (Makefile/CMakeLists), indem es eine feste, simple Konvention nutzt und die üblichen Tasks (`build/run/test/clean`) anbietet. Für extrem komplexe Toolchains ist make/cmake weiterhin besser geeignet.
@@ -164,6 +180,22 @@ Marker-Kommentare (`<!-- TACK:BEGIN ... -->`) liefert das eingebaute Layout oder
 ---
 
 ## English (FAQ)
+
+### Does tack use a compile cache?
+Yes. `tack` can store compile outputs in `.tack-cache/` to speed up repeated builds.
+
+Cache validation uses:
+- `mtime` (modification time)
+- file size
+- content hash (32-bit FNV-1a; not cryptographic)
+
+### How do I disable the cache?
+Use:
+- `--no-cache`
+
+### How do I clear the cache?
+Delete the folder:
+- `.tack-cache/`
 
 ### Is tack a replacement for CMake/make?
 For many projects, yes: tack replaces custom build scripts by using conventions and providing `build/run/test/clean`. For very complex toolchains, make/cmake may still be the better fit.

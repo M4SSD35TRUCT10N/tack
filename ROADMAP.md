@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.3
+# tack ROADMAP (DE/EN) — v0.7.4
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -25,7 +25,7 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 ### Erledigt in v0.7.2
 - Bessere Diagnose-Ausgaben: `--why`/`--explain` erklärt Rebuild-Entscheidungen („why rebuild“).
 
-### Erledigt in v0.7.3
+### Erledigt in v0.7.4
 - Optional: schnelleres Incremental-Building via Compile-Cache (`.tack-cache/`).
 
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
@@ -71,7 +71,7 @@ Before “big” releases and announcements, tack should be validated against re
 ### Done in v0.7.2
 - Improved diagnostics: `--why`/`--explain` explains rebuild decisions (“why rebuild”).
 
-### Done in v0.7.3
+### Done in v0.7.4
 - Optional: faster incremental builds via a compile cache (`.tack-cache/`).
 
 ### Next sensible steps (v0.7.x ideas)

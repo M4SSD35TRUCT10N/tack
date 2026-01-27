@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.7.3
+ * v0.7.4
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -62,7 +62,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.7.3"
+#define TACK_VERSION "0.7.4"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -315,6 +315,19 @@ static int copy_file(const char *src, const char *dst) {
   return 0;
 }
 
+static int rename_replace(const char *src, const char *dst) {
+  if (rename(src, dst) == 0) return 0;
+#ifdef _WIN32
+  (void)remove(dst);
+  if (rename(src, dst) == 0) return 0;
+#endif
+  if (copy_file(src, dst) == 0) {
+    (void)remove(src);
+    return 0;
+  }
+  return 1;
+}
+
 static int file_contains_substr(const char *path, const char *needle) {
   long n = 0;
   char *s;
@@ -327,6 +340,12 @@ static int file_contains_substr(const char *path, const char *needle) {
   ok = (strstr(s, needle) != 0);
   free(s);
   return ok;
+}
+
+static void fputs_lines(FILE *f, const char **lines) {
+  int i;
+  if (!f || !lines) return;
+  for (i = 0; lines[i]; i++) fputs(lines[i], f);
 }
 
 static int write_file_if_missing(const char *path, const char *content) {
@@ -356,10 +375,68 @@ static int append_block_if_missing(const char *path, const char *marker, const c
   return 0;
 }
 
+
+static int write_file_if_missing_lines(const char *path, const char **lines) {
+  FILE *f;
+  if (file_exists(path)) return 0;
+  f = fopen(path, "wb");
+  if (!f) return 1;
+  fputs_lines(f, lines);
+  fclose(f);
+  return 0;
+}
+
+static int append_block_if_missing_lines(const char *path, const char *marker, const char **lines) {
+  FILE *f;
+
+  if (!file_exists(path)) return write_file_if_missing_lines(path, lines);
+  if (file_contains_substr(path, marker)) return 0;
+
+  f = fopen(path, "ab");
+  if (!f) return 1;
+
+  /* separate with newline for readability */
+  fputs("\n", f);
+  fputs_lines(f, lines);
+  fclose(f);
+  return 0;
+}
+
 static long file_mtime(const char *path) {
   STAT_ST st;
   if (STAT_FN(path, &st) != 0) return -1;
   return (long)st.st_mtime;
+}
+
+static long file_size(const char *path) {
+  STAT_ST st;
+  if (STAT_FN(path, &st) != 0) return -1;
+  return (long)st.st_size;
+}
+
+static unsigned long fnv1a_update(unsigned long h, const unsigned char *data, size_t n);
+
+static int file_hash32_fnv1a(const char *path, unsigned long *out_hash) {
+  FILE *f;
+  unsigned char buf[4096];
+  size_t n;
+  unsigned long h = 2166136261ul;
+
+  if (!out_hash) return 1;
+  *out_hash = 0;
+
+  f = fopen(path, "rb");
+  if (!f) return 1;
+
+  while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
+    h = fnv1a_update(h, buf, n);
+  }
+
+  if (ferror(f)) { fclose(f); return 1; }
+  fclose(f);
+
+  *out_hash = (h & 0xfffffffful);
+  return 0;
 }
 
 static int is_dir_path(const char *path) {
@@ -1081,10 +1158,12 @@ static void av_terminate(Argv *v) {
 /* --------------------------- cache helpers --------------------------- */
 
 static unsigned long fnv1a_update(unsigned long h, const unsigned char *data, size_t n) {
+  /* Force 32-bit semantics even when unsigned long is 64-bit. */
   size_t i;
   for (i = 0; i < n; i++) {
     h ^= (unsigned long)data[i];
-    h *= 16777619u;
+    h *= 16777619ul;
+    h &= 0xfffffffful;
   }
   return h;
 }
@@ -1094,20 +1173,38 @@ static unsigned long fnv1a_str(unsigned long h, const char *s) {
   return fnv1a_update(h, (const unsigned char*)s, strlen(s));
 }
 
-static void cache_key_from_argv(char *out, size_t out_cap, char **argv) {
-  unsigned long h = 2166136261u;
+static void u32_to_hex8(char *out, size_t out_cap, unsigned long v) {
+  static const char *hex = "0123456789abcdef";
+  unsigned long x = v & 0xfffffffful;
   int i;
 
-  h = fnv1a_str(h, "tack-cache-v1");
+  if (!out || out_cap == 0) return;
+  if (out_cap < 9) { out[0] = '\0'; return; }
+
+  for (i = 7; i >= 0; i--) {
+    out[i] = hex[x & 0xful];
+    x >>= 4;
+  }
+  out[8] = '\0';
+}
+
+static void cache_key_from_argv(char *out, size_t out_cap, char **argv) {
+  unsigned long h = 2166136261ul;
+  int i;
+
+  h = fnv1a_str(h, "tack-cache-v2");
 
   for (i = 0; argv && argv[i]; i++) {
+    /* Exclude paths that change per build invocation. */
     if (streq(argv[i], "-o") || streq(argv[i], "-MF")) { i++; continue; }
     if (streq(argv[i], "-MD")) continue;
+
     h = fnv1a_str(h, argv[i]);
     h = fnv1a_str(h, "\n");
   }
 
-  snprintf(out, out_cap, "%08lx", h);
+  /* 8 hex chars (stable 32-bit key). */
+  u32_to_hex8(out, out_cap, h);
 }
 
 /* --------------------------- dep parsing --------------------------- */
@@ -1122,12 +1219,37 @@ static void cache_key_from_argv(char *out, size_t out_cap, char **argv) {
  */
 
 static void tack_snprintf(char *dst, size_t dst_sz, const char *fmt, ...) {
+  /* Tiny, C89-friendly formatter: supports only %s and %%. */
   va_list ap;
+  size_t pos = 0;
+  const char *p;
+
   if (!dst || dst_sz == 0) return;
+  dst[0] = '\0';
+  if (!fmt) return;
+
   va_start(ap, fmt);
-  (void)vsnprintf(dst, dst_sz, fmt, ap);
+  p = fmt;
+
+  while (*p && pos + 1 < dst_sz) {
+    if (p[0] == '%' && p[1] == 's') {
+      const char *s = va_arg(ap, const char*);
+      if (!s) s = "(null)";
+      while (*s && pos + 1 < dst_sz) dst[pos++] = *s++;
+      p += 2;
+      continue;
+    }
+    if (p[0] == '%' && p[1] == '%') {
+      dst[pos++] = '%';
+      p += 2;
+      continue;
+    }
+
+    dst[pos++] = *p++;
+  }
+
+  dst[pos] = '\0';
   va_end(ap);
-  dst[dst_sz - 1] = '\0';
 }
 
 static int depfile_needs_rebuild_explain(const char *obj_path, const char *dep_path,
@@ -1357,26 +1479,52 @@ static int cache_meta_valid(const char *meta_path) {
   if (!f) return 0;
 
   while (fgets(line, sizeof(line), f)) {
-    char *tab = strchr(line, '\t');
+    char *t1 = strchr(line, '\t');
+    char *t2;
+    char *t3;
     char *path;
     char *endptr;
-    long recorded;
-    long current;
+    long mt_rec;
+    long sz_rec;
+    unsigned long h_rec;
+    long mt_cur;
+    long sz_cur;
+    unsigned long h_cur;
     size_t len;
 
-    if (!tab) { fclose(f); return 0; }
-    *tab = '\0';
-    recorded = strtol(line, &endptr, 10);
+    if (!t1) { fclose(f); return 0; }
+    *t1 = '\0';
+    t2 = strchr(t1 + 1, '\t');
+    if (!t2) { fclose(f); return 0; }
+    *t2 = '\0';
+    t3 = strchr(t2 + 1, '\t');
+    if (!t3) { fclose(f); return 0; }
+    *t3 = '\0';
+
+    mt_rec = strtol(line, &endptr, 10);
     if (endptr == line) { fclose(f); return 0; }
 
-    path = tab + 1;
+    sz_rec = strtol(t1 + 1, &endptr, 10);
+    if (endptr == (t1 + 1)) { fclose(f); return 0; }
+
+    h_rec = strtoul(t2 + 1, &endptr, 16);
+    if (endptr == (t2 + 1)) { fclose(f); return 0; }
+    h_rec &= 0xfffffffful;
+
+    path = t3 + 1;
     len = strlen(path);
     while (len > 0 && (path[len - 1] == '\n' || path[len - 1] == '\r')) {
       path[--len] = '\0';
     }
 
-    current = file_mtime(path);
-    if (current < 0 || current != recorded) { fclose(f); return 0; }
+    mt_cur = file_mtime(path);
+    sz_cur = file_size(path);
+    if (mt_cur < 0 || sz_cur < 0) { fclose(f); return 0; }
+    if (mt_cur != mt_rec || sz_cur != sz_rec) { fclose(f); return 0; }
+
+    if (file_hash32_fnv1a(path, &h_cur) != 0) { fclose(f); return 0; }
+    h_cur &= 0xfffffffful;
+    if (h_cur != h_rec) { fclose(f); return 0; }
   }
 
   fclose(f);
@@ -1429,10 +1577,19 @@ static int cache_write_meta(const char *dep_path, const char *meta_path) {
   f = fopen(meta_path, "wb");
   if (!f) { sv_free(&deps); return 1; }
 
+  /* Format (tab-separated):
+     mtime <tab> size <tab> hash32hex <tab> path */
   for (i = 0; i < deps.count; i++) {
     long mt = file_mtime(deps.items[i]);
-    if (mt < 0) { fclose(f); sv_free(&deps); return 1; }
-    fprintf(f, "%ld\t%s\n", mt, deps.items[i]);
+    long sz = file_size(deps.items[i]);
+    unsigned long hh;
+    char hex[9];
+
+    if (mt < 0 || sz < 0) { fclose(f); sv_free(&deps); return 1; }
+    if (file_hash32_fnv1a(deps.items[i], &hh) != 0) { fclose(f); sv_free(&deps); return 1; }
+
+    u32_to_hex8(hex, sizeof(hex), hh);
+    fprintf(f, "%ld\t%ld\t%s\t%s\n", mt, sz, hex, deps.items[i]);
   }
 
   fclose(f);
@@ -1445,6 +1602,10 @@ static void cache_store(const char *key, const char *obj_path, const char *dep_p
   char cache_dep[512];
   char cache_meta[512];
 
+  char tmp_obj[520];
+  char tmp_dep[520];
+  char tmp_meta[520];
+
   if (!file_exists(obj_path) || !file_exists(dep_path)) return;
 
   cache_ensure_dirs();
@@ -1453,9 +1614,20 @@ static void cache_store(const char *key, const char *obj_path, const char *dep_p
                     cache_meta, sizeof(cache_meta),
                     key);
 
-  if (cache_write_meta(dep_path, cache_meta) != 0) return;
-  if (copy_file(obj_path, cache_obj) != 0) return;
-  if (copy_file(dep_path, cache_dep) != 0) return;
+  tack_copy(tmp_obj, sizeof(tmp_obj), cache_obj);
+  tack_cat(tmp_obj, sizeof(tmp_obj), ".tmp");
+  tack_copy(tmp_dep, sizeof(tmp_dep), cache_dep);
+  tack_cat(tmp_dep, sizeof(tmp_dep), ".tmp");
+  tack_copy(tmp_meta, sizeof(tmp_meta), cache_meta);
+  tack_cat(tmp_meta, sizeof(tmp_meta), ".tmp");
+
+  if (copy_file(obj_path, tmp_obj) != 0) return;
+  if (copy_file(dep_path, tmp_dep) != 0) { (void)remove(tmp_obj); return; }
+  if (cache_write_meta(dep_path, tmp_meta) != 0) { (void)remove(tmp_obj); (void)remove(tmp_dep); return; }
+
+  if (rename_replace(tmp_obj, cache_obj) != 0)   { (void)remove(tmp_obj); }
+  if (rename_replace(tmp_dep, cache_dep) != 0)   { (void)remove(tmp_dep); }
+  if (rename_replace(tmp_meta, cache_meta) != 0) { (void)remove(tmp_meta); }
 }
 
 static int obj_needs_rebuild_explain(const char *obj_path, const char *src_path,
@@ -3228,40 +3400,40 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict) {
 
 static void print_help(void) {
   printf("tack %s - Tiny ANSI-C Kit\n\n", TACK_VERSION);
-  printf("Usage:\n"
-         "  tack help\n"
-         "  tack version\n"
-         "  tack doctor\n"
-         "  tack init\n"
-         "  tack list\n"
-         "  tack build [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core]\n"
-         "  tack run  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]\n"
-         "  tack test [debug|release] [-v] [--why] [--rebuild] [--strict]\n"
-         "  tack bom  [debug|release] [--target NAME] [-v] [--strict] [--no-core] [--outdir <dir>]\n"
-         "  tack doc  [debug|release] [--target NAME] [-v] [--strict] [--no-core] [--outdir <dir>]\n"
-         "  tack clean [-v]\n"
-         "  tack clobber [-v]\n");
-  printf("\nGlobal options (must come before the command):\n"
-         "  --no-config         ignore tack.ini and tackfile.c\n"
-         "  --no-code-config    ignore tackfile.c (still load INI)\n"
-         "  --config <path>     use explicit INI file (highest priority)\n"
-         "  --no-auto-tools     disable tool discovery\n"
-         "  --no-cache          disable compile cache\n");
-  printf("\nConventions:\n"
-         "  app         : src/ or src/app/\n"
-         "  shared core : src/core/ (linked if enabled for target)\n"
-         "  tools       : tools/<name>/  (target name: tool:<name>)\n"
-         "  tests       : tests/ (recursive _test.c files)\n");
-  printf("\nNotes:\n"
-         "  clean   = remove contents under build/ (keep the build directory)\n"
-         "  clobber = remove build/ itself\n"
-         "  clean/clobber -v prints remaining locked paths (if any)\n"
-         "  init    = also provisions .gitignore and .fossil-settings/ignore-glob (non-destructive)\n"
-         "  bom     = writes build/bom.md and build/bom.html\n"
-         "  doc     = writes HTML into build/doc/ (README/FAQ/ROADMAP/RELEASENOTES + BOM)\n"
-         "  --strict enables -Wunsupported\n"
-         "  --why prints short \"why rebuild\" diagnostics for compile/link decisions\n"
-         "  cache   = stored under .tack-cache/ (use --no-cache to disable)\n");
+
+  puts("Usage:");
+  puts("  tack help");
+  puts("  tack version");
+  puts("  tack doctor");
+  puts("  tack init");
+  puts("  tack list");
+  puts("  tack build [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core]");
+  puts("  tack run  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]");
+  puts("  tack test [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core]");
+  puts("  tack clean [-v]");
+  puts("  tack clobber [-v]");
+  puts("  tack bom");
+  puts("  tack doc");
+  puts("");
+
+  puts("Global options (must come before the command):");
+  puts("  --config <path>     use explicit INI file (highest priority)");
+  puts("  --no-config         ignore tack.ini and tackfile.c");
+  puts("  --no-code-config    ignore tackfile.c (still use tack.ini / --config)");
+  puts("  --no-auto-tools     disable tool discovery at runtime");
+  puts("  --no-cache          disable compile cache");
+  puts("");
+
+  puts("Notes:");
+  puts("  - clean    = remove contents under build/ (keep the build directory)");
+  puts("  - clobber  = remove build/ itself");
+  puts("  - clean/clobber -v prints remaining locked paths (if any)");
+  puts("  - init    = also provisions .gitignore and .fossil-settings/ignore-glob (non-destructive)");
+  puts("  - bom     = writes build/bom.md and build/bom.html");
+  puts("  - doc     = writes HTML into build/doc/ (README/FAQ/ROADMAP/RELEASENOTES + BOM)");
+  puts("  - --strict enables -Wunsupported");
+  puts("  - --why prints short \"why rebuild\" diagnostics for compile/link decisions");
+  puts("  - cache   = stored under .tack-cache/ (validated via mtime + size + hash; use --no-cache to disable)");
 }
 
 static void cmd_version(void) { printf("tack %s\n", TACK_VERSION); }
@@ -3325,160 +3497,143 @@ static const char *TACK_GITIGNORE_BLOCK =
   "/build/bom.html\n"
   "/build/doc/\n";
 
-static const char *GITIGNORE_FULL =
-  "###############################################################################\n"
-  "# tack (Tiny ANSI-C Kit)\n"
-  "###############################################################################\n"
-  "\n"
-  "# tack build output\n"
-  "/build/\n"
-  "/.tack-cache/\n"
-  "\n"
-  "# tackfile.c generator artifacts (optional)\n"
-  "/build/_tackfile/\n"
-  "tackfile.generated.ini\n"
-  "/build/_tackfile/tackfile.generated.ini\n"
-  "\n"
-  "# generated docs/BOM (optional)\n"
-  "/build/bom.md\n"
-  "/build/bom.html\n"
-  "/build/doc/\n"
-  "\n"
-  "###############################################################################\n"
-  "# Generic C / toolchain ignores\n"
-  "###############################################################################\n"
-  "\n"
-  "# Prerequisites / depfiles\n"
-  "*.d\n"
-  "\n"
-  "# Object files\n"
-  "*.o\n"
-  "*.ko\n"
-  "*.obj\n"
-  "*.elf\n"
-  "\n"
-  "# Linker output\n"
-  "*.ilk\n"
-  "*.map\n"
-  "*.exp\n"
-  "\n"
-  "# Precompiled Headers\n"
-  "*.gch\n"
-  "*.pch\n"
-  "\n"
-  "# Libraries\n"
-  "*.lib\n"
-  "*.a\n"
-  "*.la\n"
-  "*.lo\n"
-  "\n"
-  "# Shared objects (inc. Windows DLLs)\n"
-  "*.dll\n"
-  "*.so\n"
-  "*.so.*\n"
-  "*.dylib\n"
-  "\n"
-  "# Executables\n"
-  "*.exe\n"
-  "*.out\n"
-  "*.app\n"
-  "*.i*86\n"
-  "*.x86_64\n"
-  "*.hex\n"
-  "\n"
-  "# Debug files\n"
-  "*.dSYM/\n"
-  "*.su\n"
-  "*.idb\n"
-  "*.pdb\n"
-  "\n"
-  "# Kernel Module Compile Results\n"
-  "*.mod*\n"
-  "*.cmd\n"
-  ".tmp_versions/\n"
-  "modules.order\n"
-  "Module.symvers\n"
-  "Mkfile.old\n"
-  "dkms.conf\n"
-  "\n"
-  "# debug information files\n"
-  "*.dwo\n"
-  "\n"
-  "###############################################################################\n"
-  "# OS / editor noise\n"
-  "###############################################################################\n"
-  ".DS_Store\n"
-  "Thumbs.db\n";
+static const char *GITIGNORE_FULL_LINES[] = {
+  "###############################################################################\n",
+  "# tack (Tiny ANSI-C Kit)\n",
+  "###############################################################################\n",
+  "# tack build output\n",
+  "/build/\n",
+  "/.tack-cache/\n",
+  "# tackfile.c generator artifacts (optional)\n",
+  "/build/_tackfile/\n",
+  "tackfile.generated.ini\n",
+  "/build/_tackfile/tackfile.generated.ini\n",
+  "# generated docs/BOM (optional)\n",
+  "/build/bom.md\n",
+  "/build/bom.html\n",
+  "/build/doc/\n",
+  "###############################################################################\n",
+  "# Generic C / toolchain ignores\n",
+  "###############################################################################\n",
+  "# Prerequisites / depfiles\n",
+  "*.d\n",
+  "# Object files\n",
+  "*.o\n",
+  "*.ko\n",
+  "*.obj\n",
+  "*.elf\n",
+  "# Linker output\n",
+  "*.ilk\n",
+  "*.map\n",
+  "*.exp\n",
+  "# Precompiled Headers\n",
+  "*.gch\n",
+  "*.pch\n",
+  "# Libraries\n",
+  "*.lib\n",
+  "*.a\n",
+  "*.la\n",
+  "*.lo\n",
+  "# Shared objects (inc. Windows DLLs)\n",
+  "*.dll\n",
+  "*.so\n",
+  "*.so.*\n",
+  "*.dylib\n",
+  "# Executables\n",
+  "*.exe\n",
+  "*.out\n",
+  "*.app\n",
+  "*.i*86\n",
+  "*.x86_64\n",
+  "*.hex\n",
+  "# Debug files\n",
+  "*.dSYM/\n",
+  "*.su\n",
+  "*.idb\n",
+  "*.pdb\n",
+  "# Kernel Module Compile Results\n",
+  "*.mod*\n",
+  "*.cmd\n",
+  ".tmp_versions/\n",
+  "modules.order\n",
+  "Module.symvers\n",
+  "Mkfile.old\n",
+  "dkms.conf\n",
+  "# debug information files\n",
+  "*.dwo\n",
+  "###############################################################################\n",
+  "# OS / editor noise\n",
+  "###############################################################################\n",
+  ".DS_Store\n",
+  "Thumbs.db\n",
+  0
+};
 
-static const char *FOSSIL_IGNORE_BLOCK =
-  "# tack\n"
-  "build\n"
-  ".tack-cache\n"
-  "tackfile.generated.ini\n";
+static const char *FOSSIL_IGNORE_BLOCK_LINES[] = {
+  "# tack\n",
+  "build\n",
+  ".tack-cache\n",
+  "tackfile.generated.ini\n",
+  0
+};
 
-static const char *FOSSIL_IGNORE_FULL =
-  "# tack\n"
-  "build\n"
-  ".tack-cache\n"
-  "tackfile.generated.ini\n"
-  "\n"
-  "# objects / depfiles\n"
-  "*.d\n"
-  "*.o\n"
-  "*.ko\n"
-  "*.obj\n"
-  "*.elf\n"
-  "\n"
-  "# linker output\n"
-  "*.ilk\n"
-  "*.map\n"
-  "*.exp\n"
-  "\n"
-  "# precompiled headers\n"
-  "*.gch\n"
-  "*.pch\n"
-  "\n"
-  "# libraries\n"
-  "*.lib\n"
-  "*.a\n"
-  "*.la\n"
-  "*.lo\n"
-  "\n"
-  "# shared objects\n"
-  "*.dll\n"
-  "*.so\n"
-  "*.so.*\n"
-  "*.dylib\n"
-  "\n"
-  "# executables\n"
-  "*.exe\n"
-  "*.out\n"
-  "*.app\n"
-  "*.i*86\n"
-  "*.x86_64\n"
-  "*.hex\n"
-  "\n"
-  "# debug files\n"
-  "*.dSYM\n"
-  "*.su\n"
-  "*.idb\n"
-  "*.pdb\n"
-  "\n"
-  "# kernel/module stuff\n"
-  "*.mod*\n"
-  "*.cmd\n"
-  ".tmp_versions\n"
-  "modules.order\n"
-  "Module.symvers\n"
-  "Mkfile.old\n"
-  "dkms.conf\n"
-  "\n"
-  "# debug info\n"
-  "*.dwo\n"
-  "\n"
-  "# OS noise\n"
-  ".DS_Store\n"
-  "Thumbs.db\n";
+
+static const char *FOSSIL_IGNORE_FULL_LINES[] = {
+  "# tack\n",
+  "build\n",
+  ".tack-cache\n",
+  "tackfile.generated.ini\n",
+  "# objects / depfiles\n",
+  "*.d\n",
+  "*.o\n",
+  "*.ko\n",
+  "*.obj\n",
+  "*.elf\n",
+  "# linker output\n",
+  "*.ilk\n",
+  "*.map\n",
+  "*.exp\n",
+  "# precompiled headers\n",
+  "*.gch\n",
+  "*.pch\n",
+  "# libraries\n",
+  "*.lib\n",
+  "*.a\n",
+  "*.la\n",
+  "*.lo\n",
+  "# shared objects\n",
+  "*.dll\n",
+  "*.so\n",
+  "*.so.*\n",
+  "*.dylib\n",
+  "# executables\n",
+  "*.exe\n",
+  "*.out\n",
+  "*.app\n",
+  "*.i*86\n",
+  "*.x86_64\n",
+  "*.hex\n",
+  "# debug files\n",
+  "*.dSYM\n",
+  "*.su\n",
+  "*.idb\n",
+  "*.pdb\n",
+  "# kernel/module stuff\n",
+  "*.mod*\n",
+  "*.cmd\n",
+  ".tmp_versions\n",
+  "modules.order\n",
+  "Module.symvers\n",
+  "Mkfile.old\n",
+  "dkms.conf\n",
+  "# debug info\n",
+  "*.dwo\n",
+  "# OS noise\n",
+  ".DS_Store\n",
+  "Thumbs.db\n",
+  0
+};
+
 static int cmd_init(void) {
   FILE *f;
 
@@ -3526,7 +3681,7 @@ static int cmd_init(void) {
   {
     /* .gitignore: if missing -> write full; else append tack block if not present */
   if (!file_exists(".gitignore")) {
-      if (write_file_if_missing(".gitignore", GITIGNORE_FULL) != 0) {
+      if (write_file_if_missing_lines(".gitignore", GITIGNORE_FULL_LINES) != 0) {
       fprintf(stderr, "tack: init: cannot create .gitignore\n");
       return 1;
     }
@@ -3546,10 +3701,10 @@ static int cmd_init(void) {
     if (!file_exists(fp)) {
         FILE *ff = fopen(fp, "wb");
         if (!ff) { fprintf(stderr, "tack: init: cannot create %s\n", fp); return 1; }
-        fputs(FOSSIL_IGNORE_FULL, ff);
+        fputs_lines(ff, FOSSIL_IGNORE_FULL_LINES);
         fclose(ff);
     } else {
-        if (append_block_if_missing(fp, "# tack", FOSSIL_IGNORE_BLOCK) != 0) {
+        if (append_block_if_missing_lines(fp, "# tack", FOSSIL_IGNORE_BLOCK_LINES) != 0) {
         fprintf(stderr, "tack: init: cannot update %s\n", fp);
         return 1;
       }
