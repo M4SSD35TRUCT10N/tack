@@ -106,6 +106,7 @@ static char *g_config_doc_template = 0; /* owned */
 static char *g_config_doc_css = 0;      /* owned */
 static char *g_config_bom_template = 0; /* owned */
 static char *g_config_bom_css = 0;      /* owned */
+static char *g_config_sbom_format = 0;  /* owned */
 
 static const char *g_cc_default = "tcc";
 static const char *g_build_dir  = "build";
@@ -2301,7 +2302,10 @@ static int ini_load_file(const char *path) {
       }
 
       if (sec == SEC_SBOM) {
-        /* reserved for future keys (format/spec_version/etc.) */
+        if (strieq(key, "format")) {
+          free(g_config_sbom_format);
+          g_config_sbom_format = xstrdup(val);
+        }
         continue;
       }
 
@@ -2641,6 +2645,8 @@ static void config_reset(void) {
   free(g_config_default_target);
   g_config_default_target = 0;
   g_config_disable_auto_tools = 0;
+  free(g_config_sbom_format);
+  g_config_sbom_format = 0;
 
   ini_targets_free();
   ini_overrides_free();
@@ -2698,6 +2704,7 @@ static void config_free(void) {
   free(g_config_doc_css); g_config_doc_css = 0;
   free(g_config_bom_template); g_config_bom_template = 0;
   free(g_config_bom_css); g_config_bom_css = 0;
+  free(g_config_sbom_format); g_config_sbom_format = 0;
   g_config_loaded = 0;
   g_config_path[0] = '\0';
 }
@@ -3431,8 +3438,10 @@ static void print_help(void) {
   puts("  - clean/clobber -v prints remaining locked paths (if any)");
   puts("  - init    = also provisions .gitignore and .fossil-settings/ignore-glob (non-destructive)");
   puts("  - bom     = writes build/bom.md and build/bom.html");
-  puts("  - sbom    = writes build/sbom.json (deterministic JSON)");
+  puts("  - sbom    = writes build/sbom.json (tack-sbom-1), build/sbom.cdx.json (cyclonedx),");
+  puts("             build/sbom.spdx.json (spdx)");
   puts("  - doc     = writes HTML into build/doc/ (README/FAQ/ROADMAP/RELEASENOTES + BOM)");
+  puts("  - sbom format is set via [sbom] format = tack-sbom-1 | cyclonedx | spdx");
   puts("  - --strict enables -Wunsupported");
   puts("  - --why prints short \"why rebuild\" diagnostics for compile/link decisions");
   puts("  - cache   = stored under .tack-cache/ (validated via mtime + size + hash; use --no-cache to disable)");
@@ -3498,6 +3507,8 @@ static const char *TACK_GITIGNORE_BLOCK =
   "/build/bom.md\n"
   "/build/bom.html\n"
   "/build/sbom.json\n"
+  "/build/sbom.cdx.json\n"
+  "/build/sbom.spdx.json\n"
   "/build/doc/\n";
 
 static const char *GITIGNORE_FULL_LINES[] = {
@@ -3515,6 +3526,8 @@ static const char *GITIGNORE_FULL_LINES[] = {
   "/build/bom.md\n",
   "/build/bom.html\n",
   "/build/sbom.json\n",
+  "/build/sbom.cdx.json\n",
+  "/build/sbom.spdx.json\n",
   "/build/doc/\n",
   "###############################################################################\n",
   "# Generic C / toolchain ignores\n",
@@ -4401,6 +4414,398 @@ static int cmd_bom(Profile p, TargetVec *tv, const Target *t, int verbose, int s
   return 0;
 }
 
+typedef enum {
+  SBOM_FORMAT_TACK = 0,
+  SBOM_FORMAT_CYCLONEDX = 1,
+  SBOM_FORMAT_SPDX = 2
+} SbomFormat;
+
+typedef struct {
+  const Target *t;
+  const char *profile;
+  const char *compiler;
+  const char *tackfile_mode;
+  int strict;
+  int no_core;
+  int config_enabled;
+  const char *config_path;
+  int use_core_effective;
+  const StrVec *includes;
+  const StrVec *defines;
+  const StrVec *cflags;
+  const StrVec *ldflags;
+  const StrVec *libs;
+  const StrVec *srcs;
+  const StrVec *core_srcs;
+} SbomData;
+
+static const char *sbom_format_name(SbomFormat fmt) {
+  if (fmt == SBOM_FORMAT_CYCLONEDX) return "cyclonedx";
+  if (fmt == SBOM_FORMAT_SPDX) return "spdx";
+  return "tack-sbom-1";
+}
+
+static const char *sbom_format_filename(SbomFormat fmt) {
+  if (fmt == SBOM_FORMAT_CYCLONEDX) return "sbom.cdx.json";
+  if (fmt == SBOM_FORMAT_SPDX) return "sbom.spdx.json";
+  return "sbom.json";
+}
+
+static int sbom_format_from_string(const char *s, SbomFormat *out) {
+  const char *v = s;
+  if (!v || !v[0]) v = "tack-sbom-1";
+  if (strieq(v, "tack") || strieq(v, "tack-sbom-1")) {
+    if (out) *out = SBOM_FORMAT_TACK;
+    return 1;
+  }
+  if (strieq(v, "cyclonedx") || strieq(v, "cyclonedx-1.4")) {
+    if (out) *out = SBOM_FORMAT_CYCLONEDX;
+    return 1;
+  }
+  if (strieq(v, "spdx") || strieq(v, "spdx-2.3")) {
+    if (out) *out = SBOM_FORMAT_SPDX;
+    return 1;
+  }
+  return 0;
+}
+
+static void write_sbom_tack(FILE *f, const SbomData *d) {
+  fputs("{\n", f);
+  json_write_indent(f, 2);
+  fputs("\"format\": ", f);
+  json_write_string(f, "tack-sbom-1");
+  fputs(",\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"tool\": {\n", f);
+  json_write_indent(f, 4);
+  fputs("\"name\": ", f);
+  json_write_string(f, "tack");
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"version\": ", f);
+  json_write_string(f, TACK_VERSION);
+  fputc('\n', f);
+  json_write_indent(f, 2);
+  fputs("},\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"compiler\": ", f);
+  json_write_string(f, d->compiler);
+  fputs(",\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"profile\": ", f);
+  json_write_string(f, d->profile);
+  fputs(",\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"strict\": ", f);
+  json_write_bool(f, d->strict);
+  fputs(",\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"no_core\": ", f);
+  json_write_bool(f, d->no_core);
+  fputs(",\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"config\": {\n", f);
+  json_write_indent(f, 4);
+  fputs("\"enabled\": ", f);
+  json_write_bool(f, d->config_enabled);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"tack_ini\": ", f);
+  if (!d->config_enabled || !d->config_path || !d->config_path[0]) json_write_null(f);
+  else json_write_string(f, d->config_path);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"tackfile\": ", f);
+  json_write_string(f, d->tackfile_mode);
+  fputc('\n', f);
+  json_write_indent(f, 2);
+  fputs("},\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"target\": {\n", f);
+  json_write_indent(f, 4);
+  fputs("\"name\": ", f);
+  json_write_string(f, d->t->name);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"id\": ", f);
+  json_write_string(f, d->t->id);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"src\": ", f);
+  json_write_string(f, d->t->src_dir);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"bin\": ", f);
+  json_write_string(f, d->t->bin_base);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"enabled\": ", f);
+  json_write_bool(f, d->t->enabled ? 1 : 0);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"core\": ", f);
+  json_write_bool(f, d->use_core_effective ? 1 : 0);
+  fputc('\n', f);
+  json_write_indent(f, 2);
+  fputs("},\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"flags\": {\n", f);
+  json_write_indent(f, 4);
+  fputs("\"includes\": ", f);
+  json_write_string_array(f, 4, d->includes);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"defines\": ", f);
+  json_write_string_array(f, 4, d->defines);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"cflags\": ", f);
+  json_write_string_array(f, 4, d->cflags);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"ldflags\": ", f);
+  json_write_string_array(f, 4, d->ldflags);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"libs\": ", f);
+  json_write_string_array(f, 4, d->libs);
+  fputc('\n', f);
+  json_write_indent(f, 2);
+  fputs("},\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"sources\": {\n", f);
+  json_write_indent(f, 4);
+  fputs("\"core\": ", f);
+  json_write_string_array(f, 4, d->core_srcs);
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"target\": ", f);
+  json_write_string_array(f, 4, d->srcs);
+  fputc('\n', f);
+  json_write_indent(f, 2);
+  fputs("}\n", f);
+
+  fputs("}\n", f);
+}
+
+static void write_cdx_components(FILE *f, int indent, const StrVec *core_srcs, const StrVec *srcs) {
+  int i;
+  int count = 0;
+  if (core_srcs) count += core_srcs->count;
+  if (srcs) count += srcs->count;
+
+  fputs("[", f);
+  if (count == 0) {
+    fputs("]", f);
+    return;
+  }
+  fputc('\n', f);
+
+  if (core_srcs) {
+    for (i = 0; i < core_srcs->count; i++) {
+      json_write_indent(f, indent + 2);
+      fputs("{\n", f);
+      json_write_indent(f, indent + 4);
+      fputs("\"type\": ", f);
+      json_write_string(f, "file");
+      fputs(",\n", f);
+      json_write_indent(f, indent + 4);
+      fputs("\"name\": ", f);
+      json_write_string(f, core_srcs->items[i]);
+      fputc('\n', f);
+      json_write_indent(f, indent + 2);
+      fputs("}", f);
+      if (i + 1 < core_srcs->count || (srcs && srcs->count > 0)) fputc(',', f);
+      fputc('\n', f);
+    }
+  }
+
+  if (srcs) {
+    for (i = 0; i < srcs->count; i++) {
+      json_write_indent(f, indent + 2);
+      fputs("{\n", f);
+      json_write_indent(f, indent + 4);
+      fputs("\"type\": ", f);
+      json_write_string(f, "file");
+      fputs(",\n", f);
+      json_write_indent(f, indent + 4);
+      fputs("\"name\": ", f);
+      json_write_string(f, srcs->items[i]);
+      fputc('\n', f);
+      json_write_indent(f, indent + 2);
+      fputs("}", f);
+      if (i + 1 < srcs->count) fputc(',', f);
+      fputc('\n', f);
+    }
+  }
+
+  json_write_indent(f, indent);
+  fputc(']', f);
+}
+
+static void write_sbom_cyclonedx(FILE *f, const SbomData *d) {
+  fputs("{\n", f);
+  json_write_indent(f, 2);
+  fputs("\"bomFormat\": ", f);
+  json_write_string(f, "CycloneDX");
+  fputs(",\n", f);
+  json_write_indent(f, 2);
+  fputs("\"specVersion\": ", f);
+  json_write_string(f, "1.4");
+  fputs(",\n", f);
+  json_write_indent(f, 2);
+  fputs("\"version\": 1,\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"metadata\": {\n", f);
+  json_write_indent(f, 4);
+  fputs("\"tools\": [\n", f);
+  json_write_indent(f, 6);
+  fputs("{\n", f);
+  json_write_indent(f, 8);
+  fputs("\"vendor\": ", f);
+  json_write_string(f, "tack");
+  fputs(",\n", f);
+  json_write_indent(f, 8);
+  fputs("\"name\": ", f);
+  json_write_string(f, "tack");
+  fputs(",\n", f);
+  json_write_indent(f, 8);
+  fputs("\"version\": ", f);
+  json_write_string(f, TACK_VERSION);
+  fputc('\n', f);
+  json_write_indent(f, 6);
+  fputs("}\n", f);
+  json_write_indent(f, 4);
+  fputs("],\n", f);
+  json_write_indent(f, 4);
+  fputs("\"component\": {\n", f);
+  json_write_indent(f, 6);
+  fputs("\"type\": ", f);
+  json_write_string(f, "application");
+  fputs(",\n", f);
+  json_write_indent(f, 6);
+  fputs("\"name\": ", f);
+  json_write_string(f, d->t->name);
+  fputc('\n', f);
+  json_write_indent(f, 4);
+  fputs("}\n", f);
+  json_write_indent(f, 2);
+  fputs("},\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"components\": ", f);
+  write_cdx_components(f, 2, d->core_srcs, d->srcs);
+  fputc('\n', f);
+
+  fputs("}\n", f);
+}
+
+static void write_sbom_spdx(FILE *f, const SbomData *d) {
+  char namespace_buf[512];
+  char creator_buf[128];
+
+  tack_copy(namespace_buf, sizeof(namespace_buf), "https://tack.invalid/spdx/");
+  tack_cat(namespace_buf, sizeof(namespace_buf), d->t->name);
+  tack_copy(creator_buf, sizeof(creator_buf), "Tool: tack ");
+  tack_cat(creator_buf, sizeof(creator_buf), TACK_VERSION);
+
+  fputs("{\n", f);
+  json_write_indent(f, 2);
+  fputs("\"spdxVersion\": ", f);
+  json_write_string(f, "SPDX-2.3");
+  fputs(",\n", f);
+  json_write_indent(f, 2);
+  fputs("\"dataLicense\": ", f);
+  json_write_string(f, "CC0-1.0");
+  fputs(",\n", f);
+  json_write_indent(f, 2);
+  fputs("\"SPDXID\": ", f);
+  json_write_string(f, "SPDXRef-DOCUMENT");
+  fputs(",\n", f);
+  json_write_indent(f, 2);
+  fputs("\"name\": ", f);
+  json_write_string(f, "tack sbom");
+  fputs(",\n", f);
+  json_write_indent(f, 2);
+  fputs("\"documentNamespace\": ", f);
+  json_write_string(f, namespace_buf);
+  fputs(",\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"creationInfo\": {\n", f);
+  json_write_indent(f, 4);
+  fputs("\"created\": ", f);
+  json_write_string(f, "1970-01-01T00:00:00Z");
+  fputs(",\n", f);
+  json_write_indent(f, 4);
+  fputs("\"creators\": [\n", f);
+  json_write_indent(f, 6);
+  json_write_string(f, creator_buf);
+  fputc('\n', f);
+  json_write_indent(f, 4);
+  fputs("]\n", f);
+  json_write_indent(f, 2);
+  fputs("},\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"packages\": [\n", f);
+  json_write_indent(f, 4);
+  fputs("{\n", f);
+  json_write_indent(f, 6);
+  fputs("\"name\": ", f);
+  json_write_string(f, d->t->name);
+  fputs(",\n", f);
+  json_write_indent(f, 6);
+  fputs("\"SPDXID\": ", f);
+  json_write_string(f, "SPDXRef-Package");
+  fputs(",\n", f);
+  json_write_indent(f, 6);
+  fputs("\"downloadLocation\": ", f);
+  json_write_string(f, "NOASSERTION");
+  fputs(",\n", f);
+  json_write_indent(f, 6);
+  fputs("\"filesAnalyzed\": ", f);
+  json_write_bool(f, 0);
+  fputc('\n', f);
+  json_write_indent(f, 4);
+  fputs("}\n", f);
+  json_write_indent(f, 2);
+  fputs("],\n", f);
+
+  json_write_indent(f, 2);
+  fputs("\"relationships\": [\n", f);
+  json_write_indent(f, 4);
+  fputs("{\n", f);
+  json_write_indent(f, 6);
+  fputs("\"spdxElementId\": ", f);
+  json_write_string(f, "SPDXRef-DOCUMENT");
+  fputs(",\n", f);
+  json_write_indent(f, 6);
+  fputs("\"relationshipType\": ", f);
+  json_write_string(f, "DESCRIBES");
+  fputs(",\n", f);
+  json_write_indent(f, 6);
+  fputs("\"relatedSpdxElement\": ", f);
+  json_write_string(f, "SPDXRef-Package");
+  fputc('\n', f);
+  json_write_indent(f, 4);
+  fputs("}\n", f);
+  json_write_indent(f, 2);
+  fputs("]\n", f);
+
+  fputs("}\n", f);
+}
+
 static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int strict, int no_core,
                     const char *outdir) {
   FILE *f;
@@ -4409,6 +4814,9 @@ static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int 
   int use_core_effective;
   const char *inc_common[5];
   const char *tackfile_mode = "none";
+  SbomFormat format;
+  const char *format_cfg;
+  SbomData data;
 
   StrVec includes;
   StrVec defines;
@@ -4423,9 +4831,14 @@ static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int 
   if (!outdir) outdir = g_build_dir;
 
   ensure_dir(outdir);
-  path_join(sbom_path, sizeof(sbom_path), outdir, "sbom.json");
+  format_cfg = g_config_sbom_format ? g_config_sbom_format : "tack-sbom-1";
+  if (!sbom_format_from_string(format_cfg, &format)) {
+    fprintf(stderr, "tack: sbom: unknown format '%s'\n", format_cfg);
+    return 1;
+  }
+  path_join(sbom_path, sizeof(sbom_path), outdir, sbom_format_filename(format));
 
-  if (verbose) printf("tack: sbom: writing %s\n", sbom_path);
+  if (verbose) printf("tack: sbom: writing %s (%s)\n", sbom_path, sbom_format_name(format));
 
   f = fopen(sbom_path, "wb");
   if (!f) {
@@ -4497,131 +4910,27 @@ static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int 
 #endif
   }
 
-  fputs("{\n", f);
-  json_write_indent(f, 2);
-  fputs("\"format\": ", f);
-  json_write_string(f, "tack-sbom-1");
-  fputs(",\n", f);
+  memset(&data, 0, sizeof(data));
+  data.t = t;
+  data.profile = profile_name(p);
+  data.compiler = get_cc();
+  data.tackfile_mode = tackfile_mode;
+  data.strict = strict;
+  data.no_core = no_core;
+  data.config_enabled = g_no_config ? 0 : 1;
+  data.config_path = g_config_loaded ? g_config_path : 0;
+  data.use_core_effective = use_core_effective;
+  data.includes = &includes;
+  data.defines = &defines;
+  data.cflags = &cflags;
+  data.ldflags = &ldflags;
+  data.libs = &libs;
+  data.srcs = &srcs;
+  data.core_srcs = &core_srcs;
 
-  json_write_indent(f, 2);
-  fputs("\"tool\": {\n", f);
-  json_write_indent(f, 4);
-  fputs("\"name\": ", f);
-  json_write_string(f, "tack");
-  fputs(",\n", f);
-  json_write_indent(f, 4);
-  fputs("\"version\": ", f);
-  json_write_string(f, TACK_VERSION);
-  fputc('\n', f);
-  json_write_indent(f, 2);
-  fputs("},\n", f);
-
-  json_write_indent(f, 2);
-  fputs("\"compiler\": ", f);
-  json_write_string(f, get_cc());
-  fputs(",\n", f);
-
-  json_write_indent(f, 2);
-  fputs("\"profile\": ", f);
-  json_write_string(f, profile_name(p));
-  fputs(",\n", f);
-
-  json_write_indent(f, 2);
-  fputs("\"strict\": ", f);
-  json_write_bool(f, strict);
-  fputs(",\n", f);
-
-  json_write_indent(f, 2);
-  fputs("\"no_core\": ", f);
-  json_write_bool(f, no_core);
-  fputs(",\n", f);
-
-  json_write_indent(f, 2);
-  fputs("\"config\": {\n", f);
-  json_write_indent(f, 4);
-  fputs("\"enabled\": ", f);
-  json_write_bool(f, g_no_config ? 0 : 1);
-  fputs(",\n", f);
-  json_write_indent(f, 4);
-  fputs("\"tack_ini\": ", f);
-  if (g_no_config || !g_config_loaded) json_write_null(f);
-  else json_write_string(f, g_config_path);
-  fputs(",\n", f);
-  json_write_indent(f, 4);
-  fputs("\"tackfile\": ", f);
-  json_write_string(f, tackfile_mode);
-  fputc('\n', f);
-  json_write_indent(f, 2);
-  fputs("},\n", f);
-
-  json_write_indent(f, 2);
-  fputs("\"target\": {\n", f);
-  json_write_indent(f, 4);
-  fputs("\"name\": ", f);
-  json_write_string(f, t->name);
-  fputs(",\n", f);
-  json_write_indent(f, 4);
-  fputs("\"id\": ", f);
-  json_write_string(f, t->id);
-  fputs(",\n", f);
-  json_write_indent(f, 4);
-  fputs("\"src\": ", f);
-  json_write_string(f, t->src_dir);
-  fputs(",\n", f);
-  json_write_indent(f, 4);
-  fputs("\"bin\": ", f);
-  json_write_string(f, t->bin_base);
-  fputs(",\n", f);
-  json_write_indent(f, 4);
-  fputs("\"enabled\": ", f);
-  json_write_bool(f, t->enabled ? 1 : 0);
-  fputs(",\n", f);
-  json_write_indent(f, 4);
-  fputs("\"core\": ", f);
-  json_write_bool(f, use_core_effective ? 1 : 0);
-  fputc('\n', f);
-  json_write_indent(f, 2);
-  fputs("},\n", f);
-
-  json_write_indent(f, 2);
-  fputs("\"flags\": {\n", f);
-  json_write_indent(f, 4);
-  fputs("\"includes\": ", f);
-  json_write_string_array(f, 4, &includes);
-  fputs(",\n", f);
-  json_write_indent(f, 4);
-  fputs("\"defines\": ", f);
-  json_write_string_array(f, 4, &defines);
-  fputs(",\n", f);
-  json_write_indent(f, 4);
-  fputs("\"cflags\": ", f);
-  json_write_string_array(f, 4, &cflags);
-  fputs(",\n", f);
-  json_write_indent(f, 4);
-  fputs("\"ldflags\": ", f);
-  json_write_string_array(f, 4, &ldflags);
-  fputs(",\n", f);
-  json_write_indent(f, 4);
-  fputs("\"libs\": ", f);
-  json_write_string_array(f, 4, &libs);
-  fputc('\n', f);
-  json_write_indent(f, 2);
-  fputs("},\n", f);
-
-  json_write_indent(f, 2);
-  fputs("\"sources\": {\n", f);
-  json_write_indent(f, 4);
-  fputs("\"core\": ", f);
-  json_write_string_array(f, 4, &core_srcs);
-  fputs(",\n", f);
-  json_write_indent(f, 4);
-  fputs("\"target\": ", f);
-  json_write_string_array(f, 4, &srcs);
-  fputc('\n', f);
-  json_write_indent(f, 2);
-  fputs("}\n", f);
-
-  fputs("}\n", f);
+  if (format == SBOM_FORMAT_TACK) write_sbom_tack(f, &data);
+  else if (format == SBOM_FORMAT_CYCLONEDX) write_sbom_cyclonedx(f, &data);
+  else write_sbom_spdx(f, &data);
   fclose(f);
 
   sv_free(&includes);
@@ -4632,7 +4941,7 @@ static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int 
   sv_free(&srcs);
   sv_free(&core_srcs);
 
-  printf("tack: sbom: wrote %s\n", sbom_path);
+  printf("tack: sbom: wrote %s (%s)\n", sbom_path, sbom_format_name(format));
   return 0;
 }
 
