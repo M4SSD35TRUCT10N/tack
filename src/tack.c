@@ -106,6 +106,9 @@ static char *g_config_doc_template = 0; /* owned */
 static char *g_config_doc_css = 0;      /* owned */
 static char *g_config_bom_template = 0; /* owned */
 static char *g_config_bom_css = 0;      /* owned */
+static char *g_config_sbom_format = 0;       /* owned */
+static char *g_config_sbom_spec_version = 0; /* owned */
+static char *g_config_sbom_output = 0;       /* owned */
 
 static const char *g_cc_default = "tcc";
 static const char *g_build_dir  = "build";
@@ -127,6 +130,11 @@ static const char *default_target_name(void) {
 #else
   return g_default_target;
 #endif
+}
+
+static const char *sbom_format_effective(void) {
+  if (g_config_sbom_format && g_config_sbom_format[0]) return g_config_sbom_format;
+  return "tack";
 }
 
 /* Warnings: keep strict, but avoid killing builds due to GCC attributes in system headers */
@@ -475,6 +483,44 @@ static void ensure_dir(const char *path) {
 #else
   mkdir(path, 0777);
 #endif
+}
+
+static void ensure_dir_recursive(const char *path) {
+  char buf[512];
+  size_t i;
+  size_t len;
+  if (!path || !path[0]) return;
+  len = strlen(path);
+  if (len >= sizeof(buf)) tack_die("path too long");
+  tack_copy(buf, sizeof(buf), path);
+  for (i = 1; buf[i]; i++) {
+    if (buf[i] == '/' || buf[i] == '\\') {
+      char saved = buf[i];
+      buf[i] = '\0';
+      if (!(i == 2 && buf[1] == ':')) ensure_dir(buf);
+      buf[i] = saved;
+    }
+  }
+  if (!(len == 2 && buf[1] == ':')) ensure_dir(buf);
+}
+
+static void ensure_parent_dir_recursive(const char *path) {
+  const char *slash = 0;
+  const char *p;
+  char dir[512];
+  size_t len;
+
+  if (!path || !path[0]) return;
+  for (p = path; *p; p++) {
+    if (*p == '/' || *p == '\\') slash = p;
+  }
+  if (!slash) return;
+  len = (size_t)(slash - path);
+  if (len == 0) return;
+  if (len >= sizeof(dir)) tack_die("path too long");
+  memcpy(dir, path, len);
+  dir[len] = '\0';
+  ensure_dir_recursive(dir);
 }
 
 static void path_join(char *out, size_t cap, const char *a, const char *b) {
@@ -2301,7 +2347,19 @@ static int ini_load_file(const char *path) {
       }
 
       if (sec == SEC_SBOM) {
-        /* reserved for future keys (format/spec_version/etc.) */
+        if (strieq(key, "format")) {
+          free(g_config_sbom_format);
+          tack_check_len("sbom format", val, TACK_MAX_NAME);
+          g_config_sbom_format = xstrdup(val);
+        } else if (strieq(key, "spec_version")) {
+          free(g_config_sbom_spec_version);
+          tack_check_len("sbom spec_version", val, TACK_MAX_NAME);
+          g_config_sbom_spec_version = xstrdup(val);
+        } else if (strieq(key, "output")) {
+          free(g_config_sbom_output);
+          tack_check_len("sbom output", val, TACK_MAX_CONFIG_PATH);
+          g_config_sbom_output = xstrdup(val);
+        }
         continue;
       }
 
@@ -2641,6 +2699,13 @@ static void config_reset(void) {
   free(g_config_default_target);
   g_config_default_target = 0;
   g_config_disable_auto_tools = 0;
+  free(g_config_doc_template); g_config_doc_template = 0;
+  free(g_config_doc_css); g_config_doc_css = 0;
+  free(g_config_bom_template); g_config_bom_template = 0;
+  free(g_config_bom_css); g_config_bom_css = 0;
+  free(g_config_sbom_format); g_config_sbom_format = 0;
+  free(g_config_sbom_spec_version); g_config_sbom_spec_version = 0;
+  free(g_config_sbom_output); g_config_sbom_output = 0;
 
   ini_targets_free();
   ini_overrides_free();
@@ -2698,6 +2763,9 @@ static void config_free(void) {
   free(g_config_doc_css); g_config_doc_css = 0;
   free(g_config_bom_template); g_config_bom_template = 0;
   free(g_config_bom_css); g_config_bom_css = 0;
+  free(g_config_sbom_format); g_config_sbom_format = 0;
+  free(g_config_sbom_spec_version); g_config_sbom_spec_version = 0;
+  free(g_config_sbom_output); g_config_sbom_output = 0;
   g_config_loaded = 0;
   g_config_path[0] = '\0';
 }
@@ -3431,7 +3499,7 @@ static void print_help(void) {
   puts("  - clean/clobber -v prints remaining locked paths (if any)");
   puts("  - init    = also provisions .gitignore and .fossil-settings/ignore-glob (non-destructive)");
   puts("  - bom     = writes build/bom.md and build/bom.html");
-  puts("  - sbom    = writes build/sbom.json (deterministic JSON)");
+  puts("  - sbom    = writes SBOM (default: build/sbom.json; format/output via [sbom])");
   puts("  - doc     = writes HTML into build/doc/ (README/FAQ/ROADMAP/RELEASENOTES + BOM)");
   puts("  - --strict enables -Wunsupported");
   puts("  - --why prints short \"why rebuild\" diagnostics for compile/link decisions");
@@ -4407,6 +4475,8 @@ static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int 
   char sbom_path[512];
   const TargetOverride *ov;
   int use_core_effective;
+  const char *format;
+  int format_tack = 0;
   const char *inc_common[5];
   const char *tackfile_mode = "none";
 
@@ -4422,8 +4492,27 @@ static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int 
 
   if (!outdir) outdir = g_build_dir;
 
-  ensure_dir(outdir);
-  path_join(sbom_path, sizeof(sbom_path), outdir, "sbom.json");
+  format = sbom_format_effective();
+  if (strieq(format, "tack") || strieq(format, "tack-sbom-1")) {
+    format_tack = 1;
+  } else if (strieq(format, "cyclonedx") || strieq(format, "spdx")) {
+    tack_die("sbom format not implemented (use format=tack)");
+  } else {
+    tack_die("unknown sbom format");
+  }
+
+  if (g_config_sbom_spec_version && g_config_sbom_spec_version[0]) {
+    /* reserved for future sbom formats (CycloneDX/SPDX) */
+  }
+
+  if (g_config_sbom_output && g_config_sbom_output[0]) {
+    if (strlen(g_config_sbom_output) >= sizeof(sbom_path)) tack_die("sbom output path too long");
+    tack_copy(sbom_path, sizeof(sbom_path), g_config_sbom_output);
+    ensure_parent_dir_recursive(sbom_path);
+  } else {
+    ensure_dir(outdir);
+    path_join(sbom_path, sizeof(sbom_path), outdir, "sbom.json");
+  }
 
   if (verbose) printf("tack: sbom: writing %s\n", sbom_path);
 
@@ -4500,7 +4589,11 @@ static int cmd_sbom(Profile p, TargetVec *tv, const Target *t, int verbose, int 
   fputs("{\n", f);
   json_write_indent(f, 2);
   fputs("\"format\": ", f);
-  json_write_string(f, "tack-sbom-1");
+  if (format_tack) {
+    json_write_string(f, "tack-sbom-1");
+  } else {
+    json_write_string(f, format);
+  }
   fputs(",\n", f);
 
   json_write_indent(f, 2);

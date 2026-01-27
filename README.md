@@ -67,7 +67,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - Echte Target-Konfiguration: Includes/Defines/CFLAGS/LDFLAGS/LIBS pro Target
 - Shared Core Code: `src/core/` wird 1× pro Profil gebaut und optional gelinkt
 - `tack bom`: erzeugt ein Build-Manifest (BOM) als `build/bom.md` und `build/bom.html`.
-- `tack sbom`: erzeugt eine deterministische SBOM als JSON (`build/sbom.json`).
+- `tack sbom`: erzeugt eine SBOM in mehreren Formaten (Default: tack‑JSON unter `build/sbom.json`, Formatwahl via `tack.ini`).
 - `tack doc`: erzeugt offline HTML-Doku in `build/doc/` (Wrapper um Markdown) und verlinkt die BOM.
 - Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - HTML-Ausgabe: stabile Template-Ankerpunkte (Marker + IDs) für CSS-Hooks und optionales Post-Processing.
@@ -102,8 +102,10 @@ tack kann drei Arten von „Dokumentation“ ausgeben, die oft verwechselt werde
 - **BOM**: ein **Build-Manifest** für das konkrete Build (Targets, Inputs, Flags, Toolchain/OS, Output-Pfade).  
   Zweck: Debugging, Nachvollziehbarkeit, Reproduzierbarkeit.
 - **SBOM**: eine **Software Bill Of Materials** im Supply-Chain-Sinne (Komponenten + Abhängigkeiten, z.B. CycloneDX/SPDX).  
-  `tack sbom` erzeugt eine **deterministische JSON-SBOM** (`build/sbom.json`) aus den bekannten Build‑Inputs.  
-  Das Format ist **tack‑spezifisch** (`format: "tack-sbom-1"`); CycloneDX/SPDX sind **nicht** implementiert.  
+  `tack sbom` erzeugt eine **deterministische SBOM** aus den bekannten Build‑Inputs.  
+  Standardmäßig ist das Format **tack‑spezifisch** (`format: "tack-sbom-1"`) und landet als JSON unter `build/sbom.json`.  
+  Über `[sbom]` in `tack.ini` kannst du Format und Ausgabepfad steuern (siehe Konfiguration).  
+  CycloneDX/SPDX sind **als Formatoptionen** vorgesehen, werden aber aktuell noch **nicht** erzeugt.  
   Es werden **keine** Versions‑Ratespiele aus Linker‑Flags betrieben (z.B. kein OpenSSL‑Guess aus `-lssl`).
 
 ### Suche / „cargo-like UI“
@@ -194,7 +196,7 @@ Den Ordner `.tack-cache/` löschen (z.B. `rm -rf .tack-cache`).
 - `clean` – Inhalte von `build/` löschen (Ordner bleibt bestehen)
 - `clobber` – `build/` komplett löschen
 - `bom` – Build-Manifest als Markdown/HTML
-- `sbom` – deterministische SBOM als JSON
+- `sbom` – deterministische SBOM (Standard-JSON, Format via `tack.ini`)
 - `doc` – Offline-HTML-Doku (README/FAQ/ROADMAP/RELEASENOTES + BOM)
 
 Tipp: `tack build --help` (oder `-h`) zeigt die Hilfe **für dieses Sub‑Kommando**.
@@ -221,7 +223,7 @@ Wenn `tack.ini` vorhanden ist (oder per `--config PATH` gesetzt wird), lädt tac
 - `[target "NAME"]` (oder ohne Quotes: `[target tool:foo]`)
 - `[doc]` (optional: HTML-Template/CSS für `tack doc`)
 - `[bom]` (optional: HTML-Template/CSS für `tack bom`)
-- `[sbom]` (aktuell ohne Schlüssel; reserviert für zukünftige SBOM-Metadaten)
+- `[sbom]` (Format/Output für `tack sbom`)
 
 **Schlüssel in `[project]`**
 - `default_target = app`
@@ -239,6 +241,11 @@ Wenn `tack.ini` vorhanden ist (oder per `--config PATH` gesetzt wird), lädt tac
 - `cflags   = ...`     (Tokens, per `;` getrennt)
 - `ldflags  = ...`     (Tokens, per `;` getrennt)
 - `libs     = ...`     (Tokens, per `;` getrennt)
+
+**Schlüssel in `[sbom]`**
+- `format = tack|cyclonedx|spdx` (Default: `tack`; CycloneDX/SPDX sind reserviert, aber noch nicht implementiert)
+- `spec_version = ...` (optional; z. B. `1.5` für CycloneDX oder `2.3` für SPDX; wird bei `tack` ignoriert)
+- `output = <pfad>` (optional; Default: `build/sbom.json`)
 
 **Flag-Semantik (CFLAGS/DFLAGS/LFLAGS)**  
 - `includes`, `defines`, `cflags`, `ldflags`, `libs` sind **Extra-Listen**. tack ergänzt sie zu seinen internen Basis-Flags (Warnungen + Profil-Flags wie `-g`/`-O2`).  
@@ -484,7 +491,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - real per‑target config: includes/defines/cflags/ldflags/libs/core
 - Shared core code: `src/core/` built once per profile, optionally linked
 - `tack bom`: generates a build manifest (BOM) as `build/bom.md` and `build/bom.html`.
-- `tack sbom`: generates a deterministic SBOM JSON (`build/sbom.json`).
+- `tack sbom`: generates an SBOM in multiple formats (default: tack JSON at `build/sbom.json`, format via `tack.ini`).
 - `tack doc`: generates offline HTML docs in `build/doc/` (wrapper around Markdown) and links the BOM.
 - Optional: HTML templates + CSS for DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - HTML output: stable template anchor markers (markers + IDs) for CSS hooks and optional post-processing.
@@ -518,8 +525,10 @@ tack can output three kinds of “documentation” that are often mixed up:
 - **BOM**: a **build manifest** for a specific build (targets, inputs, flags, toolchain/OS, output paths).  
   Purpose: debugging, traceability, reproducibility.
 - **SBOM**: a **Software Bill of Materials** in the supply-chain sense (components + dependencies, e.g. CycloneDX/SPDX).  
-  `tack sbom` emits a **deterministic JSON SBOM** (`build/sbom.json`) from known build inputs.  
-  The output is **tack-specific** (`format: "tack-sbom-1"`); CycloneDX/SPDX are **not** implemented.  
+  `tack sbom` emits a **deterministic SBOM** from known build inputs.  
+  By default the format is **tack-specific** (`format: "tack-sbom-1"`) and is written as JSON to `build/sbom.json`.  
+  Use `[sbom]` in `tack.ini` to control the format and output path (see configuration).  
+  CycloneDX/SPDX are **exposed as format options**, but are **not yet generated**.  
   It intentionally avoids guesswork (e.g. it does not try to infer exact OpenSSL versions from `-lssl`).
 
 ### Search / “cargo-like UI”
@@ -604,7 +613,7 @@ Delete the `.tack-cache/` folder (e.g. `rm -rf .tack-cache`).
 - `clean` – delete contents of `build/` (keep directory)
 - `clobber` – delete `build/` entirely
 - `bom` – build manifest as Markdown/HTML
-- `sbom` – deterministic SBOM as JSON
+- `sbom` – deterministic SBOM (default JSON output, format via `tack.ini`)
 - `doc` – offline HTML docs (README/FAQ/ROADMAP/RELEASENOTES + BOM)
 
 ### Exit codes
@@ -620,6 +629,12 @@ Delete the `.tack-cache/` folder (e.g. `rm -rf .tack-cache`).
 Auto-loaded if present (or via `--config`), unless `--no-config` is set.
 
 See the German section above for the full key list. The format is the same.
+
+**SBOM output (optional)**  
+Use `[sbom]` in `tack.ini`:
+- `format = tack|cyclonedx|spdx` (default: `tack`; CycloneDX/SPDX are reserved but not yet implemented)
+- `spec_version = ...` (optional; e.g. `1.5` for CycloneDX or `2.3` for SPDX; ignored for `tack`)
+- `output = <path>` (optional; default: `build/sbom.json`)
 
 **DOC/BOM templates (optional, v0.7.1)**  
 `tack.ini` may also contain `[doc]` and `[bom]` sections with `template = PATH` and `css = PATH`.  
