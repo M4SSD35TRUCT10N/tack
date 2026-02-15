@@ -78,6 +78,21 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
   - Built-ins in `tack.c` (Fallback)
 - **Hardening (v0.6.1–v0.7.0)**: fail-fast Bounds-Checks, sicherere FS-Traversierung (Depth/Symlink/Reparse-Guards), harte Input-Limits, robustere Token-Parsing-Regeln, plus `--no-code-config` für CI/Teams.
 
+## Ökosystem: Software, die gut mit tack zusammenspielt
+
+- **Compiler/Toolchain:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM (über `TACK_CC`).
+- **Versionsverwaltung:** Git, Fossil (tack `init` legt u. a. `.gitignore` + Fossil-Ignore an).
+- **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (einfach `tack build` / `tack test` aufrufen).
+- **Editor/IDE:** VS Code (Tasks), Vim/Neovim, Emacs, CLion/IntelliJ (External Tools), Visual Studio (External Tools).
+- **Qualität/Checks:** `clang-format`, `clang-tidy`, `cppcheck`, `include-what-you-use`.
+- **SBOM/BOM-Weiterverarbeitung:** CycloneDX CLI (Validierung/Konvertierung), SPDX Online Tools / `spdx-tools` (Validierung), GitHub `actions/attest-sbom` (SBOM-Attestations), OWASP Dependency-Track (CycloneDX-Ingestion/Analyse).
+
+## Software, die tack bereits nutzt
+
+- **Tablinum** — strikt C89, Single-Binary „Document Hub“ (paperless-style); Build/Tests werden per tack gefahren.  
+  <https://github.com/M4SSD35TRUCT10N/tablinum>
+- **Dein Projekt hier** — schick eine PR (oder Issue), wenn du gelistet werden möchtest.
+
 ## Repository-Struktur (wie im Repo)
 
 Dieses Repo legt `tack` unter `src/tack.c` ab. Du kannst es aber auch in die Repo-Root legen – wichtig ist nur, dass du `tack` aus dem Projekt-Root startest (weil relative Pfade wie `src/`, `tools/`, `build/` verwendet werden).
@@ -535,6 +550,21 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
   - `tack.ini` (runtime, data‑only, auto‑load; highest priority)
   - `tackfile.c` (optional, runtime → generated INI layer; lower priority than `tack.ini`)
   - built‑ins in `tack.c` (fallback)
+
+## Ecosystem: software that pairs well with tack
+
+- **Compilers/toolchains:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM (via `TACK_CC`).
+- **Version control:** Git, Fossil (tack `init` provisions `.gitignore` and Fossil ignore settings, among other things).
+- **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (just call `tack build` / `tack test`).
+- **Editors/IDEs:** VS Code (Tasks), Vim/Neovim, Emacs, CLion/IntelliJ (External Tools), Visual Studio (External Tools).
+- **Quality checks:** `clang-format`, `clang-tidy`, `cppcheck`, `include-what-you-use`.
+- **SBOM/BOM post-processing:** CycloneDX CLI (validation/conversion), SPDX Online Tools / `spdx-tools` (validation), GitHub `actions/attest-sbom` (SBOM attestations), OWASP Dependency-Track (CycloneDX ingestion/analysis).
+
+## Software using tack
+
+- **Tablinum** — strict C89 single-binary “document hub” (paperless-style); builds/tests are driven by tack.  
+  <https://github.com/M4SSD35TRUCT10N/tablinum>
+- **Your project here** — open a PR (or issue) if you want to be listed.
 
 ## Repo layout
 
