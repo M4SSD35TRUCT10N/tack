@@ -4117,9 +4117,9 @@ static void print_help(void) {
   puts("  tack test [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core]");
   puts("  tack clean [-v]");
   puts("  tack clobber [-v]");
-  puts("  tack bom");
-  puts("  tack sbom");
-  puts("  tack doc");
+  puts("  tack bom  [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]");
+  puts("  tack sbom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]");
+  puts("  tack doc  [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]");
   puts("");
 
   puts("Global options (must come before the command):");

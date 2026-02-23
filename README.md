@@ -73,7 +73,8 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - HTML-Ausgabe: stabile Template-Ankerpunkte (Marker + IDs) für CSS-Hooks und optionales Post-Processing.
 - **Konfiguration / Layering**:
-  - `tack.ini` (runtime, data-only, auto-load; höchste Priorität)
+  - `--config <path>` (explizite INI-Datei; **höchste Priorität**)
+  - `tack.ini` (runtime, data-only, auto-load)
   - `tackfile.c` (optional, runtime → generiertes INI-Layer; niedrigere Priorität als `tack.ini`)
   - Built-ins in `tack.c` (Fallback)
 - **Hardening (v0.6.1–v0.7.0)**: fail-fast Bounds-Checks, sicherere FS-Traversierung (Depth/Symlink/Reparse-Guards), harte Input-Limits, robustere Token-Parsing-Regeln, plus `--no-code-config` für CI/Teams.
@@ -560,7 +561,8 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - Optional: HTML templates + CSS for DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - HTML output: stable template anchor markers (markers + IDs) for CSS hooks and optional post-processing.
 - **Configuration layering**:
-  - `tack.ini` (runtime, data‑only, auto‑load; highest priority)
+  - `--config <path>` (explicit INI file; **highest priority**)
+  - `tack.ini` (runtime, data‑only, auto‑load)
   - `tackfile.c` (optional, runtime → generated INI layer; lower priority than `tack.ini`)
   - built‑ins in `tack.c` (fallback)
 

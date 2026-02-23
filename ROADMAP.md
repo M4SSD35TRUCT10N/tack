@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.8
+# tack ROADMAP (DE/EN) — v0.7.9
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -39,6 +39,11 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 
 ### Erledigt in v0.7.8
 - Profil-spezifische Target-Overrides in `tack.ini` dokumentiert (z. B. `[target "app".debug]` / `[target "app".release]`).
+
+### Erledigt in v0.7.9
+- Depfile-Scan erfasst jetzt auch `#include <...>` und löst diese gegen die effektiven Include-Pfade auf; Header-Änderungen über `-I` triggern damit korrekt Recompiles.
+- Rebuild-Entscheidungen prüfen gespeicherte Abhängigkeits-Metadaten (`mtime`/Größe/FNV-1a) **plus** Depfile-Fingerprint zur Erkennung geänderter Dependency-Graphen (robust gegen Cache-Restores / Write-Order-False-Positives).
+- Dokumentation aktualisiert (README/FAQ/ROADMAP/RELEASENOTES).
 
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
@@ -90,6 +95,11 @@ Before “big” releases and announcements, tack should be validated against re
 
 ### Done in v0.7.8
 - Profile-specific target overrides documented in `tack.ini` (e.g. `[target "app".debug]` / `[target "app".release]`).
+
+### Done in v0.7.9
+- Depfile scanning now also captures `#include <...>` and resolves them against the effective include paths; header changes behind `-I` now correctly trigger recompiles.
+- Rebuild decisions now validate stored dependency metadata (`mtime`/size/FNV-1a) **plus** a depfile fingerprint to detect changed dependency graphs (robust against cache restores / write-order false positives).
+- Documentation updated (README/FAQ/ROADMAP/RELEASENOTES).
 
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs
