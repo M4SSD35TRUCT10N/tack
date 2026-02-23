@@ -1,12 +1,13 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.7.9
+ * v0.7.10
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
  * - Optional code config via tackfile.c: on-the-fly compile to generated INI (fail-fast)
  * - Real per-target configuration overrides (includes/defines/cflags/ldflags/libs, core yes/no)
  * - Shared "core" code (src/core/...) built once per profile and linked into targets
+ * - fmt: external source formatter orchestration (tack fmt / tack fmt --check)
  * - Keeps: recursive scanning, optional tool discovery, -j parallel compile, robust process execution
  *
  * Conventions:
@@ -62,7 +63,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.7.9"
+#define TACK_VERSION "0.7.10"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -2433,6 +2434,123 @@ static IniProfileVec g_ini_profile_targets;
 static IniOverrideVec g_ini_overrides;
 static IniProfileOverrideVec g_ini_profile_overrides;
 
+/* --------------------------- fmt (INI config) --------------------------- */
+
+typedef struct {
+  int enabled_set, enabled;
+  int fail_fast_set, fail_fast;
+  int defaults_set;
+  int defaults_auto; /* 1=auto, 0=off */
+  StrVec rules;      /* list of rule names */
+  StrVec exclude;    /* global excludes */
+  StrVec unknown_keys; /* for strict validation */
+} FmtCfg;
+
+typedef struct {
+  char *name; /* rule name key */
+  char *tool;
+  int mode_set;
+  int mode; /* 0=file, 1=batch */
+  StrVec include;
+  StrVec exclude;
+  char *cmd;
+  char *check_cmd;
+  char *diff_cmd;
+  StrVec requires;
+  char *workdir;
+  /* accepted, optional: env.* */
+  StrVec env_keys;
+  StrVec env_vals;
+  /* for strict validation */
+  StrVec unknown_keys;
+} FmtRuleCfg;
+
+typedef struct {
+  FmtRuleCfg *items;
+  int count;
+  int cap;
+} FmtRuleVec;
+
+static FmtCfg g_fmt;
+static FmtRuleVec g_fmt_rules;
+
+static void fmt_cfg_init(void) {
+  g_fmt.enabled_set = 0; g_fmt.enabled = 1;
+  g_fmt.fail_fast_set = 0; g_fmt.fail_fast = 1;
+  g_fmt.defaults_set = 0; g_fmt.defaults_auto = 1; /* auto */
+  sv_init(&g_fmt.rules);
+  sv_init(&g_fmt.exclude);
+  sv_init(&g_fmt.unknown_keys);
+  g_fmt_rules.items = 0; g_fmt_rules.count = 0; g_fmt_rules.cap = 0;
+}
+
+static void fmt_rule_free(FmtRuleCfg *r) {
+  if (!r) return;
+  free(r->name);
+  free(r->tool);
+  sv_free(&r->include);
+  sv_free(&r->exclude);
+  free(r->cmd);
+  free(r->check_cmd);
+  free(r->diff_cmd);
+  sv_free(&r->requires);
+  free(r->workdir);
+  sv_free(&r->env_keys);
+  sv_free(&r->env_vals);
+  sv_free(&r->unknown_keys);
+}
+
+static void fmt_cfg_free(void) {
+  int i;
+  sv_free(&g_fmt.rules);
+  sv_free(&g_fmt.exclude);
+  sv_free(&g_fmt.unknown_keys);
+  for (i = 0; i < g_fmt_rules.count; i++) fmt_rule_free(&g_fmt_rules.items[i]);
+  free(g_fmt_rules.items);
+  g_fmt_rules.items = 0; g_fmt_rules.count = 0; g_fmt_rules.cap = 0;
+  g_fmt.enabled_set = 0; g_fmt.enabled = 1;
+  g_fmt.fail_fast_set = 0; g_fmt.fail_fast = 1;
+  g_fmt.defaults_set = 0; g_fmt.defaults_auto = 1;
+}
+
+static void fmt_cfg_reset(void) {
+  /* for layered loads: free all and re-init */
+  fmt_cfg_free();
+  fmt_cfg_init();
+}
+
+static FmtRuleCfg *fmt_get_or_add_rule(const char *name) {
+  int i;
+  if (!name || !name[0]) return 0;
+  for (i = 0; i < g_fmt_rules.count; i++) {
+    if (streq(g_fmt_rules.items[i].name, name)) return &g_fmt_rules.items[i];
+  }
+  if (g_fmt_rules.count + 1 > g_fmt_rules.cap) {
+    int ncap = g_fmt_rules.cap ? g_fmt_rules.cap * 2 : 8;
+    g_fmt_rules.items = (FmtRuleCfg*)xrealloc(g_fmt_rules.items, (size_t)ncap * sizeof(FmtRuleCfg));
+    g_fmt_rules.cap = ncap;
+  }
+  {
+    FmtRuleCfg *r = &g_fmt_rules.items[g_fmt_rules.count++];
+    memset(r, 0, sizeof(*r));
+    r->name = xstrdup(name);
+    r->tool = 0;
+    r->mode_set = 0;
+    r->mode = 0;
+    sv_init(&r->include);
+    sv_init(&r->exclude);
+    r->cmd = 0;
+    r->check_cmd = 0;
+    r->diff_cmd = 0;
+    sv_init(&r->requires);
+    r->workdir = 0;
+    sv_init(&r->env_keys);
+    sv_init(&r->env_vals);
+    sv_init(&r->unknown_keys);
+    return r;
+  }
+}
+
 static void ini_targets_init(void) { g_ini_targets.items = 0; g_ini_targets.count = 0; g_ini_targets.cap = 0; }
 static void ini_profile_targets_init(void) { g_ini_profile_targets.items = 0; g_ini_profile_targets.count = 0; g_ini_profile_targets.cap = 0; }
 static void ini_overrides_init(void) { g_ini_overrides.items = 0; g_ini_overrides.count = 0; g_ini_overrides.cap = 0; }
@@ -2766,9 +2884,10 @@ static int ini_load_file(const char *path) {
   char line[TACK_MAX_LINE];
   int lineno = 0;
 
-  enum { SEC_NONE = 0, SEC_PROJECT = 1, SEC_TARGET = 2, SEC_TARGET_PROFILE = 3, SEC_DOC = 4, SEC_BOM = 5, SEC_SBOM = 6 } sec = SEC_NONE;
+  enum { SEC_NONE = 0, SEC_PROJECT = 1, SEC_TARGET = 2, SEC_TARGET_PROFILE = 3, SEC_DOC = 4, SEC_BOM = 5, SEC_SBOM = 6, SEC_FMT = 7, SEC_FMT_RULE = 8 } sec = SEC_NONE;
   IniTargetCfg *cur_t = 0;
   IniProfileCfg *cur_tp = 0;
+  FmtRuleCfg *cur_fr = 0;
 
   f = fopen(path, "rb");
   if (!f) return 1;
@@ -2799,6 +2918,7 @@ static int ini_load_file(const char *path) {
 
       cur_t = 0;
       cur_tp = 0;
+      cur_fr = 0;
       sec = SEC_NONE;
 
       if (strieq(s, "project")) {
@@ -2809,6 +2929,39 @@ static int ini_load_file(const char *path) {
       if (strieq(s, "doc")) { sec = SEC_DOC; continue; }
       if (strieq(s, "bom")) { sec = SEC_BOM; continue; }
       if (strieq(s, "sbom")) { sec = SEC_SBOM; continue; }
+      if (strieq(s, "fmt")) { sec = SEC_FMT; continue; }
+
+      /* [fmt "NAME"] */
+      if ((tolower((unsigned char)s[0])=='f') && (tolower((unsigned char)s[1])=='m') && (tolower((unsigned char)s[2])=='t')) {
+        char *p = s + 3;
+        char *rname = 0;
+        size_t rn = 0;
+
+        p = trim(p);
+        if (*p) {
+        if (*p == '"') {
+          char *q = strchr(p + 1, '"');
+            if (!q) continue;
+            rn = (size_t)(q - (p + 1));
+            if (rn > TACK_MAX_NAME) tack_die("fmt rule name too long");
+            rname = (char*)xmalloc(rn + 1);
+            memcpy(rname, p + 1, rn);
+            rname[rn] = '\0';
+          } else {
+            rn = strlen(p);
+            if (rn > TACK_MAX_NAME) tack_die("fmt rule name too long");
+            rname = (char*)xmalloc(rn + 1);
+            memcpy(rname, p, rn);
+            rname[rn] = '\0';
+          }
+          if (rname[0]) {
+            cur_fr = fmt_get_or_add_rule(rname);
+            sec = SEC_FMT_RULE;
+          }
+          free(rname);
+          continue;
+        }
+      }
 
       if ((tolower((unsigned char)s[0])=='t') && (tolower((unsigned char)s[1])=='a') && (tolower((unsigned char)s[2])=='r') && (tolower((unsigned char)s[3])=='g') && (tolower((unsigned char)s[4])=='e') && (tolower((unsigned char)s[5])=='t')) {
         char *p;
@@ -2917,6 +3070,64 @@ static int ini_load_file(const char *path) {
             g_config_sbom_output = xstrdup(val);
           }
         }
+
+      if (sec == SEC_FMT) {
+        if (strieq(key, "enabled")) {
+          int b;
+          if (parse_bool(val, &b)) { g_fmt.enabled_set = 1; g_fmt.enabled = b; }
+          else sv_push(&g_fmt.unknown_keys, key);
+        } else if (strieq(key, "fail_fast")) {
+          int b;
+          if (parse_bool(val, &b)) { g_fmt.fail_fast_set = 1; g_fmt.fail_fast = b; }
+          else sv_push(&g_fmt.unknown_keys, key);
+        } else if (strieq(key, "defaults")) {
+          g_fmt.defaults_set = 1;
+          if (strieq(val, "auto")) g_fmt.defaults_auto = 1;
+          else if (strieq(val, "off") || strieq(val, "no") || strieq(val, "false")) g_fmt.defaults_auto = 0;
+          else { g_fmt.defaults_auto = 1; sv_push(&g_fmt.unknown_keys, key); }
+        } else if (strieq(key, "rules")) {
+          sv_free(&g_fmt.rules); sv_init(&g_fmt.rules); split_list_tokens(&g_fmt.rules, val, 0);
+        } else if (strieq(key, "exclude")) {
+          sv_free(&g_fmt.exclude); sv_init(&g_fmt.exclude); split_list_tokens(&g_fmt.exclude, val, 0);
+        } else {
+          /* unknown key: record for strict validation */
+          sv_push(&g_fmt.unknown_keys, key);
+        }
+        continue;
+      }
+
+      if (sec == SEC_FMT_RULE && cur_fr) {
+        if (strieq(key, "tool")) {
+          free(cur_fr->tool); cur_fr->tool = val[0] ? xstrdup(val) : 0;
+        } else if (strieq(key, "mode")) {
+          cur_fr->mode_set = 1;
+          if (strieq(val, "file")) cur_fr->mode = 0;
+          else if (strieq(val, "batch")) cur_fr->mode = 1;
+          else { cur_fr->mode = 0; sv_push(&cur_fr->unknown_keys, key); }
+        } else if (strieq(key, "include")) {
+          sv_free(&cur_fr->include); sv_init(&cur_fr->include); split_list_tokens(&cur_fr->include, val, 0);
+        } else if (strieq(key, "exclude")) {
+          sv_free(&cur_fr->exclude); sv_init(&cur_fr->exclude); split_list_tokens(&cur_fr->exclude, val, 0);
+        } else if (strieq(key, "cmd")) {
+          free(cur_fr->cmd); cur_fr->cmd = val[0] ? xstrdup(val) : 0;
+        } else if (strieq(key, "check_cmd")) {
+          free(cur_fr->check_cmd); cur_fr->check_cmd = val[0] ? xstrdup(val) : 0;
+        } else if (strieq(key, "diff_cmd")) {
+          free(cur_fr->diff_cmd); cur_fr->diff_cmd = val[0] ? xstrdup(val) : 0;
+        } else if (strieq(key, "requires")) {
+          sv_free(&cur_fr->requires); sv_init(&cur_fr->requires); split_list_tokens(&cur_fr->requires, val, 0);
+        } else if (strieq(key, "workdir")) {
+          free(cur_fr->workdir); cur_fr->workdir = val[0] ? xstrdup(val) : 0;
+        } else if ((key[0]=='e' || key[0]=='E') && (key[1]=='n' || key[1]=='N') && (key[2]=='v' || key[2]=='V') && key[3]=='.') {
+          /* env.NAME = VALUE (accepted; optional feature) */
+          sv_push(&cur_fr->env_keys, key + 4);
+          sv_push(&cur_fr->env_vals, val);
+        } else {
+          sv_push(&cur_fr->unknown_keys, key);
+        }
+        continue;
+      }
+
         continue;
       }
 
@@ -3329,6 +3540,8 @@ static void config_reset(void) {
   ini_overrides_init();
   ini_profile_overrides_init();
 
+  fmt_cfg_reset();
+
   g_config_loaded = 0;
   g_config_path[0] = '\0';
 }
@@ -3377,6 +3590,7 @@ static void config_free(void) {
   ini_profile_targets_free();
   ini_overrides_free();
   ini_profile_overrides_free();
+  fmt_cfg_free();
   
   free(g_config_default_target);
   g_config_default_target = 0;
@@ -4112,6 +4326,7 @@ static void print_help(void) {
   puts("  tack doctor");
   puts("  tack init");
   puts("  tack list");
+  puts("  tack fmt  [--check] [--diff] [--list] [--rule NAME] [--target NAME] [--no-defaults] [-v] [--strict] [-- PATH...]");
   puts("  tack build [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core]");
   puts("  tack run  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]");
   puts("  tack test [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core]");
@@ -4135,6 +4350,9 @@ static void print_help(void) {
   puts("  - clobber  = remove build/ itself");
   puts("  - clean/clobber -v prints remaining locked paths (if any)");
   puts("  - init    = also provisions .gitignore and .fossil-settings/ignore-glob (non-destructive)");
+  puts("  - fmt     = run external formatters (see [fmt] and [fmt \"NAME\"] in tack.ini)");
+  puts("             --check exits 2 when formatting would change files (CI-friendly)");
+  puts("             defaults=auto may enable implicit rules if .clang-format/Cargo.toml/go.mod exist and tools are in PATH");
   puts("  - bom     = writes build/bom.md and build/bom.html");
   puts("  - sbom    = writes SBOM (default: build/sbom.json for tack-sbom-1;");
   puts("             build/sbom.cdx.json for cyclonedx; build/sbom.spdx.json for spdx)");
@@ -5873,6 +6091,1021 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
   return 0;
 }
 
+/* --------------------------- fmt --------------------------- */
+
+static void fmt_slashify_inplace(char *s) {
+  if (!s) return;
+  while (*s) {
+    if (*s == '\\') *s = '/';
+    s++;
+  }
+}
+
+static void fmt_strip_dot_slash_inplace(char *s) {
+  /* remove leading "./" or ".\" (after slashify) */
+  if (!s) return;
+  if (s[0] == '.' && s[1] == '/') {
+    size_t n = strlen(s);
+    memmove(s, s + 2, n - 1);
+  }
+}
+
+static char *fmt_norm_rel_alloc(const char *p) {
+  char *s;
+  if (!p) return 0;
+  s = xstrdup(p);
+  fmt_slashify_inplace(s);
+  fmt_strip_dot_slash_inplace(s);
+  return s;
+}
+
+static void scan_dir_recursive_all_files_depth(StrVec *out, const char *dir, int depth) {
+#ifdef _WIN32
+  WIN32_FIND_DATAA fd;
+  HANDLE h;
+  char *pattern;
+
+  if (depth > TACK_MAX_SCAN_DEPTH) tack_die("directory recursion too deep");
+
+  pattern = path_join_alloc(dir, "*");
+  h = FindFirstFileA(pattern, &fd);
+  free(pattern);
+  if (h == INVALID_HANDLE_VALUE) return;
+
+  do {
+    char *full;
+
+    if (streq(fd.cFileName, ".") || streq(fd.cFileName, "..")) continue;
+
+    if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+      if (streq(fd.cFileName, "build")) continue;
+      if (streq(fd.cFileName, ".git")) continue;
+      if (streq(fd.cFileName, ".hg")) continue;
+      if (streq(fd.cFileName, ".fossil")) continue;
+      if (streq(fd.cFileName, ".fossil-settings")) continue;
+      if (streq(fd.cFileName, ".tack-cache")) continue;
+    }
+
+    /* loop defense: do not recurse into reparse points (junctions/symlinks) */
+    if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+        (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+      continue;
+    }
+
+    full = path_join_alloc(dir, fd.cFileName);
+
+    if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+      scan_dir_recursive_all_files_depth(out, full, depth + 1);
+      free(full);
+    } else {
+      fmt_slashify_inplace(full);
+      fmt_strip_dot_slash_inplace(full);
+      sv_push_own(out, full);
+    }
+  } while (FindNextFileA(h, &fd));
+
+  FindClose(h);
+#else
+  DIR *d;
+  struct dirent *e;
+
+  if (depth > TACK_MAX_SCAN_DEPTH) tack_die("directory recursion too deep");
+
+  d = opendir(dir);
+  if (!d) return;
+
+  while ((e = readdir(d)) != 0) {
+    char *full;
+
+    if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
+
+    if (streq(e->d_name, "build")) continue;
+    if (streq(e->d_name, ".git")) continue;
+    if (streq(e->d_name, ".hg")) continue;
+    if (streq(e->d_name, ".fossil")) continue;
+    if (streq(e->d_name, ".fossil-settings")) continue;
+    if (streq(e->d_name, ".tack-cache")) continue;
+
+    full = path_join_alloc(dir, e->d_name);
+
+    if (is_dir_path_nofollow(full)) {
+      scan_dir_recursive_all_files_depth(out, full, depth + 1);
+      free(full);
+    } else {
+      fmt_slashify_inplace(full);
+      fmt_strip_dot_slash_inplace(full);
+      sv_push_own(out, full);
+    }
+  }
+  closedir(d);
+#endif
+}
+
+static void scan_dir_recursive_all_files(StrVec *out, const char *dir) {
+  scan_dir_recursive_all_files_depth(out, dir, 0);
+}
+
+/* glob matcher: supports *, ?, and ** (including /) */
+static int glob_match_rec(const char *pat, const char *str) {
+  if (!pat || !str) return 0;
+
+  if (*pat == '\0') return *str == '\0';
+
+  /* ** => match anything, including '/' */
+  if (pat[0] == '*' && pat[1] == '*') {
+    const char *p2 = pat + 2;
+    /* allow optional slash after ** */
+    if (*p2 == '/') p2++;
+    /* try zero chars */
+    if (glob_match_rec(p2, str)) return 1;
+    /* try consuming one char */
+    if (*str) return glob_match_rec(pat, str + 1);
+    return 0;
+  }
+
+  if (*pat == '*') {
+    /* * => match within segment (no '/') */
+    if (glob_match_rec(pat + 1, str)) return 1;
+    if (*str && *str != '/') return glob_match_rec(pat, str + 1);
+    return 0;
+  }
+
+  if (*pat == '?') {
+    if (*str && *str != '/') return glob_match_rec(pat + 1, str + 1);
+    return 0;
+  }
+
+  if (*str && *pat == *str) return glob_match_rec(pat + 1, str + 1);
+  return 0;
+}
+
+static int glob_match(const char *pattern, const char *path) {
+  char *p, *s;
+  int rc;
+  if (!pattern || !pattern[0]) return 0;
+  if (!path || !path[0]) return 0;
+  p = fmt_norm_rel_alloc(pattern);
+  s = fmt_norm_rel_alloc(path);
+  rc = glob_match_rec(p, s);
+  free(p);
+  free(s);
+  return rc;
+}
+
+static int match_any(const StrVec *pats, const char *path) {
+  int i;
+  if (!pats || pats->count == 0) return 0;
+  for (i = 0; i < pats->count; i++) {
+    if (glob_match(pats->items[i], path)) return 1;
+  }
+  return 0;
+}
+
+static int fmt_is_excluded(const StrVec *gex, const StrVec *rex, const char *path) {
+  if (match_any(gex, path)) return 1;
+  if (match_any(rex, path)) return 1;
+  return 0;
+}
+
+static void sv_push_unique(StrVec *v, const char *s) {
+  int i;
+  if (!v || !s) return;
+  for (i = 0; i < v->count; i++) {
+    if (streq(v->items[i], s)) return;
+  }
+  sv_push(v, s);
+}
+
+static void fmt_collect_from_path(StrVec *out, const char *p) {
+  char *n;
+  if (!out || !p || !p[0]) return;
+
+  if (is_dir_path(p)) {
+    StrVec tmp;
+    int i;
+    sv_init(&tmp);
+    scan_dir_recursive_all_files(&tmp, p);
+    for (i = 0; i < tmp.count; i++) {
+      sv_push_own(out, fmt_norm_rel_alloc(tmp.items[i]));
+    }
+    sv_free(&tmp);
+    return;
+  }
+
+  if (file_exists(p)) {
+    n = fmt_norm_rel_alloc(p);
+    sv_push_own(out, n);
+    return;
+  }
+}
+
+static void fmt_collect_candidates(StrVec *out, const Target *t, const StrVec *paths) {
+  int i;
+
+  if (paths && paths->count > 0) {
+    for (i = 0; i < paths->count; i++) fmt_collect_from_path(out, paths->items[i]);
+    return;
+  }
+
+  /* target scoped */
+  if (t) {
+    fmt_collect_from_path(out, t->src_dir);
+    if (file_exists(g_core_dir) && is_dir_path(g_core_dir)) fmt_collect_from_path(out, g_core_dir);
+    return;
+  }
+
+  /* repo scoped */
+  fmt_collect_from_path(out, ".");
+}
+
+static void fmt_select_files_for_rule(StrVec *out, const FmtRuleCfg *r, const StrVec *candidates) {
+  int i;
+  if (!out || !r || !candidates) return;
+  if (r->include.count == 0) return;
+
+  for (i = 0; i < candidates->count; i++) {
+    const char *p = candidates->items[i];
+    if (!p || !p[0]) continue;
+    if (fmt_is_excluded(&g_fmt.exclude, &r->exclude, p)) continue;
+    if (!match_any(&r->include, p)) continue;
+    sv_push_unique(out, p);
+  }
+}
+
+/* PATH search for required tools */
+static int fmt_exe_in_path(const char *exe) {
+  const char *path;
+  const char *p;
+  char sep;
+  char buf[1024];
+
+  if (!exe || !exe[0]) return 0;
+
+  /* explicit path */
+  if (strchr(exe, '/') || strchr(exe, '\\') || strchr(exe, ':')) {
+    return file_exists(exe) ? 1 : 0;
+  }
+
+#ifdef _WIN32
+  sep = ';';
+#else
+  sep = ':';
+#endif
+
+  path = getenv("PATH");
+  if (!path) return 0;
+
+  p = path;
+  while (*p) {
+    size_t n = 0;
+    const char *q = p;
+    while (*q && *q != sep) q++;
+    n = (size_t)(q - p);
+    if (n > 0 && n + 1 + strlen(exe) + 5 < sizeof(buf)) {
+      memcpy(buf, p, n);
+      buf[n] = '\0';
+      /* ensure trailing slash */
+      {
+        size_t ln = strlen(buf);
+        if (ln > 0 && buf[ln - 1] != '/' && buf[ln - 1] != '\\') {
+#ifdef _WIN32
+          buf[ln] = '\\'; buf[ln + 1] = '\0';
+#else
+          buf[ln] = '/'; buf[ln + 1] = '\0';
+#endif
+        }
+      }
+      tack_cat(buf, sizeof(buf), exe);
+
+      if (file_exists(buf)) return 1;
+
+#ifdef _WIN32
+      /* try common extensions */
+      {
+        char tmp[1024];
+        tack_copy(tmp, sizeof(tmp), buf);
+        tack_cat(tmp, sizeof(tmp), ".exe");
+        if (file_exists(tmp)) return 1;
+        tack_copy(tmp, sizeof(tmp), buf);
+        tack_cat(tmp, sizeof(tmp), ".cmd");
+        if (file_exists(tmp)) return 1;
+        tack_copy(tmp, sizeof(tmp), buf);
+        tack_cat(tmp, sizeof(tmp), ".bat");
+        if (file_exists(tmp)) return 1;
+      }
+#endif
+    }
+
+    p = q;
+    if (*p == sep) p++;
+  }
+
+  return 0;
+}
+
+static int fmt_check_requires(const FmtRuleCfg *r) {
+  int i;
+  if (!r) return 0;
+  for (i = 0; i < r->requires.count; i++) {
+    const char *exe = r->requires.items[i];
+    if (!fmt_exe_in_path(exe)) {
+      fprintf(stderr, "tack: fmt: rule=%s: missing required tool: %s\n", r->name, exe);
+      return 1;
+    }
+  }
+  return 0;
+}
+
+static int fmt_cmd_has(const char *cmd, const char *needle) {
+  return (cmd && needle && strstr(cmd, needle)) ? 1 : 0;
+}
+
+static void fmt_ensure_tmpdir(char *out, size_t cap) {
+  char d1[512], d2[512], d3[512], d4[512];
+
+  ensure_dir(g_build_dir);
+
+  path_join(d1, sizeof(d1), g_build_dir, ".tack");
+  ensure_dir(d1);
+
+  path_join(d2, sizeof(d2), d1, "tmp");
+  ensure_dir(d2);
+
+  path_join(d3, sizeof(d3), d2, "fmt");
+  ensure_dir(d3);
+
+  /* per-run subdir by time */
+  {
+    char sub[64];
+    time_t t = time(0);
+    sprintf(sub, "%lu", (unsigned long)t);
+    path_join(d4, sizeof(d4), d3, sub);
+    ensure_dir(d4);
+    tack_copy(out, cap, d4);
+  }
+}
+
+static int fmt_copy_file(const char *src, const char *dst) {
+  FILE *a, *b;
+  char buf[8192];
+  size_t n;
+
+  a = fopen(src, "rb");
+  if (!a) return 1;
+  b = fopen(dst, "wb");
+  if (!b) { fclose(a); return 1; }
+
+  while ((n = fread(buf, 1, sizeof(buf), a)) > 0) {
+    if (fwrite(buf, 1, n, b) != n) { fclose(a); fclose(b); return 1; }
+  }
+  fclose(a);
+  fclose(b);
+  return 0;
+}
+
+static int fmt_files_equal(const char *a, const char *b) {
+  FILE *fa, *fb;
+  int ea, eb;
+  int ca, cb;
+
+  fa = fopen(a, "rb");
+  if (!fa) return 0;
+  fb = fopen(b, "rb");
+  if (!fb) { fclose(fa); return 0; }
+
+  for (;;) {
+    ca = fgetc(fa);
+    cb = fgetc(fb);
+    ea = (ca == EOF);
+    eb = (cb == EOF);
+    if (ea || eb) { fclose(fa); fclose(fb); return ea && eb; }
+    if (ca != cb) { fclose(fa); fclose(fb); return 0; }
+  }
+}
+
+static void fmt_tokenize(StrVec *out, const char *cmd) {
+  const char *p = cmd;
+
+  while (p && *p) {
+    char *tok;
+    size_t n;
+    const char *q;
+
+    while (*p && isspace((unsigned char)*p)) p++;
+    if (!*p) break;
+
+    if (*p == '"') {
+      p++;
+      q = p;
+      while (*q && *q != '"') q++;
+      if (!*q) tack_die("fmt: unterminated quote in cmd");
+      n = (size_t)(q - p);
+      if (n > TACK_MAX_TOKEN) tack_die("fmt: cmd token too long");
+      tok = (char*)xmalloc(n + 1);
+      memcpy(tok, p, n);
+      tok[n] = '\0';
+      sv_push_own(out, tok);
+      p = q + 1;
+      continue;
+    }
+
+    q = p;
+    while (*q && !isspace((unsigned char)*q)) q++;
+    n = (size_t)(q - p);
+    if (n > TACK_MAX_TOKEN) tack_die("fmt: cmd token too long");
+    tok = (char*)xmalloc(n + 1);
+    memcpy(tok, p, n);
+    tok[n] = '\0';
+    sv_push_own(out, tok);
+    p = q;
+  }
+}
+
+static char *fmt_replace_all_alloc(const char *s, const char *needle, const char *repl) {
+  const char *p;
+  size_t sl, nl, rl, count = 0;
+  char *out, *w;
+
+  if (!s || !needle || !needle[0] || !repl) return s ? xstrdup(s) : xstrdup("");
+
+  sl = strlen(s);
+  nl = strlen(needle);
+  rl = strlen(repl);
+
+  p = s;
+  while ((p = strstr(p, needle)) != 0) { count++; p += nl; }
+
+  if (count == 0) return xstrdup(s);
+
+  out = (char*)xmalloc(sl + count * (rl - nl) + 1);
+  w = out;
+
+  p = s;
+  while (*p) {
+    const char *hit = strstr(p, needle);
+    if (!hit) {
+      strcpy(w, p);
+      break;
+    }
+    memcpy(w, p, (size_t)(hit - p));
+    w += (hit - p);
+    memcpy(w, repl, rl);
+    w += rl;
+    p = hit + nl;
+  }
+  return out;
+}
+
+static char *fmt_expand_token(const char *tok, const char *file, const char *root, const char *tmp, const char *rsp) {
+  char *s1, *s2, *s3, *s4, *s5;
+  s1 = fmt_replace_all_alloc(tok, "@FILE@", file ? file : "");
+  s2 = fmt_replace_all_alloc(s1, "@ROOT@", root ? root : "");
+  free(s1);
+  s3 = fmt_replace_all_alloc(s2, "@TMP@", tmp ? tmp : "");
+  free(s2);
+  s4 = fmt_replace_all_alloc(s3, "@RSP@", rsp ? rsp : "");
+  free(s3);
+  s5 = fmt_replace_all_alloc(s4, "@RSPFILE@", rsp ? rsp : "");
+  free(s4);
+  return s5;
+}
+
+static void tack_getcwd(char *out, size_t cap) {
+#ifdef _WIN32
+  _getcwd(out, (int)cap);
+#else
+  getcwd(out, cap);
+#endif
+  out[cap - 1] = '\0';
+}
+
+static int fmt_exec_cmd(const char *cmd, const char *file, const char *root, const char *tmp, const char *rsp,
+                        const char *workdir, int verbose) {
+  StrVec toks;
+  StrVec argv_own;
+  Argv av;
+  int i;
+  int rc;
+  char cwd0[1024];
+
+  if (!cmd || !cmd[0]) return 1;
+
+  sv_init(&toks);
+  sv_init(&argv_own);
+  fmt_tokenize(&toks, cmd);
+
+  for (i = 0; i < toks.count; i++) {
+    char *ex = fmt_expand_token(toks.items[i], file, root, tmp, rsp);
+    sv_push_own(&argv_own, ex);
+  }
+
+  av_init(&av);
+  for (i = 0; i < argv_own.count; i++) av_push(&av, argv_own.items[i]);
+  av_terminate(&av);
+
+  tack_getcwd(cwd0, sizeof(cwd0));
+  if (workdir && workdir[0]) {
+#ifdef _WIN32
+    _chdir(workdir);
+#else
+    chdir(workdir);
+#endif
+  }
+
+  rc = run_argv_wait(av.a, verbose);
+
+  if (workdir && workdir[0]) {
+#ifdef _WIN32
+    _chdir(cwd0);
+#else
+    chdir(cwd0);
+#endif
+  }
+
+  av_free(&av);
+  sv_free(&toks);
+  sv_free(&argv_own);
+  return rc;
+}
+
+static int fmt_write_rsp_file(const char *rsp_path, const StrVec *files_abs) {
+  FILE *f;
+  int i;
+  f = fopen(rsp_path, "wb");
+  if (!f) return 1;
+  for (i = 0; i < files_abs->count; i++) {
+    fputs(files_abs->items[i], f);
+    fputc('\n', f);
+  }
+  fclose(f);
+  return 0;
+}
+
+static void fmt_abs_path(char *out, size_t cap, const char *rel) {
+  char cwd[1024];
+  tack_getcwd(cwd, sizeof(cwd));
+  if (!rel || !rel[0]) { out[0] = '\0'; return; }
+#ifdef _WIN32
+  /* allow .\path */
+  if ((rel[0] == '\\') || (strlen(rel) > 1 && rel[1] == ':')) { tack_copy(out, cap, rel); return; }
+#else
+  if (rel[0] == '/') { tack_copy(out, cap, rel); return; }
+#endif
+  path_join(out, cap, cwd, rel);
+}
+
+/* run argv without const-qualifier warnings (exec APIs need char* argv) */
+static int run_argv_wait_const(const char * const *argv, int verbose) {
+  int i, n = 0;
+  char **av;
+  if (!argv) return 1;
+  while (argv[n]) n++;
+  av = (char**)xmalloc((size_t)(n + 1) * sizeof(char*));
+  for (i = 0; i < n; i++) av[i] = (char*)argv[i];
+  av[n] = 0;
+  i = run_argv_wait(av, verbose);
+  free(av);
+  return i;
+}
+
+static int fmt_try_diff(const char *orig_abs, const char *tmp_abs) {
+  /* best effort: git diff --no-index, else diff -u */
+  if (fmt_exe_in_path("git")) {
+    const char *argv[7];
+    argv[0] = "git";
+    argv[1] = "diff";
+    argv[2] = "--no-index";
+    argv[3] = "--";
+    argv[4] = orig_abs;
+    argv[5] = tmp_abs;
+    argv[6] = 0;
+    return run_argv_wait_const(argv, 0);
+  }
+#ifndef _WIN32
+  if (fmt_exe_in_path("diff")) {
+    const char *argv[5];
+    argv[0] = "diff";
+    argv[1] = "-u";
+    argv[2] = orig_abs;
+    argv[3] = tmp_abs;
+    argv[4] = 0;
+    return run_argv_wait_const(argv, 0);
+  }
+#endif
+  return 0;
+}
+
+static int fmt_rule_check(const FmtRuleCfg *r, const StrVec *files, int verbose, int want_diff) {
+  int i;
+  int differs = 0;
+  char tmpdir[512];
+  char root[1024];
+
+  if (fmt_check_requires(r) != 0) return 1;
+  if (!r->cmd || !r->cmd[0]) { fprintf(stderr, "tack: fmt: rule=%s: missing cmd\n", r->name); return 1; }
+
+  fmt_ensure_tmpdir(tmpdir, sizeof(tmpdir));
+  tack_getcwd(root, sizeof(root));
+
+  if (verbose) {
+    printf("fmt: rule=%s tool=%s files=%d mode=%s\n",
+           r->name, r->tool ? r->tool : "(tool)", files->count, (r->mode ? "batch" : "file"));
+  }
+
+  /* check by formatting temp copies then comparing */
+  if (r->mode == 1 && fmt_cmd_has(r->cmd, "@RSP@")) {
+    StrVec tmp_abs;
+    char rsp_path[512];
+    int rc;
+    sv_init(&tmp_abs);
+
+    /* map original->temp and run batch */
+    for (i = 0; i < files->count; i++) {
+      char id[512];
+      char tpath[512];
+      char orig_abs[1024];
+      sanitize_path_to_id(id, sizeof(id), files->items[i]);
+      path_join(tpath, sizeof(tpath), tmpdir, id);
+      tack_cat(tpath, sizeof(tpath), ".tmp");
+      if (fmt_copy_file(files->items[i], tpath) != 0) { sv_free(&tmp_abs); return 1; }
+      fmt_abs_path(orig_abs, sizeof(orig_abs), tpath);
+      sv_push(&tmp_abs, orig_abs);
+    }
+
+    path_join(rsp_path, sizeof(rsp_path), tmpdir, "files.rsp");
+    if (fmt_write_rsp_file(rsp_path, &tmp_abs) != 0) { sv_free(&tmp_abs); return 1; }
+
+    rc = fmt_exec_cmd(r->cmd, 0, root, tmpdir, rsp_path, r->workdir, verbose);
+    if (rc != 0) { sv_free(&tmp_abs); return 1; }
+
+    for (i = 0; i < files->count; i++) {
+      char id[512];
+      char tpath_rel[512];
+      char tpath_abs[1024];
+      char oabs[1024];
+      sanitize_path_to_id(id, sizeof(id), files->items[i]);
+      path_join(tpath_rel, sizeof(tpath_rel), tmpdir, id);
+      tack_cat(tpath_rel, sizeof(tpath_rel), ".tmp");
+      fmt_abs_path(tpath_abs, sizeof(tpath_abs), tpath_rel);
+      fmt_abs_path(oabs, sizeof(oabs), files->items[i]);
+      if (!fmt_files_equal(oabs, tpath_abs)) {
+        if (!differs) printf("fmt: files needing formatting:\n");
+        printf("  %s\n", files->items[i]);
+        differs = 1;
+        if (want_diff) fmt_try_diff(oabs, tpath_abs);
+      }
+    }
+
+    sv_free(&tmp_abs);
+  } else {
+    /* per-file */
+    if (!fmt_cmd_has(r->cmd, "@FILE@")) {
+      fprintf(stderr, "tack: fmt: rule=%s: cmd must contain @FILE@ (or use mode=batch with @RSP@)\n", r->name);
+      return 1;
+    }
+
+    for (i = 0; i < files->count; i++) {
+      char id[512];
+      char tpath_rel[512];
+      char tpath_abs[1024];
+      char oabs[1024];
+      int rc;
+
+      sanitize_path_to_id(id, sizeof(id), files->items[i]);
+      path_join(tpath_rel, sizeof(tpath_rel), tmpdir, id);
+      tack_cat(tpath_rel, sizeof(tpath_rel), ".tmp");
+      if (fmt_copy_file(files->items[i], tpath_rel) != 0) return 1;
+
+      fmt_abs_path(tpath_abs, sizeof(tpath_abs), tpath_rel);
+      fmt_abs_path(oabs, sizeof(oabs), files->items[i]);
+
+      rc = fmt_exec_cmd(r->cmd, tpath_abs, root, tmpdir, 0, r->workdir, verbose);
+      if (rc != 0) return 1;
+
+      if (!fmt_files_equal(oabs, tpath_abs)) {
+        if (!differs) printf("fmt: files needing formatting:\n");
+        printf("  %s\n", files->items[i]);
+        differs = 1;
+        if (want_diff) fmt_try_diff(oabs, tpath_abs);
+      }
+    }
+  }
+
+  return differs ? 2 : 0;
+}
+
+static int fmt_rule_write(const FmtRuleCfg *r, const StrVec *files, int verbose) {
+  int i;
+  char root[1024];
+
+  if (fmt_check_requires(r) != 0) return 1;
+  if (!r->cmd || !r->cmd[0]) { fprintf(stderr, "tack: fmt: rule=%s: missing cmd\n", r->name); return 1; }
+
+  tack_getcwd(root, sizeof(root));
+
+  if (verbose) {
+    printf("fmt: rule=%s tool=%s files=%d mode=%s\n",
+           r->name, r->tool ? r->tool : "(tool)", files->count, (r->mode ? "batch" : "file"));
+  }
+
+  if (files->count == 0) return 0;
+
+  if (r->mode == 1) {
+    char tmpdir[512];
+    char rsp_path[512];
+    StrVec absfiles;
+    int rc;
+
+    if (!fmt_cmd_has(r->cmd, "@RSP@")) {
+      fprintf(stderr, "tack: fmt: rule=%s: mode=batch requires @RSP@ in cmd\n", r->name);
+      return 1;
+    }
+
+    sv_init(&absfiles);
+    fmt_ensure_tmpdir(tmpdir, sizeof(tmpdir));
+
+    for (i = 0; i < files->count; i++) {
+      char abs[1024];
+      fmt_abs_path(abs, sizeof(abs), files->items[i]);
+      sv_push(&absfiles, abs);
+    }
+
+    path_join(rsp_path, sizeof(rsp_path), tmpdir, "files.rsp");
+    if (fmt_write_rsp_file(rsp_path, &absfiles) != 0) { sv_free(&absfiles); return 1; }
+
+    rc = fmt_exec_cmd(r->cmd, 0, root, tmpdir, rsp_path, r->workdir, verbose);
+    sv_free(&absfiles);
+    return rc == 0 ? 0 : 1;
+  }
+
+  /* mode=file */
+  if (!fmt_cmd_has(r->cmd, "@FILE@")) {
+    fprintf(stderr, "tack: fmt: rule=%s: cmd must contain @FILE@\n", r->name);
+    return 1;
+  }
+
+  for (i = 0; i < files->count; i++) {
+    char abs[1024];
+    int rc;
+    fmt_abs_path(abs, sizeof(abs), files->items[i]);
+    rc = fmt_exec_cmd(r->cmd, abs, root, 0, 0, r->workdir, verbose);
+    if (rc != 0) return 1;
+  }
+  return 0;
+}
+
+static int fmt_validate_strict(const StrVec *selected_rules) {
+  int i, j;
+
+  if (g_fmt.unknown_keys.count > 0) {
+    fprintf(stderr, "tack: fmt: [fmt]: unknown/invalid key(s):\n");
+    for (i = 0; i < g_fmt.unknown_keys.count; i++) fprintf(stderr, "  %s\n", g_fmt.unknown_keys.items[i]);
+    return 1;
+  }
+
+  for (i = 0; i < g_fmt_rules.count; i++) {
+    FmtRuleCfg *r = &g_fmt_rules.items[i];
+    if (r->unknown_keys.count > 0) {
+      fprintf(stderr, "tack: fmt: [fmt \"%s\"]: unknown/invalid key(s):\n", r->name);
+      for (j = 0; j < r->unknown_keys.count; j++) fprintf(stderr, "  %s\n", r->unknown_keys.items[j]);
+      return 1;
+    }
+  }
+
+  for (i = 0; i < selected_rules->count; i++) {
+    const char *name = selected_rules->items[i];
+    FmtRuleCfg *r = 0;
+    for (j = 0; j < g_fmt_rules.count; j++) if (streq(g_fmt_rules.items[j].name, name)) { r = &g_fmt_rules.items[j]; break; }
+    if (!r) {
+      fprintf(stderr, "tack: fmt: unknown rule: %s\n", name);
+      return 1;
+    }
+    if (!r->cmd || !r->cmd[0]) {
+      fprintf(stderr, "tack: fmt: rule=%s: missing cmd\n", name);
+      return 1;
+    }
+    if (r->include.count == 0) {
+      fprintf(stderr, "tack: fmt: rule=%s: missing include\n", name);
+      return 1;
+    }
+    if (r->mode == 1) {
+      if (!fmt_cmd_has(r->cmd, "@RSP@")) {
+        fprintf(stderr, "tack: fmt: rule=%s: mode=batch requires @RSP@ in cmd\n", name);
+        return 1;
+      }
+    } else {
+      if (!fmt_cmd_has(r->cmd, "@FILE@")) {
+        fprintf(stderr, "tack: fmt: rule=%s: mode=file requires @FILE@ in cmd\n", name);
+        return 1;
+      }
+    }
+  }
+
+  return 0;
+}
+
+static void fmt_add_default_rules(StrVec *selected_rules, int verbose) {
+  /* Create implicit rules only if there are no explicit rule sections. */
+  if (g_fmt_rules.count != 0) return;
+
+  (void)verbose;
+
+  /* C via clang-format */
+  if (file_exists(".clang-format") && fmt_exe_in_path("clang-format")) {
+    FmtRuleCfg *r = fmt_get_or_add_rule("c");
+    free(r->tool); r->tool = xstrdup("clang-format");
+    r->mode = 0; r->mode_set = 1;
+    sv_free(&r->include); sv_init(&r->include);
+    sv_push(&r->include, "src/**/*.c"); sv_push(&r->include, "src/**/*.h");
+    sv_push(&r->include, "include/**/*.h");
+    sv_push(&r->include, "tools/**/*.c"); sv_push(&r->include, "tools/**/*.h");
+    sv_push(&r->include, "tests/**/*.c"); sv_push(&r->include, "tests/**/*.h");
+    free(r->cmd); r->cmd = xstrdup("clang-format -i --style=file @FILE@");
+    sv_free(&r->requires); sv_init(&r->requires);
+    sv_push(&r->requires, "clang-format");
+    sv_push_unique(selected_rules, "c");
+  }
+
+  /* Rust */
+  if ((file_exists("Cargo.toml") || file_exists("rustfmt.toml")) && fmt_exe_in_path("rustfmt")) {
+    FmtRuleCfg *r = fmt_get_or_add_rule("rust");
+    free(r->tool); r->tool = xstrdup("rustfmt");
+    r->mode = 0; r->mode_set = 1;
+    sv_free(&r->include); sv_init(&r->include);
+    sv_push(&r->include, "**/*.rs");
+    free(r->cmd); r->cmd = xstrdup("rustfmt @FILE@");
+    sv_free(&r->requires); sv_init(&r->requires);
+    sv_push(&r->requires, "rustfmt");
+    sv_push_unique(selected_rules, "rust");
+  }
+
+  /* Go */
+  if (file_exists("go.mod") && fmt_exe_in_path("gofmt")) {
+    FmtRuleCfg *r = fmt_get_or_add_rule("go");
+    free(r->tool); r->tool = xstrdup("gofmt");
+    r->mode = 0; r->mode_set = 1;
+    sv_free(&r->include); sv_init(&r->include);
+    sv_push(&r->include, "**/*.go");
+    free(r->cmd); r->cmd = xstrdup("gofmt -w @FILE@");
+    sv_free(&r->requires); sv_init(&r->requires);
+    sv_push(&r->requires, "gofmt");
+    sv_push_unique(selected_rules, "go");
+  }
+}
+
+static int cmd_fmt(TargetVec *tv, int argc, char **argv, int argi) {
+  int verbose = 0;
+  int strict = 0;
+  int check = 0;
+  int want_diff = 0;
+  int list_only = 0;
+  int no_defaults = 0;
+
+  const char *target_name = 0;
+  const Target *t = 0;
+
+  StrVec only_rules;
+  StrVec paths;
+  int i;
+
+  sv_init(&only_rules);
+  sv_init(&paths);
+
+  for (; argi < argc; argi++) {
+    if (streq(argv[argi], "--")) { argi++; break; }
+    if (streq(argv[argi], "-h") || streq(argv[argi], "--help")) { print_help(); sv_free(&only_rules); sv_free(&paths); return 0; }
+    if (streq(argv[argi], "-v") || streq(argv[argi], "--verbose")) { verbose = 1; continue; }
+    if (streq(argv[argi], "--strict")) { strict = 1; continue; }
+    if (streq(argv[argi], "--check")) { check = 1; continue; }
+    if (streq(argv[argi], "--diff")) { want_diff = 1; continue; }
+    if (streq(argv[argi], "--list")) { list_only = 1; continue; }
+    if (streq(argv[argi], "--no-defaults")) { no_defaults = 1; continue; }
+    if (streq(argv[argi], "--rule")) {
+      if (argi + 1 >= argc) { fprintf(stderr, "tack: fmt: --rule needs NAME\n"); sv_free(&only_rules); sv_free(&paths); return 2; }
+      sv_push(&only_rules, argv[++argi]);
+      continue;
+    }
+    if (streq(argv[argi], "--target")) {
+      if (argi + 1 >= argc) { fprintf(stderr, "tack: fmt: --target needs NAME\n"); sv_free(&only_rules); sv_free(&paths); return 2; }
+      target_name = argv[++argi];
+      continue;
+    }
+    if (argv[argi][0] == '-') {
+      fprintf(stderr, "tack: fmt: unknown option: %s\n", argv[argi]);
+      sv_free(&only_rules); sv_free(&paths);
+      return 2;
+    }
+    break;
+  }
+
+  for (; argi < argc; argi++) sv_push(&paths, argv[argi]);
+
+  if (g_fmt.enabled_set && !g_fmt.enabled) {
+    if (verbose) printf("fmt: disabled via config\n");
+    sv_free(&only_rules); sv_free(&paths);
+    return 0;
+  }
+
+  if (target_name) {
+    t = find_target(tv, target_name);
+    if (!t) {
+      fprintf(stderr, "tack: fmt: unknown target: %s\n", target_name);
+      fprintf(stderr, "tack: hint: use 'tack list'\n");
+      sv_free(&only_rules); sv_free(&paths);
+      return 2;
+    }
+  }
+
+  /* determine selected rules */
+  {
+    StrVec selected;
+    sv_init(&selected);
+
+    if (only_rules.count > 0) {
+      for (i = 0; i < only_rules.count; i++) sv_push(&selected, only_rules.items[i]);
+    } else if (g_fmt.rules.count > 0) {
+      for (i = 0; i < g_fmt.rules.count; i++) sv_push(&selected, g_fmt.rules.items[i]);
+    } else if (g_fmt_rules.count > 0) {
+      for (i = 0; i < g_fmt_rules.count; i++) sv_push(&selected, g_fmt_rules.items[i].name);
+    }
+
+    if (selected.count == 0 && !no_defaults && (!g_fmt.defaults_set || g_fmt.defaults_auto)) {
+      fmt_add_default_rules(&selected, verbose);
+    }
+
+    if (selected.count == 0) {
+      fprintf(stderr, "tack: fmt: no rules configured\n");
+      fprintf(stderr, "tack: fmt: hint: define [fmt] rules=... and [fmt \"NAME\"] sections, or add .clang-format/Cargo.toml/go.mod for auto defaults\n");
+      sv_free(&selected);
+      sv_free(&only_rules); sv_free(&paths);
+      return 2;
+    }
+
+    if (strict) {
+      if (fmt_validate_strict(&selected) != 0) {
+        sv_free(&selected);
+        sv_free(&only_rules); sv_free(&paths);
+        return 2;
+      }
+    }
+
+    /* candidates */
+    {
+      StrVec candidates;
+      sv_init(&candidates);
+      fmt_collect_candidates(&candidates, t, &paths);
+
+      /* per rule */
+      {
+        int overall = 0;
+        for (i = 0; i < selected.count; i++) {
+          const char *rname = selected.items[i];
+          FmtRuleCfg *r = 0;
+          int j;
+
+          for (j = 0; j < g_fmt_rules.count; j++) {
+            if (streq(g_fmt_rules.items[j].name, rname)) { r = &g_fmt_rules.items[j]; break; }
+          }
+          if (!r) {
+            fprintf(stderr, "tack: fmt: unknown rule: %s\n", rname);
+            sv_free(&candidates);
+            sv_free(&selected);
+            sv_free(&only_rules); sv_free(&paths);
+            return 2;
+          }
+
+          {
+            StrVec files;
+            int rc;
+            sv_init(&files);
+            fmt_select_files_for_rule(&files, r, &candidates);
+
+            if (list_only) {
+              printf("fmt: rule=%s files=%d\n", r->name, files.count);
+              for (j = 0; j < files.count; j++) printf("  %s\n", files.items[j]);
+              rc = 0;
+            } else if (check) {
+              rc = fmt_rule_check(r, &files, verbose, want_diff);
+            } else {
+              rc = fmt_rule_write(r, &files, verbose);
+            }
+
+            sv_free(&files);
+
+            if (rc == 1) { overall = 1; break; }
+            if (rc == 2) overall = 2;
+          }
+        }
+
+        sv_free(&candidates);
+        sv_free(&selected);
+        sv_free(&only_rules); sv_free(&paths);
+        return overall;
+      }
+    }
+  }
+}
+
 /* --------------------------- args --------------------------- */
 
 static Profile parse_profile(int *argi, int argc, char **argv) {
@@ -5985,6 +7218,12 @@ int main(int argc, char **argv) {
     { int rc = cmd_list_targets(&tv); tv_free(&tv); config_free(); return rc; }
   }
 
+    if (streq(cmd, "fmt")) {
+    int rc = cmd_fmt(&tv, argc, argv, argi);
+    tv_free(&tv);
+    config_free();
+    return rc;
+  }
 
   if (streq(cmd, "bom") || streq(cmd, "sbom") || streq(cmd, "doc")) {
     int verbose = 0;

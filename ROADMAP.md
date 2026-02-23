@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.9
+# tack ROADMAP (DE/EN) — v0.7.10
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 

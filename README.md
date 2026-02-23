@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.9)
+# tack — Tiny ANSI-C Kit (v0.7.10)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.9)
+## Features (v0.7.10)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -220,6 +220,7 @@ Den Ordner `.tack-cache/` löschen (z.B. `rm -rf .tack-cache`).
 - `help`, `version`, `doctor`
 - `init` – Grundstruktur & Hello-World erzeugen (legt auch `.gitignore` + Fossil-Ignore an, ohne zu überschreiben)
 - `list` – Targets anzeigen
+- `fmt [--check] [--diff] [--list] [--rule NAME] [--target NAME] [--no-defaults] [-v] [--strict] [-- PATH...]` – Quellcode formatieren (externe Formatter; Policy via `[fmt]`/`[fmt "NAME"]`)
 - `build [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – Target bauen
 - `run [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]` – bauen + ausführen
 - `test [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – bauen + `_test.c` ausführen
@@ -536,7 +537,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.9)
+## Features (v0.7.10)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -704,6 +705,7 @@ Delete the `.tack-cache/` folder (e.g. `rm -rf .tack-cache`).
 - `help`, `version`, `doctor`
 - `init` – create a minimal skeleton + hello world (also provisions `.gitignore` + Fossil ignore, non-destructive)
 - `list` – show targets
+- `fmt [--check] [--diff] [--list] [--rule NAME] [--target NAME] [--no-defaults] [-v] [--strict] [-- PATH...]` – format sources (external formatters; policy via `[fmt]`/`[fmt "NAME"]`)
 - `build [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – build target
 - `run [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]` – build + run target
 - `test [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – build + execute `_test.c`

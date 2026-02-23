@@ -9,6 +9,12 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.10
+- Feature: `tack fmt` – Orchestrator für externe Formatter (Policy in `tack.ini` via `[fmt]` / `[fmt "NAME"]`).
+  - `tack fmt` formatiert in-place.
+  - `tack fmt --check` ändert nichts und liefert Exit-Code 2, wenn Dateien neu formatiert werden müssten.
+  - `--rule/--target/--list/--no-defaults/--diff` (Diff best effort via `git diff --no-index` oder `diff -u`).
+
 ### v0.7.9
 - Bugfix: Rebuild-Entscheidung nutzt nicht mehr die reine Reihenfolge `depfile mtime > object mtime`; stattdessen werden gespeicherte Abhängigkeits-Metadaten (`mtime`/Größe/FNV-1a) geprüft, inklusive Depfile-Fingerprint zur Erkennung geänderter Dependency-Graphen. Dadurch keine False-Positives nach Cache-Restores, bei denen Objekt und Depfile nacheinander geschrieben werden.
 - Depfile-Scan erfasst jetzt auch `#include <...>` und löst diese gegen die effektiven Include-Pfade auf; Header-Änderungen über `-I` triggern damit korrekt Recompiles.
@@ -68,6 +74,12 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.10
+- Feature: `tack fmt` – orchestrator for external formatters (policy in `tack.ini` via `[fmt]` / `[fmt "NAME"]`).
+  - `tack fmt` formats in-place.
+  - `tack fmt --check` never modifies files and returns exit code 2 if changes would be required.
+  - `--rule/--target/--list/--no-defaults/--diff` (diff best effort via `git diff --no-index` or `diff -u`).
 
 ### v0.7.9
 - Bugfix: rebuild decisions no longer rely on raw `depfile mtime > object mtime`; they now use recorded dependency metadata (`mtime`/size/FNV-1a), including a depfile fingerprint to detect dependency-graph changes, avoiding false stale detections after cache restore where object and depfile are written sequentially.
