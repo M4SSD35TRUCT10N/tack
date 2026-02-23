@@ -1949,6 +1949,20 @@ static int cache_restore(const char *key, const char *obj_path, const char *dep_
   return 1;
 }
 
+static int write_meta_dep_entry(FILE *f, const char *path) {
+  long mt = file_mtime(path);
+  long sz = file_size(path);
+  unsigned long hh;
+  char hex[9];
+
+  if (mt < 0 || sz < 0) return 1;
+  if (file_hash32_fnv1a(path, &hh) != 0) return 1;
+
+  u32_to_hex8(hex, sizeof(hex), hh);
+  fprintf(f, "%ld\t%ld\t%s\t%s\n", mt, sz, hex, path);
+  return 0;
+}
+
 static int cache_write_meta(const char *dep_path, const char *meta_path) {
   FILE *f;
   StrVec deps;
@@ -1960,25 +1974,21 @@ static int cache_write_meta(const char *dep_path, const char *meta_path) {
   f = fopen(meta_path, "wb");
   if (!f) { sv_free(&deps); return 1; }
 
+  /* Also track the depfile itself to detect dependency graph changes
+     (e.g. include path changes or branch switches with older header mtimes). */
+  if (write_meta_dep_entry(f, dep_path) != 0) { fclose(f); sv_free(&deps); return 1; }
+
   /* Format (tab-separated):
      mtime <tab> size <tab> hash32hex <tab> path */
   for (i = 0; i < deps.count; i++) {
-    long mt = file_mtime(deps.items[i]);
-    long sz = file_size(deps.items[i]);
-    unsigned long hh;
-    char hex[9];
-
-    if (mt < 0 || sz < 0) { fclose(f); sv_free(&deps); return 1; }
-    if (file_hash32_fnv1a(deps.items[i], &hh) != 0) { fclose(f); sv_free(&deps); return 1; }
-
-    u32_to_hex8(hex, sizeof(hex), hh);
-    fprintf(f, "%ld\t%ld\t%s\t%s\n", mt, sz, hex, deps.items[i]);
+    if (write_meta_dep_entry(f, deps.items[i]) != 0) { fclose(f); sv_free(&deps); return 1; }
   }
 
   fclose(f);
   sv_free(&deps);
   return 0;
 }
+
 
 static void cache_store(const char *key, const char *obj_path, const char *dep_path) {
   char cache_obj[512];

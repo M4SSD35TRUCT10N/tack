@@ -10,7 +10,7 @@
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
 ### v0.7.9
-- Bugfix: Rebuild-Entscheidung nutzt nicht mehr die reine Reihenfolge `depfile mtime > object mtime`; stattdessen werden gespeicherte Abhängigkeits-Metadaten (`mtime`/Größe/FNV-1a) geprüft. Dadurch keine False-Positives nach Cache-Restores, bei denen Objekt und Depfile nacheinander geschrieben werden.
+- Bugfix: Rebuild-Entscheidung nutzt nicht mehr die reine Reihenfolge `depfile mtime > object mtime`; stattdessen werden gespeicherte Abhängigkeits-Metadaten (`mtime`/Größe/FNV-1a) geprüft, inklusive Depfile-Fingerprint zur Erkennung geänderter Dependency-Graphen. Dadurch keine False-Positives nach Cache-Restores, bei denen Objekt und Depfile nacheinander geschrieben werden.
 - Depfile-Scan erfasst jetzt auch `#include <...>` und löst diese gegen die effektiven Include-Pfade auf; Header-Änderungen über `-I` triggern damit korrekt Recompiles.
 - Dokumentation auf neuen Stand gebracht (README/FAQ/Release Notes) und Version auf `v0.7.9` angehoben.
 
@@ -70,7 +70,7 @@
 > Until then, this file tracks versions/milestones.
 
 ### v0.7.9
-- Bugfix: rebuild decisions no longer rely on raw `depfile mtime > object mtime`; they now use recorded dependency metadata (`mtime`/size/FNV-1a), avoiding false stale detections after cache restore where object and depfile are written sequentially.
+- Bugfix: rebuild decisions no longer rely on raw `depfile mtime > object mtime`; they now use recorded dependency metadata (`mtime`/size/FNV-1a), including a depfile fingerprint to detect dependency-graph changes, avoiding false stale detections after cache restore where object and depfile are written sequentially.
 - Depfile scanning now also tracks `#include <...>` by resolving them against effective include search paths; header changes through `-I` now trigger recompilation correctly.
 - Documentation refreshed (README/FAQ/Release Notes) and version bumped to `v0.7.9`.
 
