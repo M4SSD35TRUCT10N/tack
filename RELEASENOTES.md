@@ -9,6 +9,10 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.11
+- `tack doc`: berücksichtigt optional einen `docs/`-Ordner (alle `docs/**/*.md`) und erzeugt dafür HTML-Seiten unter `build/doc/docs/`.
+- `build/doc/index.html` zeigt bei vorhandenen `docs/**/*.md` zusätzlich eine „Docs“-Sektion (Anchor `#docs`) und die Seiten enthalten einen passenden Nav-Link.
+
 ### v0.7.10
 - Feature: `tack fmt` – Orchestrator für externe Formatter (Policy in `tack.ini` via `[fmt]` / `[fmt "NAME"]`).
   - `tack fmt` formatiert in-place.
@@ -74,6 +78,10 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.11
+- `tack doc`: optionally includes a `docs/` folder (all `docs/**/*.md`) and generates HTML pages under `build/doc/docs/`.
+- `build/doc/index.html` adds a “Docs” section when `docs/**/*.md` exists (anchor `#docs`), and pages include a matching nav link.
 
 ### v0.7.10
 - Feature: `tack fmt` – orchestrator for external formatters (policy in `tack.ini` via `[fmt]` / `[fmt "NAME"]`).

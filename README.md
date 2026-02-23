@@ -69,7 +69,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - Shared Core Code: `src/core/` wird 1× pro Profil gebaut und optional gelinkt
 - `tack bom`: erzeugt ein Build-Manifest (BOM) als `build/bom.md` und `build/bom.html`.
 - `tack sbom`: erzeugt eine SBOM in mehreren Formaten (Default: tack‑JSON unter `build/sbom.json`; CycloneDX/SPDX mit formatabhängigen Defaults, steuerbar via `tack.ini`).
-- `tack doc`: erzeugt offline HTML-Doku in `build/doc/` (Wrapper um Markdown) und verlinkt die BOM.
+- `tack doc`: erzeugt offline HTML-Doku in `build/doc/` (Wrapper um Markdown) für `README.md`, `FAQ.md`, `ROADMAP.md`, `RELEASENOTES.md` sowie optional alle `docs/**/*.md` (wenn vorhanden) und verlinkt die BOM.
 - Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - HTML-Ausgabe: stabile Template-Ankerpunkte (Marker + IDs) für CSS-Hooks und optionales Post-Processing.
 - **Konfiguration / Layering**:
@@ -558,7 +558,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - Shared core code: `src/core/` built once per profile, optionally linked
 - `tack bom`: generates a build manifest (BOM) as `build/bom.md` and `build/bom.html`.
 - `tack sbom`: generates an SBOM in multiple formats (default: tack JSON at `build/sbom.json`; CycloneDX/SPDX with format-specific defaults, controlled via `tack.ini`).
-- `tack doc`: generates offline HTML docs in `build/doc/` (wrapper around Markdown) and links the BOM.
+- `tack doc`: generates offline HTML docs in `build/doc/` (wrapper around Markdown) for `README.md`, `FAQ.md`, `ROADMAP.md`, `RELEASENOTES.md`, plus optional `docs/**/*.md` (if present), and links the BOM.
 - Optional: HTML templates + CSS for DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - HTML output: stable template anchor markers (markers + IDs) for CSS hooks and optional post-processing.
 - **Configuration layering**:
