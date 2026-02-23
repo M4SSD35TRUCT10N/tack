@@ -1340,6 +1340,7 @@ static int depfile_needs_rebuild_explain(const char *obj_path, const char *dep_p
 #if USE_DEPFILES
   FILE *f;
   long obj_t;
+  long dep_t;
   int c;
   char tok[2048];
   int ti;
@@ -1355,6 +1356,50 @@ static int depfile_needs_rebuild_explain(const char *obj_path, const char *dep_p
   if (!f) {
     tack_snprintf(why, why_sz, "depfile missing: %s", dep_path);
     return 1;
+  }
+
+  dep_t = file_mtime(dep_path);
+  if (dep_t > obj_t) {
+    fclose(f);
+    tack_snprintf(why, why_sz, "depfile newer than output: %s", dep_path);
+    return 1;
+  }
+
+  {
+    int first = fgetc(f);
+    if (first == '#') {
+      char line[4096];
+      long dt;
+      if (!fgets(line, sizeof(line), f)) {
+        fclose(f);
+        tack_snprintf(why, why_sz, "depfile unreadable: %s", dep_path);
+        return 1;
+      }
+      if (strncmp(line, " tack-deps-v1", 13) != 0) {
+        fclose(f);
+        tack_snprintf(why, why_sz, "depfile format error: %s", dep_path);
+        return 1;
+      }
+      while (fgets(line, sizeof(line), f)) {
+        size_t len = strlen(line);
+        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) line[--len] = '\0';
+        if (line[0] == '\0') continue;
+        dt = file_mtime(line);
+        if (dt < 0) {
+          fclose(f);
+          tack_snprintf(why, why_sz, "dependency missing: %s", line);
+          return 1;
+        }
+        if (dt > obj_t) {
+          fclose(f);
+          tack_snprintf(why, why_sz, "dependency newer than output: %s", line);
+          return 1;
+        }
+      }
+      fclose(f);
+      return 0;
+    }
+    if (first != EOF) ungetc(first, f);
   }
 
   ti = 0;
@@ -1466,6 +1511,23 @@ static int depfile_collect_deps(const char *dep_path, StrVec *deps) {
   f = fopen(dep_path, "rb");
   if (!f) return 1;
 
+  {
+    int first = fgetc(f);
+    if (first == '#') {
+      char line[4096];
+      if (!fgets(line, sizeof(line), f)) { fclose(f); return 1; }
+      if (strncmp(line, " tack-deps-v1", 13) != 0) { fclose(f); return 1; }
+      while (fgets(line, sizeof(line), f)) {
+        size_t len = strlen(line);
+        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) line[--len] = '\0';
+        if (line[0] != '\0') sv_push(deps, line);
+      }
+      fclose(f);
+      return 0;
+    }
+    if (first != EOF) ungetc(first, f);
+  }
+
   ti = 0;
   seen_colon = 0;
 
@@ -1525,6 +1587,161 @@ static int depfile_collect_deps(const char *dep_path, StrVec *deps) {
   (void)dep_path; (void)deps;
   return 1;
 #endif
+}
+
+static int sv_contains(const StrVec *v, const char *s) {
+  int i;
+  for (i = 0; i < v->count; i++) {
+    if (streq(v->items[i], s)) return 1;
+  }
+  return 0;
+}
+
+static char *path_dirname_alloc(const char *path) {
+  const char *s1 = strrchr(path, '/');
+  const char *s2 = strrchr(path, '\\');
+  const char *s = s1 > s2 ? s1 : s2;
+  size_t n;
+  char *out;
+  if (!s) return xstrdup(".");
+  if (s == path) return xstrdup("/");
+  n = (size_t)(s - path);
+  out = (char*)xmalloc(n + 1);
+  memcpy(out, path, n);
+  out[n] = '\0';
+  return out;
+}
+
+static int depfiles_same_content(const char *a, const char *b) {
+  FILE *fa = fopen(a, "rb");
+  FILE *fb = fopen(b, "rb");
+  unsigned char ba[4096], bb[4096];
+  size_t na, nb;
+  if (!fa || !fb) { if (fa) fclose(fa); if (fb) fclose(fb); return 0; }
+  do {
+    na = fread(ba, 1, sizeof(ba), fa);
+    nb = fread(bb, 1, sizeof(bb), fb);
+    if (na != nb || memcmp(ba, bb, na) != 0) { fclose(fa); fclose(fb); return 0; }
+  } while (na > 0);
+  fclose(fa);
+  fclose(fb);
+  return 1;
+}
+
+static int resolve_quoted_include(char *out, size_t out_cap,
+                                  const char *including_file, const char *inc_name,
+                                  const char * const *inc_common,
+                                  const char * const *inc_extra) {
+  char *dir = path_dirname_alloc(including_file);
+  char cand[1024];
+  int i;
+
+  path_join(cand, sizeof(cand), dir, inc_name);
+  free(dir);
+  if (file_exists(cand)) { tack_copy(out, out_cap, cand); return 0; }
+
+  for (i = 0; inc_common && inc_common[i]; i++) {
+    path_join(cand, sizeof(cand), inc_common[i], inc_name);
+    if (file_exists(cand)) { tack_copy(out, out_cap, cand); return 0; }
+  }
+  for (i = 0; inc_extra && inc_extra[i]; i++) {
+    path_join(cand, sizeof(cand), inc_extra[i], inc_name);
+    if (file_exists(cand)) { tack_copy(out, out_cap, cand); return 0; }
+  }
+
+  return 1;
+}
+
+static void scan_includes_recursive(const char *path,
+                                    const char * const *inc_common,
+                                    const char * const *inc_extra,
+                                    StrVec *deps,
+                                    StrVec *visited) {
+  FILE *f;
+  char line[4096];
+
+  if (sv_contains(visited, path)) return;
+  sv_push(visited, path);
+  if (!sv_contains(deps, path)) sv_push(deps, path);
+
+  f = fopen(path, "rb");
+  if (!f) return;
+
+  while (fgets(line, sizeof(line), f)) {
+    char *p = line;
+    char *q;
+    char *r;
+    char inc[1024];
+    char resolved[1024];
+    size_t n;
+
+    while (*p && isspace((unsigned char)*p)) p++;
+    if (*p != '#') continue;
+    p++;
+    while (*p && isspace((unsigned char)*p)) p++;
+    if (strncmp(p, "include", 7) != 0) continue;
+    p += 7;
+    while (*p && isspace((unsigned char)*p)) p++;
+    if (*p != '"') continue;
+    p++;
+    q = strchr(p, '"');
+    if (!q) continue;
+
+    n = (size_t)(q - p);
+    if (n == 0 || n >= sizeof(inc)) continue;
+    memcpy(inc, p, n);
+    inc[n] = '\0';
+
+    r = inc;
+    while (*r) {
+      if (*r == '\\') *r = '/';
+      r++;
+    }
+
+    if (resolve_quoted_include(resolved, sizeof(resolved), path, inc, inc_common, inc_extra) != 0) continue;
+    scan_includes_recursive(resolved, inc_common, inc_extra, deps, visited);
+  }
+
+  fclose(f);
+}
+
+static int update_depfile_for_source(const char *src, const char *dep_path,
+                                     const char * const *inc_common,
+                                     const char * const *inc_extra) {
+  StrVec deps;
+  StrVec visited;
+  FILE *f;
+  char tmp[1200];
+  int i;
+
+  sv_init(&deps);
+  sv_init(&visited);
+  scan_includes_recursive(src, inc_common, inc_extra, &deps, &visited);
+  sv_free(&visited);
+
+  tack_copy(tmp, sizeof(tmp), dep_path);
+  tack_cat(tmp, sizeof(tmp), ".tmp");
+
+  f = fopen(tmp, "wb");
+  if (!f) { sv_free(&deps); return 1; }
+  fputs("# tack-deps-v1\n", f);
+  for (i = 0; i < deps.count; i++) fprintf(f, "%s\n", deps.items[i]);
+  fclose(f);
+
+  if (file_exists(dep_path) && depfiles_same_content(dep_path, tmp)) {
+    (void)remove(tmp);
+    sv_free(&deps);
+    return 0;
+  }
+
+  if (rename_replace(tmp, dep_path) != 0) {
+    (void)remove(tmp);
+    sv_free(&deps);
+    return 1;
+  }
+
+  sv_free(&deps);
+  return 0;
 }
 
 static void cache_entry_paths(char *obj_path, size_t obj_cap,
@@ -3283,6 +3500,11 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
 
     sv_push(out_objs, obj_path);
 
+    if (update_depfile_for_source(src, dep_path, inc_common, inc_extra) != 0) {
+      free(running);
+      return 1;
+    }
+
     need = obj_needs_rebuild_explain(obj_path, src, dep_path, force,
                                      why ? why_msg : 0, why ? sizeof(why_msg) : 0);
     if (!need) continue;
@@ -3333,12 +3555,6 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
 
       /* extra cflags */
       av_push_list(&av, cflags_extra);
-
-#if USE_DEPFILES
-      av_push(&av, "-MD");
-      av_push(&av, "-MF");
-      av_push(&av, dep_path);
-#endif
 
       av_push(&av, "-o");
       av_push(&av, obj_path);
