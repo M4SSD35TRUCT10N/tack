@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.7.8
+ * v0.7.9
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -62,7 +62,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.7.8"
+#define TACK_VERSION "0.7.9"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -1340,7 +1340,6 @@ static int depfile_needs_rebuild_explain(const char *obj_path, const char *dep_p
 #if USE_DEPFILES
   FILE *f;
   long obj_t;
-  long dep_t;
   int c;
   char tok[2048];
   int ti;
@@ -1355,13 +1354,6 @@ static int depfile_needs_rebuild_explain(const char *obj_path, const char *dep_p
   f = fopen(dep_path, "rb");
   if (!f) {
     tack_snprintf(why, why_sz, "depfile missing: %s", dep_path);
-    return 1;
-  }
-
-  dep_t = file_mtime(dep_path);
-  if (dep_t > obj_t) {
-    fclose(f);
-    tack_snprintf(why, why_sz, "depfile newer than output: %s", dep_path);
     return 1;
   }
 
@@ -1628,17 +1620,20 @@ static int depfiles_same_content(const char *a, const char *b) {
   return 1;
 }
 
-static int resolve_quoted_include(char *out, size_t out_cap,
-                                  const char *including_file, const char *inc_name,
-                                  const char * const *inc_common,
-                                  const char * const *inc_extra) {
+static int resolve_include_path(char *out, size_t out_cap,
+                                const char *including_file, const char *inc_name,
+                                int is_quoted,
+                                const char * const *inc_common,
+                                const char * const *inc_extra) {
   char *dir = path_dirname_alloc(including_file);
   char cand[1024];
   int i;
 
-  path_join(cand, sizeof(cand), dir, inc_name);
+  if (is_quoted) {
+    path_join(cand, sizeof(cand), dir, inc_name);
+    if (file_exists(cand)) { free(dir); tack_copy(out, out_cap, cand); return 0; }
+  }
   free(dir);
-  if (file_exists(cand)) { tack_copy(out, out_cap, cand); return 0; }
 
   for (i = 0; inc_common && inc_common[i]; i++) {
     path_join(cand, sizeof(cand), inc_common[i], inc_name);
@@ -1673,6 +1668,7 @@ static void scan_includes_recursive(const char *path,
     char *r;
     char inc[1024];
     char resolved[1024];
+    int is_quoted;
     size_t n;
 
     while (*p && isspace((unsigned char)*p)) p++;
@@ -1682,10 +1678,19 @@ static void scan_includes_recursive(const char *path,
     if (strncmp(p, "include", 7) != 0) continue;
     p += 7;
     while (*p && isspace((unsigned char)*p)) p++;
-    if (*p != '"') continue;
-    p++;
-    q = strchr(p, '"');
-    if (!q) continue;
+    if (*p == '"') {
+      is_quoted = 1;
+      p++;
+      q = strchr(p, '"');
+      if (!q) continue;
+    } else if (*p == '<') {
+      is_quoted = 0;
+      p++;
+      q = strchr(p, '>');
+      if (!q) continue;
+    } else {
+      continue;
+    }
 
     n = (size_t)(q - p);
     if (n == 0 || n >= sizeof(inc)) continue;
@@ -1698,7 +1703,7 @@ static void scan_includes_recursive(const char *path,
       r++;
     }
 
-    if (resolve_quoted_include(resolved, sizeof(resolved), path, inc, inc_common, inc_extra) != 0) continue;
+    if (resolve_include_path(resolved, sizeof(resolved), path, inc, is_quoted, inc_common, inc_extra) != 0) continue;
     scan_includes_recursive(resolved, inc_common, inc_extra, deps, visited);
   }
 

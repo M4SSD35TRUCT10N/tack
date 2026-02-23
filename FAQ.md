@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.8
+# tack FAQ / FQA (DE/EN) — v0.7.9
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -110,9 +110,9 @@ Das ist Absicht: lieber **klarer Fehler** statt undefiniertes Verhalten.
 
 `tack` erzeugt vor jedem Compile-Schritt ein Depfile (`.d`) im Format **tack-deps-v1** und nutzt es für Incremental Builds (und für die Cache-Validierung).
 
-- Erfasst werden `#include "..."` Includes (quoted) **rekursiv** (auch Header, die wiederum Header includen).
+- Erfasst werden `#include "..."` (quoted) **und** `#include <...>` Includes **rekursiv** (auch Header, die wiederum Header includen).
 - Die Suche folgt der üblichen Reihenfolge: Verzeichnis der includenden Datei → effektive `-I` Pfade (Built-ins + `includes = ...`).
-- `#include <...>` (System-Header) wird bewusst **nicht** verfolgt.
+- Für `<...>` wird gegen die effektiven Include-Pfade (`-I`) aufgelöst; wenn eine Datei dort gefunden wird, landet sie im Depfile/Cache-Metadaten.
 
 Wenn du exotische Include-Muster verwendest (Makros/Generatoren), nutze im Zweifel `--rebuild` oder `tack clobber`.
 
@@ -456,9 +456,9 @@ Marker comments (`<!-- TACK:BEGIN ... -->`) are provided by the built-in layout 
 
 Before each compile step, `tack` writes a depfile (`.d`) in the **tack-deps-v1** format and uses it for incremental rebuilds (and cache validation).
 
-- It tracks quoted includes `#include "..."` **recursively** (including headers that include other headers).
+- It tracks quoted `#include "..."` **and** angle-bracket `#include <...>` includes **recursively** (including headers that include other headers).
 - Resolution follows the usual order: directory of the including file → effective `-I` paths (built-ins + `includes = ...`).
-- `#include <...>` (system headers) is intentionally **not** tracked.
+- For `<...>`, tack resolves against the effective include search paths (`-I`); resolved files are written to depfiles/cache metadata.
 
 If you rely on exotic include patterns (macros/generators), use `--rebuild` or `tack clobber` as a safe fallback.
 
