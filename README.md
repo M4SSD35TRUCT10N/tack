@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.8)
+# tack — Tiny ANSI-C Kit (v0.7.9)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.8)
+## Features (v0.7.9)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -58,7 +58,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - `tack list` zeigt Targets (Name + id + src + core + enabled)
 - Robuste Prozessausführung (kein `system()` für Builds)
 - Paralleles Kompilieren: `-j N`
-- Depfiles (`.d`, `tack-deps-v1`): tack scannt `#include "..."` rekursiv (Projekt-Header) für Incremental Builds (Header-Änderungen triggern Rebuilds)
+- Depfiles (`.d`, `tack-deps-v1`): tack scannt `#include "..."` **und** `#include <...>` rekursiv über Include-Pfade für Incremental Builds (Header-Änderungen triggern Rebuilds)
 - Optionaler Compile-Cache in `.tack-cache/` für schnellere Incremental Builds (abschaltbar mit `--no-cache`)
 - Diagnose: `--why`/`--explain` erklärt Rebuild-Entscheidungen („why rebuild“)
 - Windows: robustere Depfile-/Pfadbehandlung (custom Depfiles, normalisierte Pfade) → weniger unnötige Rebuilds
@@ -194,15 +194,15 @@ Pro Compile-Schritt (pro Ziel/Profil):
 
 - erste Zeile: `# tack-deps-v1`
 - danach: **ein aufgelöster Pfad pro Zeile**
-- enthält die `.c` Datei **und** alle rekursiv gefundenen Projekt-Header aus `#include "..."`
+- enthält die `.c` Datei **und** alle rekursiv gefundenen Header aus `#include "..."` und `#include <...>`
 
 **Hinweise / Grenzen:**
-- Nur quoted includes (`"..."`) werden erfasst. `#include <...>` (System-Header) wird ignoriert.
-- Keine Makro-/Conditional-Auswertung: tack sammelt einfache `#include "..."` Zeilen (Whitespace vor `#` ist ok).
+- Quoted (`"..."`) **und** Angle-Bracket Includes (`<...>`) werden über die effektiven Include-Pfade aufgelöst und erfasst.
+- Keine Makro-/Conditional-Auswertung: tack sammelt einfache `#include` Zeilen (Whitespace vor `#` ist ok).
 
 
 ### Wie wird die Gültigkeit geprüft?
-Damit Cache-Hits auch auf Dateisystemen mit grober Timestamp-Auflösung zuverlässig sind, validiert `tack` die Abhängigkeiten aus dem Depfile über:
+Damit Cache-Hits **und** normale Incremental-Rebuild-Checks auch auf Dateisystemen mit grober Timestamp-Auflösung zuverlässig sind, validiert `tack` die Abhängigkeiten aus dem Depfile (inkl. Depfile selbst für Graph-Änderungen) über:
 
 - `mtime` (Modifikationszeit)
 - Dateigröße
@@ -535,7 +535,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.8)
+## Features (v0.7.9)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -545,7 +545,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - `tack list` prints targets (name + id + src + core + enabled)
 - Robust process execution (no `system()` for builds)
 - Parallel compile: `-j N`
-- Depfiles (`.d`, `tack-deps-v1`): tack scans `#include "..."` recursively (project headers) for incremental builds (header changes trigger rebuilds)
+- Depfiles (`.d`, `tack-deps-v1`): tack scans `#include "..."` **and** `#include <...>` recursively via include paths for incremental builds (header changes trigger rebuilds)
 - Optional compile cache in `.tack-cache/` for faster incremental builds (disable with `--no-cache`)
 - Diagnostics: `--why`/`--explain` explains rebuild decisions (“why rebuild”)
 - Windows: more robust depfile/path handling (custom depfiles, normalized paths) → fewer unnecessary rebuilds
@@ -677,15 +677,15 @@ Per compile step, `tack` writes a `.d` file in the **tack-deps-v1** format:
 
 - first line: `# tack-deps-v1`
 - then: **one resolved path per line**
-- includes the `.c` file **and** all recursively discovered project headers from `#include "..."`
+- includes the `.c` file **and** all recursively discovered headers from `#include "..."` and `#include <...>`
 
 **Notes / limits:**
-- Only quoted includes (`"..."`) are tracked. `#include <...>` (system headers) is ignored.
-- No macro/conditional evaluation: tack collects simple `#include "..."` lines (leading whitespace before `#` is fine).
+- Quoted (`"..."`) **and** angle-bracket includes (`<...>`) are resolved and tracked via the effective include search paths.
+- No macro/conditional evaluation: tack collects simple `#include` lines (leading whitespace before `#` is fine).
 
 
 ### How is validity checked?
-To avoid false cache hits on file systems with coarse timestamp resolution, `tack` validates dependencies listed in the depfile via:
+To avoid false cache hits **and** false up-to-date decisions in normal incremental rebuild checks on file systems with coarse timestamp resolution, `tack` validates dependencies listed in the depfile (including the depfile itself to detect dependency-graph changes) via:
 
 - `mtime` (modification time)
 - file size

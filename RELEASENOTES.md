@@ -9,6 +9,11 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.9
+- Bugfix: Rebuild-Entscheidung nutzt nicht mehr die reine Reihenfolge `depfile mtime > object mtime`; stattdessen werden gespeicherte Abhängigkeits-Metadaten (`mtime`/Größe/FNV-1a) geprüft, inklusive Depfile-Fingerprint zur Erkennung geänderter Dependency-Graphen. Dadurch keine False-Positives nach Cache-Restores, bei denen Objekt und Depfile nacheinander geschrieben werden.
+- Depfile-Scan erfasst jetzt auch `#include <...>` und löst diese gegen die effektiven Include-Pfade auf; Header-Änderungen über `-I` triggern damit korrekt Recompiles.
+- Dokumentation auf neuen Stand gebracht (README/FAQ/Release Notes) und Version auf `v0.7.9` angehoben.
+
 ### v0.7.8
 - INI: Profil-spezifische Target-Overrides via `[target "NAME".debug]` / `[target "NAME".release]` für `core`, `includes`, `defines`, `cflags`, `ldflags`, `libs`.
 
@@ -63,6 +68,11 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.9
+- Bugfix: rebuild decisions no longer rely on raw `depfile mtime > object mtime`; they now use recorded dependency metadata (`mtime`/size/FNV-1a), including a depfile fingerprint to detect dependency-graph changes, avoiding false stale detections after cache restore where object and depfile are written sequentially.
+- Depfile scanning now also tracks `#include <...>` by resolving them against effective include search paths; header changes through `-I` now trigger recompilation correctly.
+- Documentation refreshed (README/FAQ/Release Notes) and version bumped to `v0.7.9`.
 
 ### v0.7.8
 - INI: profile-specific target overrides via `[target "NAME".debug]` / `[target "NAME".release]` for `core`, `includes`, `defines`, `cflags`, `ldflags`, `libs`.
