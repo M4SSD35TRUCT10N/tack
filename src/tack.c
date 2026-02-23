@@ -1835,6 +1835,84 @@ static int cache_meta_valid(const char *meta_path) {
   fclose(f);
   return 1;
 }
+static int depmeta_needs_rebuild_explain(const char *meta_path, char *why, size_t why_sz) {
+  FILE *f;
+  char line[4096];
+
+  f = fopen(meta_path, "rb");
+  if (!f) {
+    tack_snprintf(why, why_sz, "dependency metadata missing: %s", meta_path);
+    return 1;
+  }
+
+  while (fgets(line, sizeof(line), f)) {
+    char *t1 = strchr(line, '\t');
+    char *t2;
+    char *t3;
+    char *path;
+    char *endptr;
+    long mt_rec;
+    long sz_rec;
+    unsigned long h_rec;
+    long mt_cur;
+    long sz_cur;
+    unsigned long h_cur;
+    size_t len;
+
+    if (!t1) { fclose(f); tack_snprintf(why, why_sz, "dependency metadata format error: %s", meta_path); return 1; }
+    *t1 = '\0';
+    t2 = strchr(t1 + 1, '\t');
+    if (!t2) { fclose(f); tack_snprintf(why, why_sz, "dependency metadata format error: %s", meta_path); return 1; }
+    *t2 = '\0';
+    t3 = strchr(t2 + 1, '\t');
+    if (!t3) { fclose(f); tack_snprintf(why, why_sz, "dependency metadata format error: %s", meta_path); return 1; }
+    *t3 = '\0';
+
+    mt_rec = strtol(line, &endptr, 10);
+    if (endptr == line) { fclose(f); tack_snprintf(why, why_sz, "dependency metadata format error: %s", meta_path); return 1; }
+
+    sz_rec = strtol(t1 + 1, &endptr, 10);
+    if (endptr == (t1 + 1)) { fclose(f); tack_snprintf(why, why_sz, "dependency metadata format error: %s", meta_path); return 1; }
+
+    h_rec = strtoul(t2 + 1, &endptr, 16);
+    if (endptr == (t2 + 1)) { fclose(f); tack_snprintf(why, why_sz, "dependency metadata format error: %s", meta_path); return 1; }
+    h_rec &= 0xfffffffful;
+
+    path = t3 + 1;
+    len = strlen(path);
+    while (len > 0 && (path[len - 1] == '\n' || path[len - 1] == '\r')) path[--len] = '\0';
+
+    mt_cur = file_mtime(path);
+    sz_cur = file_size(path);
+    if (mt_cur < 0 || sz_cur < 0) {
+      fclose(f);
+      tack_snprintf(why, why_sz, "dependency missing: %s", path);
+      return 1;
+    }
+
+    if (mt_cur != mt_rec || sz_cur != sz_rec) {
+      fclose(f);
+      tack_snprintf(why, why_sz, "dependency changed (mtime/size): %s", path);
+      return 1;
+    }
+
+    if (file_hash32_fnv1a(path, &h_cur) != 0) {
+      fclose(f);
+      tack_snprintf(why, why_sz, "dependency unreadable: %s", path);
+      return 1;
+    }
+    h_cur &= 0xfffffffful;
+    if (h_cur != h_rec) {
+      fclose(f);
+      tack_snprintf(why, why_sz, "dependency changed (content hash): %s", path);
+      return 1;
+    }
+  }
+
+  fclose(f);
+  return 0;
+}
+
 
 static void cache_ensure_dirs(void) {
   char objd[512];
@@ -1936,7 +2014,7 @@ static void cache_store(const char *key, const char *obj_path, const char *dep_p
 }
 
 static int obj_needs_rebuild_explain(const char *obj_path, const char *src_path,
-                                    const char *dep_path, int force,
+                                    const char *dep_path, const char *meta_path, int force,
                                     char *why, size_t why_sz) {
   long obj_t, src_t;
 
@@ -1964,8 +2042,9 @@ static int obj_needs_rebuild_explain(const char *obj_path, const char *src_path,
 
 #if USE_DEPFILES
   if (depfile_needs_rebuild_explain(obj_path, dep_path, why, why_sz)) return 1;
+  if (depmeta_needs_rebuild_explain(meta_path, why, why_sz)) return 1;
 #else
-  (void)dep_path;
+  (void)dep_path; (void)meta_path;
   tack_snprintf(why, why_sz, "depfiles disabled (conservative rebuild)");
   return 1;
 #endif
@@ -3469,6 +3548,7 @@ typedef struct {
   Proc proc;
   char obj_path[1024];
   char dep_path[1024];
+  char meta_path[1024];
   char cache_key[64];
   int cache_enabled;
 } CompileJob;
@@ -3491,17 +3571,19 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
 
   for (i = 0; i < srcs->count; i++) {
     const char *src = srcs->items[i];
-    char sid[512], obj_name[768], dep_name[768];
-    char obj_path[1024], dep_path[1024];
+    char sid[512], obj_name[768], dep_name[768], meta_name[768];
+    char obj_path[1024], dep_path[1024], meta_path[1024];
     char why_msg[512];
     int need;
 
     sanitize_path_to_id(sid, sizeof(sid), src);
     tack_copy(obj_name, sizeof(obj_name), sid); tack_cat(obj_name, sizeof(obj_name), ".o");
     tack_copy(dep_name, sizeof(dep_name), sid); tack_cat(dep_name, sizeof(dep_name), ".d");
+    tack_copy(meta_name, sizeof(meta_name), sid); tack_cat(meta_name, sizeof(meta_name), ".meta");
 
     path_join(obj_path, sizeof(obj_path), objd, obj_name);
     path_join(dep_path, sizeof(dep_path), depd, dep_name);
+    path_join(meta_path, sizeof(meta_path), depd, meta_name);
 
     sv_push(out_objs, obj_path);
 
@@ -3510,7 +3592,7 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
       return 1;
     }
 
-    need = obj_needs_rebuild_explain(obj_path, src, dep_path, force,
+    need = obj_needs_rebuild_explain(obj_path, src, dep_path, meta_path, force,
                                      why ? why_msg : 0, why ? sizeof(why_msg) : 0);
     if (!need) continue;
 
@@ -3572,10 +3654,15 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
       if (cache_enabled) {
         cache_key_from_argv(cache_key, sizeof(cache_key), av.a);
         if (cache_restore(cache_key, obj_path, dep_path)) {
-          if (verbose || why) printf("cache hit: %s <- %s\n", obj_path, src);
-          sv_free(&tmp_defs);
-          av_free(&av);
-          continue;
+          if (cache_write_meta(dep_path, meta_path) != 0) {
+            (void)remove(obj_path);
+            (void)remove(dep_path);
+          } else {
+            if (verbose || why) printf("cache hit: %s <- %s\n", obj_path, src);
+            sv_free(&tmp_defs);
+            av_free(&av);
+            continue;
+          }
         }
       }
 
@@ -3586,11 +3673,15 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
         sv_free(&tmp_defs);
         av_free(&av);
         if (rc != 0) { free(running); return 1; }
+        if (cache_write_meta(dep_path, meta_path) != 0) { free(running); return 1; }
         if (cache_enabled) cache_store(cache_key, obj_path, dep_path);
       } else {
         if (running_n >= jobs) {
           int rcw = proc_wait(&running[0].proc);
           int m;
+          if (rcw == 0) {
+            if (cache_write_meta(running[0].dep_path, running[0].meta_path) != 0) { rcw = 1; }
+          }
           if (rcw == 0 && running[0].cache_enabled) {
             cache_store(running[0].cache_key, running[0].obj_path, running[0].dep_path);
           }
@@ -3600,10 +3691,11 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
         }
         if (proc_spawn_nowait(av.a, &running[running_n].proc) != 0) { sv_free(&tmp_defs); av_free(&av); free(running); return 1; }
         running[running_n].cache_enabled = cache_enabled;
+        tack_copy(running[running_n].obj_path, sizeof(running[running_n].obj_path), obj_path);
+        tack_copy(running[running_n].dep_path, sizeof(running[running_n].dep_path), dep_path);
+        tack_copy(running[running_n].meta_path, sizeof(running[running_n].meta_path), meta_path);
         if (cache_enabled) {
           tack_copy(running[running_n].cache_key, sizeof(running[running_n].cache_key), cache_key);
-          tack_copy(running[running_n].obj_path, sizeof(running[running_n].obj_path), obj_path);
-          tack_copy(running[running_n].dep_path, sizeof(running[running_n].dep_path), dep_path);
         }
         running_n++;
         sv_free(&tmp_defs);
@@ -3616,6 +3708,9 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
     int k;
     for (k = 0; k < running_n; k++) {
       int rc = proc_wait(&running[k].proc);
+      if (rc == 0) {
+        if (cache_write_meta(running[k].dep_path, running[k].meta_path) != 0) { rc = 1; }
+      }
       if (rc == 0 && running[k].cache_enabled) {
         cache_store(running[k].cache_key, running[k].obj_path, running[k].dep_path);
       }

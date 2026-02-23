@@ -108,7 +108,7 @@ Das ist Absicht: lieber **klarer Fehler** statt undefiniertes Verhalten.
 
 ### Wie erkennt tack Header-Abhängigkeiten (Rebuild bei `.h`-Änderungen)?
 
-`tack` erzeugt vor jedem Compile-Schritt ein Depfile (`.d`) im Format **tack-deps-v1** und nutzt es für Incremental Builds (und für die Cache-Validierung).
+`tack` erzeugt vor jedem Compile-Schritt ein Depfile (`.d`) im Format **tack-deps-v1** und nutzt es für Incremental Builds (inkl. Abhängigkeits-Metadaten mit `mtime`/Größe/Hash) sowie für die Cache-Validierung.
 
 - Erfasst werden `#include "..."` (quoted) **und** `#include <...>` Includes **rekursiv** (auch Header, die wiederum Header includen).
 - Die Suche folgt der üblichen Reihenfolge: Verzeichnis der includenden Datei → effektive `-I` Pfade (Built-ins + `includes = ...`).
@@ -454,7 +454,7 @@ Marker comments (`<!-- TACK:BEGIN ... -->`) are provided by the built-in layout 
 
 ### How does tack track header dependencies (rebuilds on `.h` changes)?
 
-Before each compile step, `tack` writes a depfile (`.d`) in the **tack-deps-v1** format and uses it for incremental rebuilds (and cache validation).
+Before each compile step, `tack` writes a depfile (`.d`) in the **tack-deps-v1** format and uses it for incremental rebuilds (including dependency metadata with `mtime`/size/hash) and cache validation.
 
 - It tracks quoted `#include "..."` **and** angle-bracket `#include <...>` includes **recursively** (including headers that include other headers).
 - Resolution follows the usual order: directory of the including file → effective `-I` paths (built-ins + `includes = ...`).

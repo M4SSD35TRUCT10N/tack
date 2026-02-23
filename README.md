@@ -202,7 +202,7 @@ Pro Compile-Schritt (pro Ziel/Profil):
 
 
 ### Wie wird die Gültigkeit geprüft?
-Damit Cache-Hits auch auf Dateisystemen mit grober Timestamp-Auflösung zuverlässig sind, validiert `tack` die Abhängigkeiten aus dem Depfile über:
+Damit Cache-Hits **und** normale Incremental-Rebuild-Checks auch auf Dateisystemen mit grober Timestamp-Auflösung zuverlässig sind, validiert `tack` die Abhängigkeiten aus dem Depfile über:
 
 - `mtime` (Modifikationszeit)
 - Dateigröße
@@ -685,7 +685,7 @@ Per compile step, `tack` writes a `.d` file in the **tack-deps-v1** format:
 
 
 ### How is validity checked?
-To avoid false cache hits on file systems with coarse timestamp resolution, `tack` validates dependencies listed in the depfile via:
+To avoid false cache hits **and** false up-to-date decisions in normal incremental rebuild checks on file systems with coarse timestamp resolution, `tack` validates dependencies listed in the depfile via:
 
 - `mtime` (modification time)
 - file size
