@@ -105,6 +105,17 @@ tack bricht bewusst ab, wenn:
 
 Das ist Absicht: lieber **klarer Fehler** statt undefiniertes Verhalten.
 
+
+### Wie erkennt tack Header-Abhängigkeiten (Rebuild bei `.h`-Änderungen)?
+
+`tack` erzeugt vor jedem Compile-Schritt ein Depfile (`.d`) im Format **tack-deps-v1** und nutzt es für Incremental Builds (und für die Cache-Validierung).
+
+- Erfasst werden `#include "..."` Includes (quoted) **rekursiv** (auch Header, die wiederum Header includen).
+- Die Suche folgt der üblichen Reihenfolge: Verzeichnis der includenden Datei → effektive `-I` Pfade (Built-ins + `includes = ...`).
+- `#include <...>` (System-Header) wird bewusst **nicht** verfolgt.
+
+Wenn du exotische Include-Muster verwendest (Makros/Generatoren), nutze im Zweifel `--rebuild` oder `tack clobber`.
+
 ### Wie finde ich heraus, warum tack neu baut („why rebuild“)?
 
 Nutze `--why` (Alias: `--explain`). Das ist rein diagnostisch und löst **keinen** Rebuild aus.
@@ -439,6 +450,17 @@ Fail-fast: If `template` or `css` is set but the file is missing or not readable
 
 The output always includes stable IDs (`#tack-nav`, `#tack-content`, `#tack-footer`) as a contract for CSS hooks.
 Marker comments (`<!-- TACK:BEGIN ... -->`) are provided by the built-in layout or by your template. If you rely on markers with a custom template, wrap the placeholders with the marker comments (see the shipped templates).
+
+
+### How does tack track header dependencies (rebuilds on `.h` changes)?
+
+Before each compile step, `tack` writes a depfile (`.d`) in the **tack-deps-v1** format and uses it for incremental rebuilds (and cache validation).
+
+- It tracks quoted includes `#include "..."` **recursively** (including headers that include other headers).
+- Resolution follows the usual order: directory of the including file → effective `-I` paths (built-ins + `includes = ...`).
+- `#include <...>` (system headers) is intentionally **not** tracked.
+
+If you rely on exotic include patterns (macros/generators), use `--rebuild` or `tack clobber` as a safe fallback.
 
 ### How do I see why tack rebuilds (“why rebuild”)?
 

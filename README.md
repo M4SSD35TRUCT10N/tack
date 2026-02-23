@@ -58,10 +58,10 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - `tack list` zeigt Targets (Name + id + src + core + enabled)
 - Robuste Prozessausführung (kein `system()` für Builds)
 - Paralleles Kompilieren: `-j N`
-- Depfiles (`-MD -MF`) für Incremental Builds
+- Depfiles (`.d`, `tack-deps-v1`): tack scannt `#include "..."` rekursiv (Projekt-Header) für Incremental Builds (Header-Änderungen triggern Rebuilds)
 - Optionaler Compile-Cache in `.tack-cache/` für schnellere Incremental Builds (abschaltbar mit `--no-cache`)
 - Diagnose: `--why`/`--explain` erklärt Rebuild-Entscheidungen („why rebuild“)
-- Windows: robustere Depfile-Pfade (verhindert unnötige Rebuilds)
+- Windows: robustere Depfile-/Pfadbehandlung (custom Depfiles, normalisierte Pfade) → weniger unnötige Rebuilds
 - Help-Passthrough: `tack build --help` / `-h` zeigt die Kommando-Hilfe
 - Strict Mode: `--strict` aktiviert zusätzlich `-Wunsupported`
 - Echte Target-Konfiguration: Includes/Defines/CFLAGS/LDFLAGS/LIBS pro Target
@@ -188,6 +188,19 @@ Pro Compile-Schritt (pro Ziel/Profil):
 - Depfile (`.d`)
 - Meta-Datei (`.meta`) mit Abhängigkeits-Fingerprints
 
+### Was steht im Depfile?
+
+`tack` schreibt pro Compile-Schritt eine `.d` Datei im Format **tack-deps-v1**:
+
+- erste Zeile: `# tack-deps-v1`
+- danach: **ein aufgelöster Pfad pro Zeile**
+- enthält die `.c` Datei **und** alle rekursiv gefundenen Projekt-Header aus `#include "..."`
+
+**Hinweise / Grenzen:**
+- Nur quoted includes (`"..."`) werden erfasst. `#include <...>` (System-Header) wird ignoriert.
+- Keine Makro-/Conditional-Auswertung: tack sammelt einfache `#include "..."` Zeilen (Whitespace vor `#` ist ok).
+
+
 ### Wie wird die Gültigkeit geprüft?
 Damit Cache-Hits auch auf Dateisystemen mit grober Timestamp-Auflösung zuverlässig sind, validiert `tack` die Abhängigkeiten aus dem Depfile über:
 
@@ -206,14 +219,14 @@ Den Ordner `.tack-cache/` löschen (z.B. `rm -rf .tack-cache`).
 - `help`, `version`, `doctor`
 - `init` – Grundstruktur & Hello-World erzeugen (legt auch `.gitignore` + Fossil-Ignore an, ohne zu überschreiben)
 - `list` – Targets anzeigen
-- `build [debug|release] ...` – Target bauen (optional: `--why`/`--explain`)
-- `run [debug|release] ... -- <args...>` – bauen + ausführen (optional: `--why`/`--explain`)
-- `test [debug|release] ...` – bauen + `_test.c` ausführen
+- `build [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – Target bauen
+- `run [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]` – bauen + ausführen
+- `test [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – bauen + `_test.c` ausführen
 - `clean` – Inhalte von `build/` löschen (Ordner bleibt bestehen)
 - `clobber` – `build/` komplett löschen
-- `bom` – Build-Manifest als Markdown/HTML
-- `sbom` – deterministische SBOM (Standard-JSON, Format via `tack.ini`)
-- `doc` – Offline-HTML-Doku (README/FAQ/ROADMAP/RELEASENOTES + BOM)
+- `bom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – Build-Manifest als Markdown/HTML
+- `sbom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – deterministische SBOM (Standard-JSON, Format via `tack.ini`)
+- `doc [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – Offline-HTML-Doku (README/FAQ/ROADMAP/RELEASENOTES + BOM)
 
 Tipp: `tack build --help` (oder `-h`) zeigt die Hilfe **für dieses Sub‑Kommando**.
 
@@ -532,10 +545,10 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - `tack list` prints targets (name + id + src + core + enabled)
 - Robust process execution (no `system()` for builds)
 - Parallel compile: `-j N`
-- Depfiles (`-MD -MF`) for incremental builds
+- Depfiles (`.d`, `tack-deps-v1`): tack scans `#include "..."` recursively (project headers) for incremental builds (header changes trigger rebuilds)
 - Optional compile cache in `.tack-cache/` for faster incremental builds (disable with `--no-cache`)
 - Diagnostics: `--why`/`--explain` explains rebuild decisions (“why rebuild”)
-- Windows: more robust depfile path handling (prevents unnecessary rebuilds)
+- Windows: more robust depfile/path handling (custom depfiles, normalized paths) → fewer unnecessary rebuilds
 - Help passthrough: `tack build --help` / `-h` shows sub-command help
 - strict mode: `--strict` enables `-Wunsupported` (default suppresses it)
 - real per‑target config: includes/defines/cflags/ldflags/libs/core
@@ -658,6 +671,19 @@ Per compile step (per target/profile):
 - depfile (`.d`)
 - meta file (`.meta`) with dependency fingerprints
 
+### What is in the depfile?
+
+Per compile step, `tack` writes a `.d` file in the **tack-deps-v1** format:
+
+- first line: `# tack-deps-v1`
+- then: **one resolved path per line**
+- includes the `.c` file **and** all recursively discovered project headers from `#include "..."`
+
+**Notes / limits:**
+- Only quoted includes (`"..."`) are tracked. `#include <...>` (system headers) is ignored.
+- No macro/conditional evaluation: tack collects simple `#include "..."` lines (leading whitespace before `#` is fine).
+
+
 ### How is validity checked?
 To avoid false cache hits on file systems with coarse timestamp resolution, `tack` validates dependencies listed in the depfile via:
 
@@ -676,14 +702,14 @@ Delete the `.tack-cache/` folder (e.g. `rm -rf .tack-cache`).
 - `help`, `version`, `doctor`
 - `init` – create a minimal skeleton + hello world (also provisions `.gitignore` + Fossil ignore, non-destructive)
 - `list` – show targets
-- `build [debug|release] ...` – build target
-- `run [debug|release] ... -- <args...>` – build + run target
-- `test [debug|release] ...` – build + execute `_test.c`
+- `build [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – build target
+- `run [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]` – build + run target
+- `test [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – build + execute `_test.c`
 - `clean` – delete contents of `build/` (keep directory)
 - `clobber` – delete `build/` entirely
-- `bom` – build manifest as Markdown/HTML
-- `sbom` – deterministic SBOM (default JSON output, format via `tack.ini`)
-- `doc` – offline HTML docs (README/FAQ/ROADMAP/RELEASENOTES + BOM)
+- `bom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – build manifest as Markdown/HTML
+- `sbom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – deterministic SBOM (default JSON output, format via `tack.ini`)
+- `doc [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – offline HTML docs (README/FAQ/ROADMAP/RELEASENOTES + BOM)
 
 ### Exit codes
 
