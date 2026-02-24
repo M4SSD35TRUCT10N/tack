@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.12
+# tack FAQ / FQA (DE/EN) — v0.7.13
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -19,8 +19,9 @@ Nutze:
 - `--no-cache`
 
 ### Wie kann ich den Cache löschen?
-Lösche den Ordner:
-- `.tack-cache/`
+
+- `tack clean --cache`
+- `tack clobber`
 
 ### Ist tack ein Ersatz für CMake/make?
 tack ersetzt für viele Projekte das klassische Build-Skript (Makefile/CMakeLists), indem es eine feste, simple Konvention nutzt und die üblichen Tasks (`build/run/test/clean`) anbietet. Für extrem komplexe Toolchains ist make/cmake weiterhin besser geeignet.
@@ -263,8 +264,9 @@ Use:
 - `--no-cache`
 
 ### How do I clear the cache?
-Delete the folder:
-- `.tack-cache/`
+
+- `tack clean --cache`
+- `tack clobber`
 
 ### Is tack a replacement for CMake/make?
 For many projects, yes: tack replaces custom build scripts by using conventions and providing `build/run/test/clean`. For very complex toolchains, make/cmake may still be the better fit.

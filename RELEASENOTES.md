@@ -9,6 +9,10 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.13
+- `tack clobber`: räumt jetzt immer zusätzlich `.tack-cache/` ab (Big Hammer: Build + Cache weg).
+- `tack clean --cache`: löscht zusätzlich `.tack-cache/` (Cache-Reset ohne manuelle Dateisystem-Operationen).
+
 ### v0.7.12
 - `tack doc`: keine festen Dateinamen mehr. Stattdessen werden alle `*.md` im Projekt-Root als HTML in `build/doc/` gerendert (z.B. `README.md`, `CHANGELOG.md`, `RELEASENOTES.md`, … – je nachdem, was im Repo existiert).
   - Navigation/Index werden aus dieser dynamischen Root-Liste erzeugt (kein Dead-Link-Nav mehr).
@@ -84,6 +88,16 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.13
+- `tack clobber`: now always deletes `.tack-cache/` as well (big hammer: build + cache reset).
+- `tack clean --cache`: also deletes `.tack-cache/` (cache reset without manual filesystem operations).
+
+### v0.7.12
+- `tack doc`: no more fixed root filenames. Instead, all `*.md` in the project root are rendered to HTML under `build/doc/` (e.g., `README.md`, `CHANGELOG.md`, `RELEASENOTES.md`, … — whatever exists in the repo).
+  - Navigation/index is generated from that dynamic root list (no dead-link nav).
+- `tack init`: additionally (non-destructively) provisions `templates/` with default CSS/template plus a starter `tack.ini`.
+- Convenience: if no CSS is configured, `tack doc`/`tack bom` automatically uses `templates/tack_doc.css` when present.
 
 ### v0.7.11
 - `tack doc`: optionally includes a `docs/` folder (all `docs/**/*.md`) and generates HTML pages under `build/doc/docs/`.

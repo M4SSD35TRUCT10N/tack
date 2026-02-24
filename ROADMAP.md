@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.12
+# tack ROADMAP (DE/EN) — v0.7.13
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -58,6 +58,11 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 - `tack doc`: rendert alle `*.md` im Projekt-Root dynamisch (keine festen Dateinamen mehr) und erzeugt Nav/Index aus dieser Liste.
 - `tack init`: erzeugt zusätzlich (nicht destruktiv) `templates/` inkl. Standard-CSS/Template sowie eine Start-`tack.ini`.
 - `tack doc`/`tack bom`: nutzen automatisch `templates/tack_doc.css`, falls keine CSS-Datei konfiguriert ist und die Datei existiert.
+
+### Erledigt in v0.7.13
+- `tack clobber`: räumt jetzt immer zusätzlich `.tack-cache/` ab (Big Hammer: Build + Cache weg).
+- `tack clean --cache`: löscht zusätzlich `.tack-cache/` (Cache-Reset ohne manuelle Dateisystem-Operationen).
+- Sicherheits-Defaults: Löschoperationen folgen keinen Symlinks/Junctions und bleiben durch das bestehende Recursion-Limit begrenzt.
 
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
@@ -128,6 +133,11 @@ Before “big” releases and announcements, tack should be validated against re
 - `tack doc`: renders all root-level `*.md` dynamically (no fixed filenames) and builds nav/index from that list.
 - `tack init`: additionally creates (non-destructive) `templates/` with default CSS/template and a starter `tack.ini`.
 - `tack doc`/`tack bom`: automatically use `templates/tack_doc.css` if no CSS is configured and the file exists.
+
+### Done in v0.7.13
+- `tack clobber`: now also removes `.tack-cache/` (big hammer: build + cache reset).
+- `tack clean --cache`: additionally removes `.tack-cache/` (cache reset without manual filesystem operations).
+- Safety defaults: deletion does not follow symlinks/junctions and stays bounded by the existing recursion depth limit.
 
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs

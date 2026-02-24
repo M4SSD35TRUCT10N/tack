@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.12)
+# tack — Tiny ANSI-C Kit (v0.7.13)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.12)
+## Features (v0.7.13)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -214,7 +214,8 @@ Damit Cache-Hits **und** normale Incremental-Rebuild-Checks auch auf Dateisystem
 - `--no-cache`
 
 ### Cache löschen (Reset)
-Den Ordner `.tack-cache/` löschen (z.B. `rm -rf .tack-cache`).
+- `tack clean --cache` (löscht zusätzlich `.tack-cache/`)
+- `tack clobber` (löscht `build/` **und** `.tack-cache/`)
 
 ## Kommandos
 
@@ -225,8 +226,9 @@ Den Ordner `.tack-cache/` löschen (z.B. `rm -rf .tack-cache`).
 - `build [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – Target bauen
 - `run [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]` – bauen + ausführen
 - `test [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – bauen + `_test.c` ausführen
-- `clean` – Inhalte von `build/` löschen (Ordner bleibt bestehen)
-- `clobber` – `build/` komplett löschen
+- `clean [--cache]` – Inhalte von `build/` löschen (Ordner bleibt bestehen)
+  - `--cache` löscht zusätzlich `.tack-cache/` (Compile-Cache-Reset)
+- `clobber` – `build/` komplett löschen (löscht auch `.tack-cache/`)
 - `bom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – Build-Manifest als Markdown/HTML
 - `sbom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – deterministische SBOM (Standard-JSON, Format via `tack.ini`)
 - `doc [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – Offline-HTML-Doku (Root-`*.md` + optional `docs/**/*.md` + BOM)
@@ -538,7 +540,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.12)
+## Features (v0.7.13)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -700,7 +702,8 @@ To avoid false cache hits **and** false up-to-date decisions in normal increment
 - `--no-cache`
 
 ### Reset / clear cache
-Delete the `.tack-cache/` folder (e.g. `rm -rf .tack-cache`).
+- `tack clean --cache` (also deletes `.tack-cache/`)
+- `tack clobber` (deletes `build/` **and** `.tack-cache/`)
 
 ## Commands
 
@@ -711,8 +714,9 @@ Delete the `.tack-cache/` folder (e.g. `rm -rf .tack-cache`).
 - `build [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – build target
 - `run [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]` – build + run target
 - `test [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – build + execute `_test.c`
-- `clean` – delete contents of `build/` (keep directory)
-- `clobber` – delete `build/` entirely
+- `clean [--cache]` – delete contents of `build/` (keep directory)
+  - `--cache` also deletes `.tack-cache/` (compile cache reset)
+- `clobber` – delete `build/` entirely (also deletes `.tack-cache/`)
 - `bom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – build manifest as Markdown/HTML
 - `sbom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – deterministic SBOM (default JSON output, format via `tack.ini`)
 - `doc [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – offline HTML docs (root `*.md` + optional `docs/**/*.md` + BOM)
