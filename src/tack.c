@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.7.10
+ * v0.7.12
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -63,7 +63,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.7.11"
+#define TACK_VERSION "0.7.12"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -735,6 +735,78 @@ static void scan_dir_recursive_suffix_skip(StrVec *out, const char *dir, const c
 
 static void scan_dir_recursive_suffix(StrVec *out, const char *dir, const char *suffix) {
   scan_dir_recursive_suffix_skip(out, dir, suffix, 0);
+}
+
+static void scan_dir_suffix(StrVec *out, const char *dir, const char *suffix) {
+  /* non-recursive scan: collects files in dir that end with suffix */
+#ifdef _WIN32
+  WIN32_FIND_DATAA fd;
+  HANDLE h;
+  char *pattern;
+  char base_dir[512];
+
+  if (!dir || !suffix) return;
+
+  base_dir[0] = '\0';
+  if (!streq(dir, ".") && dir[0]) {
+    tack_copy(base_dir, sizeof(base_dir), dir);
+  }
+
+  pattern = path_join_alloc((base_dir[0] ? base_dir : "."), "*");
+  h = FindFirstFileA(pattern, &fd);
+  free(pattern);
+  if (h == INVALID_HANDLE_VALUE) return;
+
+  do {
+    if (streq(fd.cFileName, ".") || streq(fd.cFileName, "..")) continue;
+    if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+    if (ends_with(fd.cFileName, suffix)) {
+      if (!base_dir[0]) {
+        sv_push(out, fd.cFileName);
+      } else {
+        char *full = path_join_alloc(base_dir, fd.cFileName);
+        sv_push_own(out, full);
+      }
+    }
+  } while (FindNextFileA(h, &fd));
+  FindClose(h);
+#else
+  DIR *d;
+  struct dirent *e;
+
+  if (!dir || !suffix) return;
+
+  d = opendir(dir);
+  if (!d) return;
+
+  while ((e = readdir(d)) != 0) {
+    if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
+    /* skip directories */
+    {
+      char *full = 0;
+      if (streq(dir, ".") || dir[0] == '\0') {
+        full = xstrdup(e->d_name);
+      } else {
+        full = path_join_alloc(dir, e->d_name);
+      }
+      if (is_dir_path_nofollow(full)) {
+        free(full);
+        continue;
+      }
+      if (ends_with(e->d_name, suffix)) {
+        if (streq(dir, ".") || dir[0] == '\0') {
+          sv_push(out, e->d_name);
+          free(full);
+        } else {
+          sv_push_own(out, full);
+        }
+      } else {
+        free(full);
+      }
+    }
+  }
+  closedir(d);
+#endif
 }
 
 /* --------------------------- rm -rf --------------------------- */
@@ -1588,6 +1660,20 @@ static int sv_contains(const StrVec *v, const char *s) {
     if (streq(v->items[i], s)) return 1;
   }
   return 0;
+}
+
+static int streq_icase(const char *a, const char *b) {
+  /* ASCII case-insensitive compare, C89-friendly */
+  unsigned char ca, cb;
+  if (a == b) return 1;
+  if (!a || !b) return 0;
+  while (*a && *b) {
+    ca = (unsigned char)*a;
+    cb = (unsigned char)*b;
+    if (tolower(ca) != tolower(cb)) return 0;
+    a++; b++;
+  }
+  return (*a == '\0' && *b == '\0');
 }
 
 static char *path_dirname_alloc(const char *path) {
@@ -4567,6 +4653,144 @@ static const char *FOSSIL_IGNORE_FULL_LINES[] = {
   0
 };
 
+/* --------------------------- init templates --------------------------- */
+
+static const char *TACK_INIT_TEMPLATES_CSS =
+  "/* tack_doc.css — minimal, CSS-first, offline-friendly */\n"
+  ":root{\n"
+  "  --bg:#ffffff; --fg:#111111; --muted:#555555; --border:#e6e6e6;\n"
+  "  --link:#0b57d0; --codebg:#f6f6f6;\n"
+  "  --maxw: 1100px; --gap: 1rem; --radius: 10px;\n"
+  "  --sans: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;\n"
+  "  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, \"Liberation Mono\", monospace;\n"
+  "}\n"
+  "@media (prefers-color-scheme: dark){\n"
+  "  :root{\n"
+  "    --bg:#0f1115; --fg:#e8e8e8; --muted:#b7b7b7; --border:#2a2f3a;\n"
+  "    --link:#7aa2ff; --codebg:#161a22;\n"
+  "  }\n"
+  "}\n"
+  "*{box-sizing:border-box}\n"
+  "html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--sans);line-height:1.55}\n"
+  "a{color:var(--link);text-decoration:none}\n"
+  "a:hover{text-decoration:underline}\n"
+  "header{border-bottom:1px solid var(--border);padding:0.75rem 1rem;position:sticky;top:0;background:var(--bg);z-index:5}\n"
+  "header .row{max-width:var(--maxw);margin:0 auto;display:flex;gap:var(--gap);align-items:center}\n"
+  "header .brand{font-weight:700}\n"
+  "header .spacer{flex:1}\n"
+  "header input[type=\"search\"]{\n"
+  "  width:min(420px, 46vw);\n"
+  "  padding:0.45rem 0.6rem;border:1px solid var(--border);border-radius:8px;\n"
+  "  background:var(--bg);color:var(--fg);\n"
+  "}\n"
+  "main.wrap{max-width:var(--maxw);margin:0 auto;display:grid;grid-template-columns: 280px 1fr;gap:var(--gap);padding:1rem}\n"
+  "nav{border:1px solid var(--border);border-radius:var(--radius);padding:0.75rem;max-height: calc(100vh - 7rem);overflow:auto}\n"
+  "nav h2{margin:0 0 0.5rem 0;font-size:1rem}\n"
+  "nav ul{list-style:none;margin:0;padding:0}\n"
+  "nav li{margin:0.2rem 0}\n"
+  "nav a{display:block;padding:0.25rem 0.35rem;border-radius:6px}\n"
+  "nav a[aria-current=\"page\"]{background:var(--codebg);font-weight:600}\n"
+  "article{border:1px solid var(--border);border-radius:var(--radius);padding:1rem;min-width:0}\n"
+  "article h1{margin-top:0}\n"
+  "pre,code{font-family:var(--mono)}\n"
+  "pre{background:var(--codebg);padding:0.75rem;border-radius:8px;overflow:auto;border:1px solid var(--border)}\n"
+  "code{background:var(--codebg);padding:0.1rem 0.25rem;border-radius:6px}\n"
+  "table{border-collapse:collapse;width:100%}\n"
+  "th,td{border:1px solid var(--border);padding:0.4rem 0.5rem;text-align:left;vertical-align:top}\n"
+  "aside.toc{border:1px dashed var(--border);border-radius:var(--radius);padding:0.75rem;margin:0 0 1rem 0;color:var(--muted)}\n"
+  "footer{max-width:var(--maxw);margin:0 auto;padding:1rem;color:var(--muted);border-top:1px solid var(--border)}\n"
+  "@media (max-width: 980px){\n"
+  "  main.wrap{grid-template-columns:1fr}\n"
+  "  nav{max-height:none}\n"
+  "}\n"
+  "@media print{\n"
+  "  header, nav{display:none !important}\n"
+  "  article{border:none}\n"
+  "  a{text-decoration:underline;color:#000}\n"
+  "}\n";
+
+static const char *TACK_INIT_TEMPLATE_MIN_HTML =
+  "<!doctype html>\n"
+  "<html lang=\"en\">\n"
+  "<head>\n"
+  "  <meta charset=\"utf-8\">\n"
+  "  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
+  "  <title>{{TACK_PAGE_TITLE}}</title>\n"
+  "  <!-- TACK:BEGIN HEAD_ASSETS -->\n"
+  "  {{TACK_HEAD_ASSETS}}\n"
+  "  <!-- TACK:END HEAD_ASSETS -->\n"
+  "</head>\n"
+  "<body>\n"
+  "<header>\n"
+  "  <div class=\"row\">\n"
+  "    <div class=\"brand\">{{TACK_PROJECT_TITLE}}</div>\n"
+  "    <div class=\"spacer\"></div>\n"
+  "  </div>\n"
+  "</header>\n"
+  "\n"
+  "<main class=\"wrap\">\n"
+  "  <!-- TACK:BEGIN NAV -->\n"
+  "  {{TACK_NAV_HTML}}\n"
+  "  <!-- TACK:END NAV -->\n"
+  "\n"
+  "  <article>\n"
+  "    <!-- TACK:BEGIN TOC -->\n"
+  "    {{TACK_TOC_HTML}}\n"
+  "    <!-- TACK:END TOC -->\n"
+  "\n"
+  "    <!-- TACK:BEGIN CONTENT -->\n"
+  "    {{TACK_CONTENT_HTML}}\n"
+  "    <!-- TACK:END CONTENT -->\n"
+  "  </article>\n"
+  "</main>\n"
+  "\n"
+  "<!-- TACK:BEGIN FOOTER -->\n"
+  "{{TACK_FOOTER_HTML}}\n"
+  "<!-- TACK:END FOOTER -->\n"
+  "</body>\n"
+  "</html>\n";
+
+static const char *TACK_INIT_DEFAULT_TACK_INI =
+  "; tack.ini — generated by `tack init` (tack v0.7.12)\n"
+  "; ---------------------------------------------------------------------------\n"
+  "; Minimal, repo-owned configuration.\n"
+  "; - If you do not need customization, you can delete this file: tack has built-in defaults.\n"
+  "; - Docs/BOM: templates/ is created by `tack init` (CSS-first, offline-friendly).\n"
+  "; - Lists are ';'-separated (recommended). Quoted tokens are supported.\n"
+  "; ---------------------------------------------------------------------------\n"
+  "\n"
+  "[project]\n"
+  "default_target = app\n"
+  "\n"
+  "[target \"app\"]\n"
+  "src = src\n"
+  "bin = app\n"
+  "core = yes\n"
+  "includes = src\n"
+  "\n"
+  "[doc]\n"
+  "template = templates/tack_template_min.html\n"
+  "css      = templates/tack_doc.css\n"
+  "\n"
+  "[bom]\n"
+  "template = templates/tack_template_min.html\n"
+  "css      = templates/tack_doc.css\n"
+  "\n"
+  "; Optional: fmt – orchestrate external formatters (policy lives in this repo)\n"
+  ";[fmt]\n"
+  ";enabled = yes\n"
+  ";fail_fast = yes\n"
+  ";defaults = auto\n"
+  ";rules = c\n"
+  ";exclude = thirdparty/**;build/**;.git/**;.fossil/**;.hg/**\n"
+  ";\n"
+  ";[fmt \"c\"]\n"
+  ";tool = clang-format\n"
+  ";mode = file\n"
+  ";include = src/**/*.c;src/**/*.h;include/**/*.h;tools/**/*.c;tools/**/*.h;tests/**/*.c;tests/**/*.h\n"
+  ";cmd = clang-format -i --style=file @FILE@\n"
+  ";requires = clang-format\n";
+
 static int cmd_init(void) {
   FILE *f;
 
@@ -4575,6 +4799,21 @@ static int cmd_init(void) {
   ensure_dir(g_tests_dir);
   ensure_dir(g_tools_dir);
   ensure_dir(g_build_dir);
+
+  /* templates + default config (non-destructive) */
+  ensure_dir("templates");
+  if (write_file_if_missing("templates/tack_doc.css", TACK_INIT_TEMPLATES_CSS) != 0) {
+    fprintf(stderr, "tack: init: cannot create templates/tack_doc.css\n");
+    return 1;
+  }
+  if (write_file_if_missing("templates/tack_template_min.html", TACK_INIT_TEMPLATE_MIN_HTML) != 0) {
+    fprintf(stderr, "tack: init: cannot create templates/tack_template_min.html\n");
+    return 1;
+  }
+  if (write_file_if_missing("tack.ini", TACK_INIT_DEFAULT_TACK_INI) != 0) {
+    fprintf(stderr, "tack: init: cannot create tack.ini\n");
+    return 1;
+  }
 
   /* optional: create src/core and src/app */
   ensure_dir("src/core");
@@ -4645,7 +4884,7 @@ static int cmd_init(void) {
   }
   }
 
-  printf("tack: init: ensured src/include/tests/tools/build (+ ignore files)\n");
+  printf("tack: init: ensured src/include/tests/tools/build/templates (+ tack.ini + ignore files)\n");
   return 0;
 }
 
@@ -4858,10 +5097,18 @@ static const char *choose_template(const char *kind) {
 }
 
 static const char *choose_css(const char *kind) {
-  if (streq(kind, "doc")) return g_config_doc_css;
+  /* Policy is provided by the repo (tack.ini). For convenience, if no CSS is configured
+     and a standard templates/tack_doc.css exists, use it automatically. */
+  if (streq(kind, "doc")) {
+    if (g_config_doc_css) return g_config_doc_css;
+    if (file_exists("templates/tack_doc.css")) return "templates/tack_doc.css";
+    return 0;
+  }
   if (streq(kind, "bom")) {
     if (g_config_bom_css) return g_config_bom_css;
-    return g_config_doc_css;
+    if (g_config_doc_css) return g_config_doc_css;
+    if (file_exists("templates/tack_doc.css")) return "templates/tack_doc.css";
+    return 0;
   }
   return 0;
 }
@@ -5101,10 +5348,8 @@ static int write_doc_page(const char *out_path, const char *title, const char *n
 }
 
 typedef struct {
-  int has_readme;
-  int has_faq;
-  int has_roadmap;
-  int has_releasenotes;
+  StrVec *root_md;   /* optional; root markdown (e.g. "README.md") */
+  StrVec *root_html; /* optional; output html names (e.g. "readme.html") */
   StrVec *docs_html; /* optional; items like "docs/foo.html" */
 } DocIndexCtx;
 
@@ -5136,6 +5381,84 @@ static char *doc_md_to_html_rel_alloc(const char *md_rel) {
   return s;
 }
 
+static char *doc_root_label_alloc(const char *md_root) {
+  /* "README.md" -> "README" */
+  const char *base;
+  const char *dot;
+  size_t n;
+  char *out;
+
+  if (!md_root) return 0;
+  base = path_base(md_root);
+  dot = strrchr(base, '.');
+  if (dot && (streq_icase(dot, ".md"))) {
+    n = (size_t)(dot - base);
+  } else {
+    n = strlen(base);
+  }
+  out = (char*)xmalloc(n + 1);
+  memcpy(out, base, n);
+  out[n] = '\0';
+  return out;
+}
+
+static char *doc_root_html_alloc(const char *md_root) {
+  /* "README.md" -> "readme.html" (lowercase) */
+  char *label;
+  char *out;
+  size_t i, n;
+
+  label = doc_root_label_alloc(md_root);
+  if (!label) return 0;
+
+  n = strlen(label);
+  out = (char*)xmalloc(n + 6); /* ".html" + NUL */
+  for (i = 0; i < n; i++) out[i] = (char)tolower((unsigned char)label[i]);
+  out[n] = '\0';
+  strcat(out, ".html");
+  free(label);
+  return out;
+}
+
+static void doc_reorder_root_md(StrVec *v) {
+  /* deterministic, user-friendly order: README/FAQ/ROADMAP/CHANGELOG/RELEASENOTES first, then alpha */
+  static const char *pri[] = { "README.md", "FAQ.md", "ROADMAP.md", "CHANGELOG.md", "RELEASENOTES.md", 0 };
+  int i, j;
+  int n;
+  char **items_new;
+  int *used;
+  int outc = 0;
+
+  if (!v || v->count <= 1) return;
+
+  n = v->count;
+  items_new = (char**)xmalloc((size_t)n * sizeof(char*));
+  used = (int*)xmalloc((size_t)n * sizeof(int));
+  for (i = 0; i < n; i++) used[i] = 0;
+
+  /* pick priorities */
+  for (i = 0; pri[i]; i++) {
+    for (j = 0; j < n; j++) {
+      if (!used[j] && streq(v->items[j], pri[i])) {
+        items_new[outc++] = v->items[j];
+        used[j] = 1;
+        break;
+      }
+    }
+  }
+
+  /* append remaining */
+  for (j = 0; j < n; j++) {
+    if (!used[j]) items_new[outc++] = v->items[j];
+  }
+
+  free(used);
+  free(v->items);
+  v->items = items_new;
+  v->count = outc;
+  v->cap = outc;
+}
+
 static int doc_count_dir_segments(const char *dir_rel) {
   /* "docs/a" -> 2, "docs" -> 1, "." -> 0 */
   int seg = 0;
@@ -5160,36 +5483,70 @@ static char *doc_prefix_for_rel_alloc(const char *rel_html) {
   return pre;
 }
 
-static char *doc_nav_inner_alloc(const char *prefix, int has_docs) {
+static char *doc_nav_inner_alloc_dyn(const char *prefix, StrVec *root_md, StrVec *root_html, int has_docs) {
   /* prefix: "" for pages in docdir root; "../" for pages under docdir/docs/ etc */
-  char buf[1024];
-  char bom[256];
-  char docs[256];
   const char *p = prefix ? prefix : "";
+  size_t n = 0;
+  int i;
+  char *out;
 
-  /* BOM is located alongside build/ by default: from docdir root it's ../bom.html */
-  bom[0] = '\0';
-  tack_copy(bom, sizeof(bom), p);
-  tack_cat(bom, sizeof(bom), "../bom.html");
+  /* base links: Index + BOM (+ optional Docs) */
+  n += 64;
+  n += strlen(p) + strlen("index.html") + 32;
+  n += strlen(p) + strlen("../bom.html") + 32;
+  if (has_docs) n += strlen(p) + strlen("index.html#docs") + 32;
 
-  docs[0] = '\0';
-  if (has_docs) {
-    tack_copy(docs, sizeof(docs), " | <a href=\"");
-    tack_cat(docs, sizeof(docs), p);
-    tack_cat(docs, sizeof(docs), "index.html#docs\">Docs</a>");
+  if (root_md && root_html) {
+    int cnt = root_md->count < root_html->count ? root_md->count : root_html->count;
+    for (i = 0; i < cnt; i++) {
+      const char *h = root_html->items[i];
+      const char *m = root_md->items[i];
+      char *label = doc_root_label_alloc(m);
+      if (!label) label = xstrdup("doc");
+      n += strlen(p) + strlen(h) + strlen(label) + 32;
+      free(label);
+    }
   }
 
-  tack_snprintf(buf, sizeof(buf),
-    "<a href=\"%sindex.html\">Index</a> | "
-    "<a href=\"%sreadme.html\">README</a> | "
-    "<a href=\"%sfaq.html\">FAQ</a> | "
-    "<a href=\"%sroadmap.html\">Roadmap</a> | "
-    "<a href=\"%sreleasenotes.html\">Release Notes</a>%s | "
-    "<a href=\"%s\">BOM</a>",
-    p, p, p, p, p, docs, bom);
+  out = (char*)xmalloc(n + 1);
+  out[0] = '\0';
 
-  return xstrdup(buf);
+  tack_cat(out, n + 1, "<a href=\"");
+  tack_cat(out, n + 1, p);
+  tack_cat(out, n + 1, "index.html\">Index</a>");
+
+  if (root_md && root_html) {
+    int cnt = root_md->count < root_html->count ? root_md->count : root_html->count;
+    for (i = 0; i < cnt; i++) {
+      const char *h = root_html->items[i];
+      const char *m = root_md->items[i];
+      char *label = doc_root_label_alloc(m);
+      if (!label) label = xstrdup("doc");
+
+      tack_cat(out, n + 1, " | <a href=\"");
+      tack_cat(out, n + 1, p);
+      tack_cat(out, n + 1, h);
+      tack_cat(out, n + 1, "\">");
+      tack_cat(out, n + 1, label);
+      tack_cat(out, n + 1, "</a>");
+
+      free(label);
+    }
+  }
+
+  if (has_docs) {
+    tack_cat(out, n + 1, " | <a href=\"");
+    tack_cat(out, n + 1, p);
+    tack_cat(out, n + 1, "index.html#docs\">Docs</a>");
+  }
+
+  tack_cat(out, n + 1, " | <a href=\"");
+  tack_cat(out, n + 1, p);
+  tack_cat(out, n + 1, "../bom.html\">BOM</a>");
+
+  return out;
 }
+
 
 static void emit_doc_index(FILE *out, void *ctx) {
   DocIndexCtx *d = (DocIndexCtx*)ctx;
@@ -5198,10 +5555,28 @@ static void emit_doc_index(FILE *out, void *ctx) {
   fputs("<main id=\"tack-content\">", out);
   fputs("<h1>tack docs</h1>", out);
   fputs("<ul>", out);
-  if (!d || d->has_readme) fputs("<li><a href=\"readme.html\">README</a></li>", out);
-  if (!d || d->has_faq) fputs("<li><a href=\"faq.html\">FAQ</a></li>", out);
-  if (!d || d->has_roadmap) fputs("<li><a href=\"roadmap.html\">Roadmap</a></li>", out);
-  if (!d || d->has_releasenotes) fputs("<li><a href=\"releasenotes.html\">Release Notes</a></li>", out);
+
+  if (d && d->root_md && d->root_html) {
+    int cnt = d->root_md->count < d->root_html->count ? d->root_md->count : d->root_html->count;
+    for (i = 0; i < cnt; i++) {
+      const char *href = d->root_html->items[i];
+      const char *mdp = d->root_md->items[i];
+      char *label = doc_root_label_alloc(mdp);
+      if (!label) label = xstrdup("doc");
+
+      fputs("<li><a href=\"", out);
+      write_html_escaped(out, href);
+      fputs("\">", out);
+      write_html_escaped(out, label);
+      fputs("</a></li>", out);
+
+      free(label);
+    }
+  } else {
+    /* fallback */
+    fputs("<li><a href=\"index.html\">Index</a></li>", out);
+  }
+
   fputs("<li><a href=\"../bom.html\">BOM</a></li>", out);
   fputs("</ul>", out);
 
@@ -6111,12 +6486,16 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
 
     StrVec docs_md;
     StrVec docs_html;
+    StrVec root_md;
+    StrVec root_html;
     int has_docs = 0;
     int i;
     int rc2;
 
     sv_init(&docs_md);
     sv_init(&docs_html);
+    sv_init(&root_md);
+    sv_init(&root_html);
 
     memset(&hc, 0, sizeof(hc));
     hc.kind = "doc";
@@ -6155,32 +6534,39 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
     }
     has_docs = (docs_html.count > 0);
 
-    nav_inner = doc_nav_inner_alloc("", has_docs);
-    if (!nav_inner) { sv_free(&docs_md); sv_free(&docs_html); return 1; }
+    /* discover root-level markdown (non-recursive): *.md */
+    scan_dir_suffix(&root_md, ".", ".md");
+    sv_sort_unique(&root_md);
+    doc_reorder_root_md(&root_md);
+    for (i = 0; i < root_md.count; i++) {
+      char *h = doc_root_html_alloc(root_md.items[i]);
+      if (h) sv_push_own(&root_html, h);
+    }
 
-    if (file_exists("README.md")) {
-      path_join(out, sizeof(out), docdir, "readme.html");
-      if (verbose) printf("tack: doc: %s\n", out);
-      rc2 = write_doc_page(out, "tack README", nav_inner, &hc, "README.md");
-      if (rc2 != 0) { free(nav_inner); sv_free(&docs_md); sv_free(&docs_html); return rc2; }
-    }
-    if (file_exists("FAQ.md")) {
-      path_join(out, sizeof(out), docdir, "faq.html");
-      if (verbose) printf("tack: doc: %s\n", out);
-      rc2 = write_doc_page(out, "tack FAQ", nav_inner, &hc, "FAQ.md");
-      if (rc2 != 0) { free(nav_inner); sv_free(&docs_md); sv_free(&docs_html); return rc2; }
-    }
-    if (file_exists("ROADMAP.md")) {
-      path_join(out, sizeof(out), docdir, "roadmap.html");
-      if (verbose) printf("tack: doc: %s\n", out);
-      rc2 = write_doc_page(out, "tack Roadmap", nav_inner, &hc, "ROADMAP.md");
-      if (rc2 != 0) { free(nav_inner); sv_free(&docs_md); sv_free(&docs_html); return rc2; }
-    }
-    if (file_exists("RELEASENOTES.md")) {
-      path_join(out, sizeof(out), docdir, "releasenotes.html");
-      if (verbose) printf("tack: doc: %s\n", out);
-      rc2 = write_doc_page(out, "tack Release Notes", nav_inner, &hc, "RELEASENOTES.md");
-      if (rc2 != 0) { free(nav_inner); sv_free(&docs_md); sv_free(&docs_html); return rc2; }
+    nav_inner = doc_nav_inner_alloc_dyn("", &root_md, &root_html, has_docs);
+    if (!nav_inner) { sv_free(&docs_md); sv_free(&docs_html); sv_free(&root_md); sv_free(&root_html); return 1; }
+
+    /* root markdown -> docdir/<root>.html */
+    {
+      int cnt = root_md.count < root_html.count ? root_md.count : root_html.count;
+      for (i = 0; i < cnt; i++) {
+        const char *mdp = root_md.items[i];
+        const char *htm = root_html.items[i];
+        char title2[256];
+        char *lbl = doc_root_label_alloc(mdp);
+
+        path_join(out, sizeof(out), docdir, htm);
+        if (lbl) {
+          tack_snprintf(title2, sizeof(title2), "tack %s", lbl);
+        } else {
+          tack_snprintf(title2, sizeof(title2), "tack %s", mdp);
+        }
+
+        if (verbose) printf("tack: doc: %s", out);
+        rc2 = write_doc_page(out, title2, nav_inner, &hc, mdp);
+        free(lbl);
+        if (rc2 != 0) { free(nav_inner); sv_free(&docs_md); sv_free(&docs_html); sv_free(&root_md); sv_free(&root_html); return rc2; }
+      }
     }
 
     /* docs/ markdown -> docdir/docs/ html (recursive) */
@@ -6201,7 +6587,7 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
       free(dir);
 
       prefix = doc_prefix_for_rel_alloc(rel_html);
-      nav2 = doc_nav_inner_alloc(prefix, has_docs);
+      nav2 = doc_nav_inner_alloc_dyn(prefix, &root_md, &root_html, has_docs);
 
       tack_snprintf(title, sizeof(title), "tack %s", mdp);
 
@@ -6210,7 +6596,7 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
       free(prefix);
       free(nav2);
       free(rel_html);
-      if (rc2 != 0) { free(nav_inner); sv_free(&docs_md); sv_free(&docs_html); return rc2; }
+      if (rc2 != 0) { free(nav_inner); sv_free(&docs_md); sv_free(&docs_html); sv_free(&root_md); sv_free(&root_html); return rc2; }
     }
 
     /* index */
@@ -6223,10 +6609,8 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
       char *nav = 0;
       char *toc = 0;
 
-      dctx.has_readme = file_exists("README.md");
-      dctx.has_faq = file_exists("FAQ.md");
-      dctx.has_roadmap = file_exists("ROADMAP.md");
-      dctx.has_releasenotes = file_exists("RELEASENOTES.md");
+      dctx.root_md = &root_md;
+      dctx.root_html = &root_html;
       dctx.docs_html = has_docs ? &docs_html : 0;
 
       head_assets = make_head_assets(hc.css_href);
@@ -6246,7 +6630,7 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
 
       {
         int rc2 = write_html_page(idx, "doc", &pg);
-        if (rc2 != 0) { free(head_assets); free(nav); free(toc); free(nav_inner); sv_free(&docs_md); sv_free(&docs_html); return rc2; }
+        if (rc2 != 0) { free(head_assets); free(nav); free(toc); free(nav_inner); sv_free(&docs_md); sv_free(&docs_html); sv_free(&root_md); sv_free(&root_html); return rc2; }
       }
 
       free(head_assets);
@@ -6257,6 +6641,8 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
     free(nav_inner);
     sv_free(&docs_md);
     sv_free(&docs_html);
+    sv_free(&root_md);
+    sv_free(&root_html);
   }
 
   printf("tack: doc: wrote %s\n", docdir);

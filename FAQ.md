@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.9
+# tack FAQ / FQA (DE/EN) — v0.7.12
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -26,8 +26,7 @@ Lösche den Ordner:
 tack ersetzt für viele Projekte das klassische Build-Skript (Makefile/CMakeLists), indem es eine feste, simple Konvention nutzt und die üblichen Tasks (`build/run/test/clean`) anbietet. Für extrem komplexe Toolchains ist make/cmake weiterhin besser geeignet.
 
 ### Erzeugt tack eine `.gitignore` oder Fossil-Ignore-Regeln?
-Ja: `tack init` legt, falls nicht vorhanden, eine sinnvolle `.gitignore` sowie `.fossil-settings/ignore-glob` an.
-Wenn die Dateien bereits existieren, **überschreibt tack nichts**, sondern hängt nur einen klar markierten `tack`-Block an, sofern er noch fehlt.
+Ja: `tack init` legt, falls nicht vorhanden, eine sinnvolle `.gitignore` sowie `.fossil-settings/ignore-glob` an. Zusätzlich erzeugt es (nicht destruktiv) `templates/` inkl. Standard-CSS/Template und eine Start-`tack.ini`. Wenn die Dateien bereits existieren, **überschreibt tack nichts**, sondern hängt nur einen klar markierten `tack`-Block an, sofern er noch fehlt.
 Das ist bewusst „non-destructive“, damit bestehende Projektregeln erhalten bleiben.
 
 ### Welche Compiler funktionieren?
@@ -194,7 +193,7 @@ Sie versucht **nicht**, Abhängigkeitsversionen zu erraten oder fremde Komponent
 
 ### Erzeugt `tack doc` API-Dokumentation wie `cargo doc` / rustdoc?
 
-Nein. `tack doc` erzeugt eine kleine, offline-fähige Projekt-Doku-Site (README/FAQ/ROADMAP/RELEASENOTES usw.).  
+Nein. `tack doc` erzeugt eine kleine, offline-fähige Projekt-Doku-Site aus **allen Root-Markdowns** (`*.md` im Projekt-Root) sowie optional `docs/**/*.md` (wenn vorhanden) und verlinkt die BOM.  
 Automatische API-Dokumentation für C würde einen Parser/Indexer erfordern und ist aktuell nicht Teil des `doc`-Features.
 
 ### Wird das erzeugte HTML Themes (Hell/Dunkel/Hoher Kontrast) und Templates unterstützen?
@@ -398,7 +397,7 @@ It **does not** try to resolve third-party component versions or infer dependenc
 
 ### Does `tack doc` generate API docs like `cargo doc` / rustdoc?
 
-No. `tack doc` is a small, offline project documentation site (README/FAQ/ROADMAP/RELEASENOTES, etc.).  
+No. `tack doc` is a small, offline project documentation site from all root-level `*.md` files plus optional `docs/**/*.md` (if present) and links the BOM.  
 Automatic API documentation for C would require a parser/indexer and is out of scope for the current `doc` feature.
 
 ### Will the generated HTML support themes (light/dark/high-contrast) and templates?

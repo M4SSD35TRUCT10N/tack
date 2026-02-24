@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.10)
+# tack — Tiny ANSI-C Kit (v0.7.12)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.10)
+## Features (v0.7.12)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -69,7 +69,8 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - Shared Core Code: `src/core/` wird 1× pro Profil gebaut und optional gelinkt
 - `tack bom`: erzeugt ein Build-Manifest (BOM) als `build/bom.md` und `build/bom.html`.
 - `tack sbom`: erzeugt eine SBOM in mehreren Formaten (Default: tack‑JSON unter `build/sbom.json`; CycloneDX/SPDX mit formatabhängigen Defaults, steuerbar via `tack.ini`).
-- `tack doc`: erzeugt offline HTML-Doku in `build/doc/` (Wrapper um Markdown) für `README.md`, `FAQ.md`, `ROADMAP.md`, `RELEASENOTES.md` sowie optional alle `docs/**/*.md` (wenn vorhanden) und verlinkt die BOM.
+- `tack doc`: erzeugt offline HTML-Doku in `build/doc/` (Wrapper um Markdown) für **alle Root-Markdowns** (`*.md` im Projekt-Root) sowie optional alle `docs/**/*.md` (wenn vorhanden) und verlinkt die BOM.
+- `tack init`: legt bei Bedarf (nicht destruktiv) `templates/` inkl. Standard-CSS/Template sowie eine Start-`tack.ini` an.
 - Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - HTML-Ausgabe: stabile Template-Ankerpunkte (Marker + IDs) für CSS-Hooks und optionales Post-Processing.
 - **Konfiguration / Layering**:
@@ -114,7 +115,7 @@ Dieses Repo legt `tack` unter `src/tack.c` ab. Du kannst es aber auch in die Rep
 
 tack kann drei Arten von „Dokumentation“ ausgeben, die oft verwechselt werden:
 
-- **DOC**: eine kleine, offline-fähige Projekt-Doku-Site (README/FAQ/ROADMAP/RELEASENOTES usw.).  
+- **DOC**: eine kleine, offline-fähige Projekt-Doku-Site aus allen Root-Markdowns (`*.md` im Projekt-Root) sowie optional `docs/**/*.md` (wenn vorhanden).  
   Das ist **keine** automatisch generierte API-Dokumentation wie bei `cargo doc`/`rustdoc`.
 - **BOM**: ein **Build-Manifest** für das konkrete Build (Targets, Inputs, Flags, Toolchain/OS, Output-Pfade).  
   Zweck: Debugging, Nachvollziehbarkeit, Reproduzierbarkeit.
@@ -228,7 +229,7 @@ Den Ordner `.tack-cache/` löschen (z.B. `rm -rf .tack-cache`).
 - `clobber` – `build/` komplett löschen
 - `bom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – Build-Manifest als Markdown/HTML
 - `sbom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – deterministische SBOM (Standard-JSON, Format via `tack.ini`)
-- `doc [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – Offline-HTML-Doku (README/FAQ/ROADMAP/RELEASENOTES + BOM)
+- `doc [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – Offline-HTML-Doku (Root-`*.md` + optional `docs/**/*.md` + BOM)
 
 Tipp: `tack build --help` (oder `-h`) zeigt die Hilfe **für dieses Sub‑Kommando**.
 
@@ -537,7 +538,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.10)
+## Features (v0.7.12)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -558,7 +559,8 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - Shared core code: `src/core/` built once per profile, optionally linked
 - `tack bom`: generates a build manifest (BOM) as `build/bom.md` and `build/bom.html`.
 - `tack sbom`: generates an SBOM in multiple formats (default: tack JSON at `build/sbom.json`; CycloneDX/SPDX with format-specific defaults, controlled via `tack.ini`).
-- `tack doc`: generates offline HTML docs in `build/doc/` (wrapper around Markdown) for `README.md`, `FAQ.md`, `ROADMAP.md`, `RELEASENOTES.md`, plus optional `docs/**/*.md` (if present), and links the BOM.
+- `tack doc`: generates offline HTML docs in `build/doc/` (wrapper around Markdown) for all root-level `*.md` files plus optional `docs/**/*.md` (if present), and links the BOM.
+- `tack init`: non-destructively creates `templates/` with default CSS/template and a starter `tack.ini` when needed.
 - Optional: HTML templates + CSS for DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - HTML output: stable template anchor markers (markers + IDs) for CSS hooks and optional post-processing.
 - **Configuration layering**:
@@ -602,7 +604,7 @@ This repo keeps tack at `src/tack.c`. You may also place it in the repo root —
 
 tack can output three kinds of “documentation” that are often mixed up:
 
-- **DOC**: a small, offline-friendly project documentation site (README/FAQ/ROADMAP/RELEASENOTES, etc.).  
+- **DOC**: a small, offline-friendly project documentation site from all root-level `*.md` files plus optional `docs/**/*.md` (if present).  
   This is **not** automatically generated API documentation like `cargo doc`/`rustdoc`.
 - **BOM**: a **build manifest** for a specific build (targets, inputs, flags, toolchain/OS, output paths).  
   Purpose: debugging, traceability, reproducibility.
@@ -713,7 +715,7 @@ Delete the `.tack-cache/` folder (e.g. `rm -rf .tack-cache`).
 - `clobber` – delete `build/` entirely
 - `bom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – build manifest as Markdown/HTML
 - `sbom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – deterministic SBOM (default JSON output, format via `tack.ini`)
-- `doc [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – offline HTML docs (README/FAQ/ROADMAP/RELEASENOTES + BOM)
+- `doc [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – offline HTML docs (root `*.md` + optional `docs/**/*.md` + BOM)
 
 ### Exit codes
 

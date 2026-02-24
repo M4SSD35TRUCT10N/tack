@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.10
+# tack ROADMAP (DE/EN) — v0.7.12
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -44,6 +44,20 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 - Depfile-Scan erfasst jetzt auch `#include <...>` und löst diese gegen die effektiven Include-Pfade auf; Header-Änderungen über `-I` triggern damit korrekt Recompiles.
 - Rebuild-Entscheidungen prüfen gespeicherte Abhängigkeits-Metadaten (`mtime`/Größe/FNV-1a) **plus** Depfile-Fingerprint zur Erkennung geänderter Dependency-Graphen (robust gegen Cache-Restores / Write-Order-False-Positives).
 - Dokumentation aktualisiert (README/FAQ/ROADMAP/RELEASENOTES).
+
+### Erledigt in v0.7.10
+- Feature: `tack fmt` – Orchestrator für externe Formatter (Policy via `[fmt]`/`[fmt "NAME"]`).
+  - `tack fmt` formatiert in-place; `tack fmt --check` ändert nichts und liefert Exit-Code 2 bei Abweichungen.
+  - Regeln, Globs, Excludes, Reporting; `--rule`/`--target`/`--list`/`--no-defaults`/`--diff` (Diff best effort).
+
+### Erledigt in v0.7.11
+- `tack doc`: berücksichtigt optional einen `docs/`-Ordner (alle `docs/**/*.md`) und erzeugt HTML-Seiten unter `build/doc/docs/`.
+- `build/doc/index.html`: bei vorhandenen `docs/**/*.md` zusätzliche „Docs“-Sektion (Anchor `#docs`) und Nav-Link.
+
+### Erledigt in v0.7.12
+- `tack doc`: rendert alle `*.md` im Projekt-Root dynamisch (keine festen Dateinamen mehr) und erzeugt Nav/Index aus dieser Liste.
+- `tack init`: erzeugt zusätzlich (nicht destruktiv) `templates/` inkl. Standard-CSS/Template sowie eine Start-`tack.ini`.
+- `tack doc`/`tack bom`: nutzen automatisch `templates/tack_doc.css`, falls keine CSS-Datei konfiguriert ist und die Datei existiert.
 
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
@@ -100,6 +114,20 @@ Before “big” releases and announcements, tack should be validated against re
 - Depfile scanning now also captures `#include <...>` and resolves them against the effective include paths; header changes behind `-I` now correctly trigger recompiles.
 - Rebuild decisions now validate stored dependency metadata (`mtime`/size/FNV-1a) **plus** a depfile fingerprint to detect changed dependency graphs (robust against cache restores / write-order false positives).
 - Documentation updated (README/FAQ/ROADMAP/RELEASENOTES).
+
+### Done in v0.7.10
+- Feature: `tack fmt` – orchestrator for external formatters (policy via `[fmt]`/`[fmt "NAME"]`).
+  - `tack fmt` formats in-place; `tack fmt --check` never modifies files and returns exit code 2 on differences.
+  - Rules, globs, excludes, reporting; `--rule`/`--target`/`--list`/`--no-defaults`/`--diff` (diff best effort).
+
+### Done in v0.7.11
+- `tack doc`: optionally includes a `docs/` folder (all `docs/**/*.md`) and generates HTML pages under `build/doc/docs/`.
+- `build/doc/index.html`: adds a “Docs” section when `docs/**/*.md` exists (anchor `#docs`) and provides a matching nav link.
+
+### Done in v0.7.12
+- `tack doc`: renders all root-level `*.md` dynamically (no fixed filenames) and builds nav/index from that list.
+- `tack init`: additionally creates (non-destructive) `templates/` with default CSS/template and a starter `tack.ini`.
+- `tack doc`/`tack bom`: automatically use `templates/tack_doc.css` if no CSS is configured and the file exists.
 
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs

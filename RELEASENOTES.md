@@ -9,6 +9,12 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.12
+- `tack doc`: keine festen Dateinamen mehr. Stattdessen werden alle `*.md` im Projekt-Root als HTML in `build/doc/` gerendert (z.B. `README.md`, `CHANGELOG.md`, `RELEASENOTES.md`, … – je nachdem, was im Repo existiert).
+  - Navigation/Index werden aus dieser dynamischen Root-Liste erzeugt (kein Dead-Link-Nav mehr).
+- `tack init`: legt zusätzlich (nicht destruktiv) `templates/` inkl. Standard-CSS/Template sowie eine Start-`tack.ini` an.
+- Convenience: Wenn keine CSS-Datei konfiguriert ist, nutzt `tack doc`/`tack bom` automatisch `templates/tack_doc.css`, falls vorhanden.
+
 ### v0.7.11
 - `tack doc`: berücksichtigt optional einen `docs/`-Ordner (alle `docs/**/*.md`) und erzeugt dafür HTML-Seiten unter `build/doc/docs/`.
 - `build/doc/index.html` zeigt bei vorhandenen `docs/**/*.md` zusätzlich eine „Docs“-Sektion (Anchor `#docs`) und die Seiten enthalten einen passenden Nav-Link.
