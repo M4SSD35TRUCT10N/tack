@@ -152,6 +152,30 @@ int main(void) {
     return 1;
   }
 
+  /* tack new: create project dir and run init inside it */
+  if (ensure_clean_dir("newcase") != 0) {
+    fprintf(stderr, "failed to prepare newcase dir\n");
+    return 1;
+  }
+  if (change_dir("newcase") != 0) {
+    fprintf(stderr, "failed to chdir to newcase\n");
+    return 1;
+  }
+
+  if (cmd_new("hello") != 0) {
+    fprintf(stderr, "cmd_new failed\n");
+    failures++;
+  } else {
+    if (!file_exists("hello/tack.ini")) { fprintf(stderr, "new: tack.ini missing\n"); failures++; }
+    if (!file_exists("hello/templates/tack_doc.css")) { fprintf(stderr, "new: templates css missing\n"); failures++; }
+    if (!file_exists("hello/src/main.c") && !file_exists("hello/src/app/main.c")) { fprintf(stderr, "new: main.c missing\n"); failures++; }
+  }
+
+  if (change_dir("..") != 0) {
+    fprintf(stderr, "failed to return from newcase\n");
+    return 1;
+  }
+
   config_free();
   g_no_config = 1;
   if (config_auto_load() != 0 || g_config_loaded) {

@@ -1,11 +1,11 @@
-# tack — Tiny ANSI-C Kit (v0.7.13)
+# tack — Tiny ANSI-C Kit (v0.7.14)
 
 ---
 
 > **DE/EN README**
 > 
-> DE: Ein schlanker **Build‑Driver** für C (C89/ANSI‑C), inspiriert von Cargo‑Workflows: `init`, `list`, `build`, `run`, `test` — ohne Make/CMake/Ninja‑Stack.  
-> EN: A tiny **build driver** for C (C89/ANSI‑C), inspired by Cargo workflows: `init`, `list`, `build`, `run`, `test` — without a Make/CMake/Ninja stack.
+> DE: Ein schlanker **Build‑Driver** für C (C89/ANSI‑C), inspiriert von Cargo‑Workflows: `new`, `init`, `list`, `build`, `run`, `test` — ohne Make/CMake/Ninja‑Stack.  
+> EN: A tiny **build driver** for C (C89/ANSI‑C), inspired by Cargo workflows: `new`, `init`, `list`, `build`, `run`, `test` — without a Make/CMake/Ninja stack.
 
 **Backlinks:** [FAQ](FAQ.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.13)
+## Features (v0.7.14)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -157,7 +157,9 @@ tcc -run src/tack.c run debug -- --hello Berlin
 
 ```bat
 tcc src/tack.c -o tack.exe
-tack.exe init
+tack.exe new hello
+cd hello
+
 tack.exe build debug -j 8 -v
 ```
 
@@ -540,7 +542,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.13)
+## Features (v0.7.14)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -645,7 +647,9 @@ tcc -run src/tack.c run debug -- --hello Berlin
 
 ```bat
 tcc src/tack.c -o tack.exe
-tack.exe init
+tack.exe new hello
+cd hello
+
 tack.exe build debug -j 8 -v
 ```
 

@@ -9,6 +9,9 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.14
+- `tack new <name>`: erstellt ein Verzeichnis `<name>/` und führt darin automatisch `tack init` aus (Projekt-Scaffold in einem Schritt).
+
 ### v0.7.13
 - `tack clobber`: räumt jetzt immer zusätzlich `.tack-cache/` ab (Big Hammer: Build + Cache weg).
 - `tack clean --cache`: löscht zusätzlich `.tack-cache/` (Cache-Reset ohne manuelle Dateisystem-Operationen).
@@ -88,6 +91,9 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.14
+- `tack new <name>`: creates a `<name>/` directory and automatically runs `tack init` inside it (one-step project scaffold).
 
 ### v0.7.13
 - `tack clobber`: now always deletes `.tack-cache/` as well (big hammer: build + cache reset).

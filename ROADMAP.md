@@ -64,6 +64,9 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 - `tack clean --cache`: löscht zusätzlich `.tack-cache/` (Cache-Reset ohne manuelle Dateisystem-Operationen).
 - Sicherheits-Defaults: Löschoperationen folgen keinen Symlinks/Junctions und bleiben durch das bestehende Recursion-Limit begrenzt.
 
+### Erledigt in v0.7.14
+- `tack new <name>`: erstellt das Projektverzeichnis `<name>/` und führt darin `tack init` aus (One‑Step‑Scaffold).
+
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
 - Optional: bessere Windows Long‑Path Guidance
@@ -138,6 +141,9 @@ Before “big” releases and announcements, tack should be validated against re
 - `tack clobber`: now also removes `.tack-cache/` (big hammer: build + cache reset).
 - `tack clean --cache`: additionally removes `.tack-cache/` (cache reset without manual filesystem operations).
 - Safety defaults: deletion does not follow symlinks/junctions and stays bounded by the existing recursion depth limit.
+
+### Done in v0.7.14
+- `tack new <name>`: creates the project directory `<name>/` and runs `tack init` inside it (one-step scaffold).
 
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs
