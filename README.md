@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.21)
+# tack — Tiny ANSI-C Kit (v0.7.22)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.21)
+## Features (v0.7.22)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -569,7 +569,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - **not** a package manager (no resolver/registry/lockfile),
 - **not** an IDE project generator like CMake (intentionally).
 
-## Features (v0.7.21)
+## Features (v0.7.22)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja

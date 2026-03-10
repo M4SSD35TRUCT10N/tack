@@ -25,6 +25,26 @@ static int ensure_clean_dir(const char *path) {
   return 0;
 }
 
+static int remove_if_exists(const char *path) {
+  if (!path) return 1;
+  if (!file_exists(path)) return 0;
+  return rm_rf(path);
+}
+
+static int reset_build_outputs_for_cache_test(const Target *t, Profile p) {
+  char root[512];
+  char objd[512];
+  char depd[512];
+  char bind[512];
+
+  if (!t) return 1;
+  build_paths(root, sizeof(root), objd, sizeof(objd), depd, sizeof(depd), bind, sizeof(bind), t->id, p);
+  if (remove_if_exists(objd) != 0) return 1;
+  if (remove_if_exists(depd) != 0) return 1;
+  if (remove_if_exists(bind) != 0) return 1;
+  return 0;
+}
+
 static int get_cwd(char *buf, size_t cap) {
 #ifdef _WIN32
   if (_getcwd(buf, (int)cap) == 0) return 1;
@@ -247,18 +267,30 @@ int main(void) {
     }
 
     g_no_cache = 0;
-    if (file_exists(g_cache_dir)) rm_rf(g_cache_dir);
-    if (build_one_target(t, PROF_DEBUG, 0, 0, 0, 1, 0, 0) != 0) {
+    if (remove_if_exists(g_cache_dir) != 0 ||
+        reset_build_outputs_for_cache_test(t, PROF_DEBUG) != 0) {
+      fprintf(stderr, "failed to reset cache test inputs\n");
+      failures++;
+    } else if (build_one_target(t, PROF_DEBUG, 0, 0, 0, 1, 0, 0) != 0) {
       fprintf(stderr, "build for cache failed\n");
       failures++;
     } else if (!file_exists(g_cache_dir)) {
       fprintf(stderr, "cache dir missing\n");
       failures++;
+    } else if (reset_build_outputs_for_cache_test(t, PROF_DEBUG) != 0) {
+      fprintf(stderr, "failed to reset outputs for cache restore\n");
+      failures++;
+    } else if (build_one_target(t, PROF_DEBUG, 0, 0, 0, 1, 0, 0) != 0) {
+      fprintf(stderr, "build from cache failed\n");
+      failures++;
     }
 
     g_no_cache = 1;
-    if (file_exists(g_cache_dir)) rm_rf(g_cache_dir);
-    if (build_one_target(t, PROF_DEBUG, 0, 0, 1, 1, 0, 0) != 0) {
+    if (remove_if_exists(g_cache_dir) != 0 ||
+        reset_build_outputs_for_cache_test(t, PROF_DEBUG) != 0) {
+      fprintf(stderr, "failed to reset no-cache inputs\n");
+      failures++;
+    } else if (build_one_target(t, PROF_DEBUG, 0, 0, 0, 1, 0, 0) != 0) {
       fprintf(stderr, "build with no-cache failed\n");
       failures++;
     } else if (file_exists(g_cache_dir)) {

@@ -9,6 +9,12 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.22
+- Test-Fix für den bislang übergangenen Nebenbefund `cache dir missing` im `functional_smoke_test`.
+- Der Cache-Test entfernt jetzt vor der Prüfung gezielt die target-spezifischen Build-Ausgaben unter `build/<target>/<profile>/{obj,dep,bin}`, damit ein echter Build-/Restore-Pfad entsteht und nicht bloß ein Up-to-date-Short-Circuit.
+- Dadurch prüft der Smoke-Test wieder belastbar, dass `.tack-cache/` bei cache-fähigen Builds angelegt wird und der Warm-Cache-Pfad nach entfernten Build-Ausgaben weiter funktioniert.
+- Der `--no-cache`-Pfad wird mit derselben Ausgangslage gegengeprüft; Produktionscode bleibt unverändert.
+
 ### v0.7.21
 - Abschlussprüfung der DE/EN-Doku: README, FAQ, ROADMAP, Release Notes und `templates/README.md` wurden inhaltlich angeglichen statt nur markerbasiert geprüft.
 - README EN enthält jetzt die zuvor nur auf Deutsch dokumentierten Konfigurationsdetails (`tack.ini`, `[doc]`/`[bom]`, Flag-Semantik, Beispiel-INI, clean/clobber-Abgrenzung).
@@ -130,6 +136,12 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.22
+- Test fix for the previously parked `cache dir missing` side finding in `functional_smoke_test`.
+- Before asserting cache behavior, the smoke test now removes the target-specific build outputs under `build/<target>/<profile>/{obj,dep,bin}`, so it exercises a real build/restore path instead of an up-to-date short-circuit.
+- This makes the smoke test reliably verify again that `.tack-cache/` is created for cache-capable builds and that the warm-cache path still works after build outputs were removed.
+- The `--no-cache` path is checked from the same starting conditions; production code is unchanged.
 
 ### v0.7.21
 - Final DE/EN documentation pass: README, FAQ, ROADMAP, Release Notes, and `templates/README.md` were aligned by content rather than by markers only.

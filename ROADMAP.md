@@ -105,9 +105,13 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 - README EN dokumentiert jetzt die bislang nur im deutschen Teil vorhandenen Konfigurationsdetails und die Abgrenzung `clean`/`clobber`.
 - FAQ EN wurde an dieselbe Themenreihenfolge wie FAQ DE angepasst; `templates/README.md` wurde ebenfalls inhaltlich angeglichen.
 
+### Erledigt in v0.7.22
+- `functional_smoke_test` setzt den Cache-Pfad jetzt robuster auf: Vor der Cache-Prüfung werden Build-Ausgaben gezielt entfernt, damit wirklich ein neuer Compile-/Restore-Pfad statt eines Up-to-date-No-op getestet wird.
+- Der Test deckt damit wieder zwei reale Erwartungen ab: Cache-Verzeichnis wird bei einem echten cache-fähigen Build angelegt, und ein zweiter Build kann mit warmem Cache nach entfernten Build-Ausgaben erneut erfolgreich laufen.
+- Der `--no-cache`-Pfad wird weiterhin separat geprüft, jetzt mit derselben Ausgangslage wie der Cache-Fall.
+
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
-- Abschlussprüfung der Doku auf Zweisprachigkeit (DE/EN-Inhalte angleichen)
 
 ### Paketmanagement (Idee / Untersuchungen)
 C hat kein Standard‑Paketmanagement wie Rust. Ein tack‑eigenes System wäre ein USP, aber nur mit sehr klarer Scope‑Definition:
@@ -219,9 +223,13 @@ Before “big” releases and announcements, tack should be validated against re
 - README EN now documents the configuration details and the `clean`/`clobber` distinction that had previously only been spelled out in the German section.
 - FAQ EN was reordered to the same topic sequence as FAQ DE; `templates/README.md` was aligned as well.
 
+### Done in v0.7.22
+- `functional_smoke_test` now sets up the cache path more robustly: before asserting cache behavior it explicitly removes build outputs, so the test exercises a real compile/restore path instead of an up-to-date no-op.
+- This restores two concrete expectations: a cache-capable build creates `.tack-cache/`, and a second build can succeed again with a warm cache after build outputs were removed.
+- The `--no-cache` path is still covered separately, now from the same starting conditions as the cache case.
+
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs
-- Final bilingual documentation pass (align DE/EN content)
 
 ### Package management (idea / research)
 C has no standard package manager. A tack-native approach could be a USP, but needs strict scope:
