@@ -9,6 +9,12 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.16
+- Cache-Validierung nach `tack clean` deterministischer gemacht: Das Depfile selbst wird für Cache-Restores jetzt über **Dateigröße + Content-Hash** statt über eine harte `mtime`-Gleichheit geprüft.
+- Normale Dependencies bleiben weiterhin über `mtime` + Größe + FNV-1a validiert; nur der Depfile-Fingerprint wurde gezielt entschärft.
+- Damit verschwinden timing-abhängige Cache-Misses nach `clean`, ohne Änderungen am Dependency-Graphen zu übersehen.
+- Neuer Regressionstest `tests/cache_restore_after_clean_test.c` simuliert den `clean`/Restore-Fall und prüft zugleich, dass echte Depfile-Inhaltsänderungen den Cache weiterhin verwerfen.
+
 ### v0.7.15
 - Compilerbewusste Debug-Profil-Flags: tack setzt `-g` und `-DDEBUG=1` allgemein, `-bt20` aber nur noch für tcc/TinyCC.
 - `TACK_CC=gcc` bzw. `TACK_CC=clang` funktionieren damit im Debug-Profil portabler; der im Paper reproduzierte `-bt20`-Fehler wird vermieden.
@@ -97,6 +103,12 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.16
+- Made cache validation after `tack clean` deterministic: for cache restores, the depfile itself is now validated via **file size + content hash** instead of requiring strict `mtime` equality.
+- Normal dependencies still use `mtime` + size + FNV-1a; only the depfile fingerprint rule was relaxed on purpose.
+- This removes timing-dependent cache misses after `clean` without masking real dependency-graph changes.
+- New regression test `tests/cache_restore_after_clean_test.c` simulates the `clean`/restore path and also verifies that real depfile content changes still invalidate the cache.
 
 ### v0.7.15
 - Compiler-aware debug profile flags: tack always emits `-g` and `-DDEBUG=1`, but now only emits `-bt20` for tcc/TinyCC.

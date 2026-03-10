@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.15)
+# tack — Tiny ANSI-C Kit (v0.7.16)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.15)
+## Features (v0.7.16)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -111,7 +111,7 @@ Dieses Repo legt `tack` unter `src/tack.c` ab. Du kannst es aber auch in die Rep
 - **Tests**
   - `tests/**/*_test.c` → wird gebaut und ausgeführt
 
-## Compilerbewusste Profil-Flags (v0.7.15)
+## Compilerbewusste Profil-Flags (v0.7.16)
 
 - **Debug**: tack setzt immer `-g` und `-DDEBUG=1`.
 - **TinyCC/tcc**: zusätzlich wird `-bt20` gesetzt, weil dieser Schalter tcc-spezifisch ist.
@@ -213,11 +213,12 @@ Pro Compile-Schritt (pro Ziel/Profil):
 
 
 ### Wie wird die Gültigkeit geprüft?
-Damit Cache-Hits **und** normale Incremental-Rebuild-Checks auch auf Dateisystemen mit grober Timestamp-Auflösung zuverlässig sind, validiert `tack` die Abhängigkeiten aus dem Depfile (inkl. Depfile selbst für Graph-Änderungen) über:
+Damit Cache-Hits **und** normale Incremental-Rebuild-Checks auch auf Dateisystemen mit grober Timestamp-Auflösung zuverlässig sind, validiert `tack` die Abhängigkeiten aus dem Depfile zweistufig:
 
-- `mtime` (Modifikationszeit)
-- Dateigröße
-- Content-Hash (schneller 32-bit FNV-1a; nicht kryptografisch)
+- **normale Dependencies**: `mtime` (Modifikationszeit) + Dateigröße + Content-Hash (schneller 32-bit FNV-1a; nicht kryptografisch)
+- **Depfile selbst** (zur Erkennung geänderter Dependency-Graphen): **Dateigröße + Content-Hash**
+
+Der Unterschied ist bewusst: Nach `tack clean` wird das Depfile vor einem möglichen Cache-Restore neu geschrieben. Würde seine `mtime` zwingend mit dem alten Cache-Eintrag übereinstimmen müssen, entstünden timing-abhängige Cache-Misses trotz identischem Inhalts.
 
 ### Cache deaktivieren
 - `--no-cache`
@@ -549,7 +550,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.15)
+## Features (v0.7.16)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -611,7 +612,7 @@ This repo keeps tack at `src/tack.c`. You may also place it in the repo root —
 - **Tests**
   - `tests/**/*_test.c` (built and executed)
 
-## Compiler-aware profile flags (v0.7.15)
+## Compiler-aware profile flags (v0.7.16)
 
 - **Debug**: tack always emits `-g` and `-DDEBUG=1`.
 - **TinyCC/tcc**: tack additionally emits `-bt20`, because that switch is tcc-specific.
@@ -710,11 +711,12 @@ Per compile step, `tack` writes a `.d` file in the **tack-deps-v1** format:
 
 
 ### How is validity checked?
-To avoid false cache hits **and** false up-to-date decisions in normal incremental rebuild checks on file systems with coarse timestamp resolution, `tack` validates dependencies listed in the depfile (including the depfile itself to detect dependency-graph changes) via:
+To avoid false cache hits **and** false up-to-date decisions in normal incremental rebuild checks on file systems with coarse timestamp resolution, `tack` validates dependencies listed in the depfile in two layers:
 
-- `mtime` (modification time)
-- file size
-- content hash (fast 32-bit FNV-1a; not cryptographic)
+- **normal dependencies**: `mtime` (modification time) + file size + content hash (fast 32-bit FNV-1a; not cryptographic)
+- **the depfile itself** (to detect dependency-graph changes): **file size + content hash**
+
+That distinction is intentional: after `tack clean`, the depfile is rewritten before a cache restore can happen. Requiring the depfile `mtime` to match the old cache entry would create timing-dependent cache misses even when the depfile content is unchanged.
 
 ### Disable cache
 - `--no-cache`

@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.7.15
+ * v0.7.16
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -63,7 +63,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.7.15"
+#define TACK_VERSION "0.7.16"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -1888,10 +1888,12 @@ static void cache_entry_paths(char *obj_path, size_t obj_cap,
 static int cache_meta_valid(const char *meta_path) {
   FILE *f;
   char line[4096];
+  int line_no;
 
   f = fopen(meta_path, "rb");
   if (!f) return 0;
 
+  line_no = 0;
   while (fgets(line, sizeof(line), f)) {
     char *t1 = strchr(line, '\t');
     char *t2;
@@ -1905,6 +1907,7 @@ static int cache_meta_valid(const char *meta_path) {
     long sz_cur;
     unsigned long h_cur;
     size_t len;
+    int is_depfile_entry;
 
     if (!t1) { fclose(f); return 0; }
     *t1 = '\0';
@@ -1931,10 +1934,14 @@ static int cache_meta_valid(const char *meta_path) {
       path[--len] = '\0';
     }
 
+    is_depfile_entry = (line_no == 0);
+    line_no++;
+
     mt_cur = file_mtime(path);
     sz_cur = file_size(path);
     if (mt_cur < 0 || sz_cur < 0) { fclose(f); return 0; }
-    if (mt_cur != mt_rec || sz_cur != sz_rec) { fclose(f); return 0; }
+    if (!is_depfile_entry && (mt_cur != mt_rec || sz_cur != sz_rec)) { fclose(f); return 0; }
+    if (is_depfile_entry && sz_cur != sz_rec) { fclose(f); return 0; }
 
     if (file_hash32_fnv1a(path, &h_cur) != 0) { fclose(f); return 0; }
     h_cur &= 0xfffffffful;
@@ -1947,6 +1954,7 @@ static int cache_meta_valid(const char *meta_path) {
 static int depmeta_needs_rebuild_explain(const char *meta_path, char *why, size_t why_sz) {
   FILE *f;
   char line[4096];
+  int line_no;
 
   f = fopen(meta_path, "rb");
   if (!f) {
@@ -1954,6 +1962,7 @@ static int depmeta_needs_rebuild_explain(const char *meta_path, char *why, size_
     return 1;
   }
 
+  line_no = 0;
   while (fgets(line, sizeof(line), f)) {
     char *t1 = strchr(line, '\t');
     char *t2;
@@ -1967,6 +1976,7 @@ static int depmeta_needs_rebuild_explain(const char *meta_path, char *why, size_
     long sz_cur;
     unsigned long h_cur;
     size_t len;
+    int is_depfile_entry;
 
     if (!t1) { fclose(f); tack_snprintf(why, why_sz, "dependency metadata format error: %s", meta_path); return 1; }
     *t1 = '\0';
@@ -1991,6 +2001,9 @@ static int depmeta_needs_rebuild_explain(const char *meta_path, char *why, size_
     len = strlen(path);
     while (len > 0 && (path[len - 1] == '\n' || path[len - 1] == '\r')) path[--len] = '\0';
 
+    is_depfile_entry = (line_no == 0);
+    line_no++;
+
     mt_cur = file_mtime(path);
     sz_cur = file_size(path);
     if (mt_cur < 0 || sz_cur < 0) {
@@ -1999,9 +2012,14 @@ static int depmeta_needs_rebuild_explain(const char *meta_path, char *why, size_
       return 1;
     }
 
-    if (mt_cur != mt_rec || sz_cur != sz_rec) {
+    if (!is_depfile_entry && (mt_cur != mt_rec || sz_cur != sz_rec)) {
       fclose(f);
       tack_snprintf(why, why_sz, "dependency changed (mtime/size): %s", path);
+      return 1;
+    }
+    if (is_depfile_entry && sz_cur != sz_rec) {
+      fclose(f);
+      tack_snprintf(why, why_sz, "dependency graph changed (depfile size): %s", path);
       return 1;
     }
 
@@ -2013,7 +2031,8 @@ static int depmeta_needs_rebuild_explain(const char *meta_path, char *why, size_
     h_cur &= 0xfffffffful;
     if (h_cur != h_rec) {
       fclose(f);
-      tack_snprintf(why, why_sz, "dependency changed (content hash): %s", path);
+      if (is_depfile_entry) tack_snprintf(why, why_sz, "dependency graph changed (depfile content): %s", path);
+      else tack_snprintf(why, why_sz, "dependency changed (content hash): %s", path);
       return 1;
     }
   }
@@ -2084,7 +2103,10 @@ static int cache_write_meta(const char *dep_path, const char *meta_path) {
   if (!f) { sv_free(&deps); return 1; }
 
   /* Also track the depfile itself to detect dependency graph changes
-     (e.g. include path changes or branch switches with older header mtimes). */
+     (e.g. include path changes or branch switches with older header mtimes).
+     The depfile entry is validated by size + content hash so cache hits remain
+     deterministic after `clean`, where the depfile gets rewritten with a new
+     timestamp before cache restore is attempted. */
   if (write_meta_dep_entry(f, dep_path) != 0) { fclose(f); sv_free(&deps); return 1; }
 
   /* Format (tab-separated):
@@ -3856,7 +3878,6 @@ static void exe_path(char *out, size_t out_cap, const char *target_id, Profile p
 #endif
   path_join(out, out_cap, bind, fn);
 }
-
 static int compiler_name_is_tcc(const char *cc) {
   const char *base;
   size_t n;
@@ -3889,6 +3910,7 @@ static void push_profile_flags_for_cc(Argv *av, Profile p, const char *cc) {
     av_push(av, "-DNDEBUG=1");
   }
 }
+
 
 /* --------------------------- compilation helpers --------------------------- */
 
@@ -4497,7 +4519,7 @@ static void print_help(void) {
   puts("  - sbom format is set via [sbom] format = tack-sbom-1 | cyclonedx | cyclonedx-1.4 | spdx | spdx-2.3");
   puts("  - --strict enables -Wunsupported");
   puts("  - --why prints short \"why rebuild\" diagnostics for compile/link decisions");
-  puts("  - cache   = stored under .tack-cache/ (validated via mtime + size + hash; use --no-cache to disable)");
+  puts("  - cache   = stored under .tack-cache/ (deps via mtime/size/hash; depfile via size/hash; use --no-cache to disable)");
 }
 
 static void cmd_version(void) { printf("tack %s\n", TACK_VERSION); }
@@ -4802,7 +4824,7 @@ static const char *TACK_INIT_TEMPLATE_MIN_HTML =
   "</html>\n";
 
 static const char *TACK_INIT_DEFAULT_TACK_INI =
-  "; tack.ini — generated by `tack init` (tack v0.7.15)\n"
+  "; tack.ini — generated by `tack init` (tack v0.7.16)\n"
   "; ---------------------------------------------------------------------------\n"
   "; Minimal, repo-owned configuration.\n"
   "; - If you do not need customization, you can delete this file: tack has built-in defaults.\n"

@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.15
+# tack ROADMAP (DE/EN) — v0.7.16
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -66,6 +66,11 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 
 ### Erledigt in v0.7.14
 - `tack new <name>`: erstellt das Projektverzeichnis `<name>/` und führt darin `tack init` aus (One‑Step‑Scaffold).
+
+### Erledigt in v0.7.16
+- Cache-Restores nach `tack clean` hängen nicht mehr von der neu geschriebenen Depfile-`mtime` ab.
+- Das Depfile selbst wird für die Cache-Validierung gezielt über Größe + FNV-1a geprüft; normale Dependencies bleiben bei `mtime`/Größe/FNV-1a.
+- Regressionstest für den `clean`/Restore-Pfad ergänzt.
 
 ### Erledigt in v0.7.15
 - Compilerbewusste Debug-Profil-Flags: `-g` und `-DDEBUG=1` bleiben generisch, `-bt20` wird nur noch für tcc/TinyCC gesetzt.
@@ -150,6 +155,11 @@ Before “big” releases and announcements, tack should be validated against re
 
 ### Done in v0.7.14
 - `tack new <name>`: creates the project directory `<name>/` and runs `tack init` inside it (one-step scaffold).
+
+### Done in v0.7.16
+- Cache restores after `tack clean` no longer depend on the rewritten depfile `mtime`.
+- For cache validation, the depfile itself is intentionally checked via size + FNV-1a while normal dependencies still use `mtime`/size/FNV-1a.
+- Added a regression test for the `clean`/restore path.
 
 ### Done in v0.7.15
 - Compiler-aware debug profile flags: `-g` and `-DDEBUG=1` stay generic, while `-bt20` is now emitted only for tcc/TinyCC.

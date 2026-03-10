@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.15
+# tack FAQ / FQA (DE/EN) — v0.7.16
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -9,10 +9,11 @@
 ### Nutzt tack einen Compile-Cache?
 Ja. `tack` kann Kompilergebnisse in `.tack-cache/` ablegen, um wiederholte Builds zu beschleunigen.
 
-Die Cache-Validierung nutzt:
-- `mtime` (Modifikationszeit)
-- Dateigröße
-- Content-Hash (32-bit FNV-1a; nicht kryptografisch)
+Die Cache-Validierung nutzt bewusst zwei Regeln:
+- **normale Dependencies**: `mtime` (Modifikationszeit) + Dateigröße + Content-Hash (32-bit FNV-1a; nicht kryptografisch)
+- **Depfile selbst**: Dateigröße + Content-Hash
+
+So bleibt ein Cache-Restore nach `tack clean` deterministisch, obwohl das Depfile vor dem Restore neu geschrieben wird.
 
 ### Wie kann ich den Cache deaktivieren?
 Nutze:
@@ -108,7 +109,7 @@ Das ist Absicht: lieber **klarer Fehler** statt undefiniertes Verhalten.
 
 ### Wie erkennt tack Header-Abhängigkeiten (Rebuild bei `.h`-Änderungen)?
 
-`tack` erzeugt vor jedem Compile-Schritt ein Depfile (`.d`) im Format **tack-deps-v1** und nutzt es für Incremental Builds (inkl. Abhängigkeits-Metadaten mit `mtime`/Größe/Hash) sowie für die Cache-Validierung.
+`tack` erzeugt vor jedem Compile-Schritt ein Depfile (`.d`) im Format **tack-deps-v1** und nutzt es für Incremental Builds sowie für die Cache-Validierung. Für normale Dependencies werden `mtime`/Größe/Hash geprüft; das Depfile selbst wird bewusst nur über Größe/Hash validiert, damit Cache-Restores nach `clean` nicht vom Timestamp-Timing abhängen.
 
 - Erfasst werden `#include "..."` (quoted) **und** `#include <...>` Includes **rekursiv** (auch Header, die wiederum Header includen).
 - Die Suche folgt der üblichen Reihenfolge: Verzeichnis der includenden Datei → effektive `-I` Pfade (Built-ins + `includes = ...`).
@@ -254,10 +255,11 @@ Marker-Kommentare (`<!-- TACK:BEGIN ... -->`) liefert das eingebaute Layout oder
 ### Does tack use a compile cache?
 Yes. `tack` can store compile outputs in `.tack-cache/` to speed up repeated builds.
 
-Cache validation uses:
-- `mtime` (modification time)
-- file size
-- content hash (32-bit FNV-1a; not cryptographic)
+Cache validation deliberately uses two rules:
+- **normal dependencies**: `mtime` (modification time) + file size + content hash (32-bit FNV-1a; not cryptographic)
+- **the depfile itself**: file size + content hash
+
+This keeps cache restores deterministic after `tack clean`, even though the depfile is rewritten before restore is attempted.
 
 ### How do I disable the cache?
 Use:
@@ -455,7 +457,7 @@ Marker comments (`<!-- TACK:BEGIN ... -->`) are provided by the built-in layout 
 
 ### How does tack track header dependencies (rebuilds on `.h` changes)?
 
-Before each compile step, `tack` writes a depfile (`.d`) in the **tack-deps-v1** format and uses it for incremental rebuilds (including dependency metadata with `mtime`/size/hash) and cache validation.
+Before each compile step, `tack` writes a depfile (`.d`) in the **tack-deps-v1** format and uses it for incremental rebuilds and cache validation. Normal dependencies use `mtime`/size/hash metadata; the depfile itself is intentionally validated via size/hash only so post-`clean` cache restores do not depend on timestamp timing.
 
 - It tracks quoted `#include "..."` **and** angle-bracket `#include <...>` includes **recursively** (including headers that include other headers).
 - Resolution follows the usual order: directory of the including file → effective `-I` paths (built-ins + `includes = ...`).
