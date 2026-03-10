@@ -9,6 +9,12 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.17
+- `tack sbom` fachlich präzisiert: Die Doku beschreibt die Ausgabe jetzt ausdrücklich als **Build-Input-SBOM**. CycloneDX/SPDX bleiben Exportformate, aber ohne Resolver/Package-Manager gibt es bewusst keine erfundenen Fremdkomponenten-Versionen.
+- Neuer CLI-Batchmodus: `tack sbom --all-targets` schreibt je aktiviertem Target eine eigene JSON-Datei (`build/sbom.<target>.json`, `build/sbom.<target>.cdx.json`, `build/sbom.<target>.spdx.json`).
+- `[sbom] output` bleibt absichtlich Single-Target-spezifisch; so bleiben Einzel-Export und Batch-Export semantisch sauber getrennt.
+- Neuer Regressionstest `tests/sbom_all_targets_test.c` prüft den Mehrziel-Export inklusive Dateinamen und Target-Zuordnung.
+
 ### v0.7.16
 - Cache-Validierung nach `tack clean` deterministischer gemacht: Das Depfile selbst wird für Cache-Restores jetzt über **Dateigröße + Content-Hash** statt über eine harte `mtime`-Gleichheit geprüft.
 - Normale Dependencies bleiben weiterhin über `mtime` + Größe + FNV-1a validiert; nur der Depfile-Fingerprint wurde gezielt entschärft.
@@ -103,6 +109,12 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.17
+- `tack sbom` is now positioned more precisely in the docs as a **build-input SBOM**. CycloneDX/SPDX remain export formats, but without a resolver/package manager tack intentionally does not invent third-party component versions.
+- New CLI batch mode: `tack sbom --all-targets` writes one JSON file per enabled target (`build/sbom.<target>.json`, `build/sbom.<target>.cdx.json`, `build/sbom.<target>.spdx.json`).
+- `[sbom] output` intentionally remains single-target specific, keeping single-export and batch-export semantics clearly separated.
+- New regression test `tests/sbom_all_targets_test.c` covers multi-target export, filenames, and target mapping.
 
 ### v0.7.16
 - Made cache validation after `tack clean` deterministic: for cache restores, the depfile itself is now validated via **file size + content hash** instead of requiring strict `mtime` equality.

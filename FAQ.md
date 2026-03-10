@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.16
+# tack FAQ / FQA (DE/EN) — v0.7.17
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -163,8 +163,9 @@ Wenn tack bei unveränderten Quellen in jedem Lauf neu baut, ist das fast immer 
 **tack BOM** ist ein *Build-Manifest*: es beschreibt, *wie ein konkretes Build erzeugt wurde* (Targets, Inputs, Flags, Toolchain/OS, Outputs).
 
 Eine **SBOM** (Software Bill of Materials) ist ein Supply-Chain-Artefakt (Komponenten + Abhängigkeiten, z.B. CycloneDX/SPDX).  
-`tack sbom` erzeugt eine **deterministische JSON-SBOM** aus den bekannten Build-Inputs (Default: `tack-sbom-1` unter `build/sbom.json`).  
-Über `[sbom]` in `tack.ini` kannst du Format, Spec-Version und Ausgabepfad steuern (CycloneDX/SPDX werden unterstützt; Standard-Dateien: `build/sbom.cdx.json` und `build/sbom.spdx.json`).  
+`tack sbom` erzeugt daraus bewusst eine **deterministische Build-Input-SBOM** aus den bekannten Build-Inputs (Default: `tack-sbom-1` unter `build/sbom.json`).  
+CycloneDX/SPDX werden unterstützt, aber ohne Resolver/Package-Manager löst tack **keine** fremden Komponenten-Versionen auf. Die Ausgabe ist also eher „Input-SBOM“ als vollständige Supply-Chain-SBOM mit Versionsauflösung.  
+Über `[sbom]` in `tack.ini` kannst du Format, Spec-Version und den **Single-Target**-Ausgabepfad `output` steuern (Standard-Dateien: `build/sbom.cdx.json` und `build/sbom.spdx.json`).  
 Das tack-BOM vermeidet bewusst Ratespiele (z.B. keine Versionsableitung aus Linker-Flags).
 
 **Aufbau der SBOM relativ zum Quellbaum (Beispiel):**
@@ -192,6 +193,20 @@ Wenn du `tack sbom --target app` ausführst, schreibt tack eine JSON-Datei mit:
 
 Wichtig: Die SBOM enthält nur **bekannte Build-Inputs** (Dateipfade, Flags, libs).  
 Sie versucht **nicht**, Abhängigkeitsversionen zu erraten oder fremde Komponenten zu „auflösen“.
+
+### Wie erzeuge ich SBOMs für alle Targets?
+
+Nutze:
+- `tack sbom --all-targets`
+- optional mit Profil: `tack sbom release --all-targets`
+- optional mit anderem Zielordner: `tack sbom --all-targets --outdir out/sbom`
+
+Dann schreibt tack standardmäßig **eine Datei pro aktiviertem Target**:
+- `build/sbom.app.json`
+- `build/sbom.tool_pack.json`
+- bei CycloneDX/SPDX entsprechend `*.cdx.json` bzw. `*.spdx.json`
+
+Wichtig: `[sbom] output = ...` bleibt bewusst ein **Single-Target-Pfad**. Für Batch-Exports ist `--all-targets` zuständig.
 
 ### Erzeugt `tack doc` API-Dokumentation wie `cargo doc` / rustdoc?
 
@@ -369,8 +384,9 @@ If tack rebuilds on every run without source changes, it is usually a depfile pa
 **tack BOM** is a *build manifest*: it describes **how a specific build was produced** (targets, inputs, flags, toolchain/OS, outputs).
 
 An **SBOM** (Software Bill of Materials) is a supply-chain artifact (components + dependencies, e.g. CycloneDX/SPDX).  
-`tack sbom` emits a **deterministic JSON SBOM** from known build inputs (default: `tack-sbom-1` at `build/sbom.json`).  
-Use `[sbom]` in `tack.ini` to control the format, spec version, and output path (CycloneDX/SPDX are supported; default files: `build/sbom.cdx.json` and `build/sbom.spdx.json`).  
+`tack sbom` intentionally emits a **deterministic build-input SBOM** from known build inputs (default: `tack-sbom-1` at `build/sbom.json`).  
+CycloneDX/SPDX are supported, but without a resolver/package manager tack does **not** resolve third-party component versions. The result is therefore closer to an “input SBOM” than a fully resolved supply-chain SBOM.  
+Use `[sbom]` in `tack.ini` to control the format, spec version, and the **single-target** output path `output` (default files: `build/sbom.cdx.json` and `build/sbom.spdx.json`).  
 tack BOM intentionally avoids guesswork (e.g. it does not try to infer exact library versions from linker flags).
 
 **How the SBOM maps to the source tree (example):**
@@ -398,6 +414,20 @@ When you run `tack sbom --target app`, tack writes a JSON file with:
 
 Note: The SBOM only contains **known build inputs** (file paths, flags, libs).  
 It **does not** try to resolve third-party component versions or infer dependencies.
+
+### How do I emit SBOMs for all targets?
+
+Use:
+- `tack sbom --all-targets`
+- optionally with a profile: `tack sbom release --all-targets`
+- optionally with another output directory: `tack sbom --all-targets --outdir out/sbom`
+
+This writes **one file per enabled target** by default:
+- `build/sbom.app.json`
+- `build/sbom.tool_pack.json`
+- for CycloneDX/SPDX: matching `*.cdx.json` or `*.spdx.json` files
+
+Important: `[sbom] output = ...` intentionally remains a **single-target path**. Batch export is handled by `--all-targets`.
 
 ### Does `tack doc` generate API docs like `cargo doc` / rustdoc?
 

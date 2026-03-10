@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.16
+# tack ROADMAP (DE/EN) — v0.7.17
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -67,16 +67,22 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 ### Erledigt in v0.7.14
 - `tack new <name>`: erstellt das Projektverzeichnis `<name>/` und führt darin `tack init` aus (One‑Step‑Scaffold).
 
-### Erledigt in v0.7.16
-- Cache-Restores nach `tack clean` hängen nicht mehr von der neu geschriebenen Depfile-`mtime` ab.
-- Das Depfile selbst wird für die Cache-Validierung gezielt über Größe + FNV-1a geprüft; normale Dependencies bleiben bei `mtime`/Größe/FNV-1a.
-- Regressionstest für den `clean`/Restore-Pfad ergänzt.
-
 ### Erledigt in v0.7.15
 - Compilerbewusste Debug-Profil-Flags: `-g` und `-DDEBUG=1` bleiben generisch, `-bt20` wird nur noch für tcc/TinyCC gesetzt.
 - GCC/Clang-Starts über `TACK_CC` scheitern im Debug-Profil nicht mehr an einem tcc-spezifischen Schalter.
 - Regressionstest für BOM-/Flag-Verhalten von tcc vs. gcc ergänzt.
 - README/FAQ konkretisieren die effektiven eingebauten Profil-Flags.
+
+### Erledigt in v0.7.16
+- Cache-Restores nach `tack clean` hängen nicht mehr von der neu geschriebenen Depfile-`mtime` ab.
+- Das Depfile selbst wird für die Cache-Validierung gezielt über Größe + FNV-1a geprüft; normale Dependencies bleiben bei `mtime`/Größe/FNV-1a.
+- Regressionstest für den `clean`/Restore-Pfad ergänzt.
+
+### Erledigt in v0.7.17
+- `tack sbom` wird in der Doku jetzt präziser als **Build-Input-SBOM** positioniert; CycloneDX/SPDX bleiben Exportformate, ohne Resolver/Paketmanager werden Fremdversionsangaben bewusst nicht erfunden.
+- Neuer CLI-Batchmodus: `tack sbom --all-targets` schreibt je aktiviertem Target eine eigene JSON-Datei (`build/sbom.<target>.json`, `.cdx.json`, `.spdx.json`).
+- `[sbom] output` bleibt bewusst single-target-spezifisch; Einzel-Export und Batch-Export bleiben klar getrennt.
+- Regressionstest `tests/sbom_all_targets_test.c` ergänzt.
 
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
@@ -156,16 +162,22 @@ Before “big” releases and announcements, tack should be validated against re
 ### Done in v0.7.14
 - `tack new <name>`: creates the project directory `<name>/` and runs `tack init` inside it (one-step scaffold).
 
-### Done in v0.7.16
-- Cache restores after `tack clean` no longer depend on the rewritten depfile `mtime`.
-- For cache validation, the depfile itself is intentionally checked via size + FNV-1a while normal dependencies still use `mtime`/size/FNV-1a.
-- Added a regression test for the `clean`/restore path.
-
 ### Done in v0.7.15
 - Compiler-aware debug profile flags: `-g` and `-DDEBUG=1` stay generic, while `-bt20` is now emitted only for tcc/TinyCC.
 - GCC/Clang invocations via `TACK_CC` no longer fail in debug builds because of a tcc-only switch.
 - Added a regression test for BOM/flag behavior across tcc vs. gcc.
 - README/FAQ now state the effective built-in profile flags more explicitly.
+
+### Done in v0.7.16
+- Cache restores after `tack clean` no longer depend on the rewritten depfile `mtime`.
+- For cache validation, the depfile itself is intentionally checked via size + FNV-1a while normal dependencies still use `mtime`/size/FNV-1a.
+- Added a regression test for the `clean`/restore path.
+
+### Done in v0.7.17
+- `tack sbom` is now documented more precisely as a **build-input SBOM**. CycloneDX/SPDX remain export formats; without a resolver/package manager tack intentionally does not invent third-party component versions.
+- New CLI batch mode: `tack sbom --all-targets` writes one JSON file per enabled target (`build/sbom.<target>.json`, `.cdx.json`, `.spdx.json`).
+- `[sbom] output` intentionally remains single-target specific, keeping single-export and batch-export semantics clearly separated.
+- Added regression test `tests/sbom_all_targets_test.c`.
 
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs

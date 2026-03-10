@@ -1,4 +1,4 @@
-# tack templates (DE/EN)  v0.7.16+
+# tack templates (DE/EN)  v0.7.14+
 
 Recommended layout: place this `templates/` directory next to your `src/` directory (repo root). `tack init` can create this folder for new projects.
 
@@ -6,7 +6,7 @@ Recommended layout: place this `templates/` directory next to your `src/` direct
 
 ## Deutsch
 
-Empfohlenes Layout: Lege den Ordner `templates/` neben den Ordner `src/` im Repo-Root ab. `tack init` kann diesen Ordner für neue Projekte anlegen.
+Empfohlenes Layout: Lege den Ordner `templates/` neben den Ordner `src/` im Repo-Root ab. `tack init` kann diesen Ordner fÃ¼r neue Projekte anlegen.
 
 ### tack.ini Beispiel
 
@@ -29,8 +29,8 @@ template = templates/tack_template_search_inline.html
 ```
 
 Hinweise:
-- Die Inline-Suche filtert Navigationslinks und findet Überschriften auf der aktuellen Seite.
-- Eine Suche über mehrere Seiten erfordert einen generierten `search-index.json`. Ein Platzhalter ist enthalten.
+- Die Inline-Suche filtert Navigationslinks und findet Ãœberschriften auf der aktuellen Seite.
+- Eine Suche Ã¼ber mehrere Seiten erfordert einen generierten `search-index.json`. Ein Platzhalter ist enthalten.
 
 ---
 

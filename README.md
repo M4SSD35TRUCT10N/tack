@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.16)
+# tack — Tiny ANSI-C Kit (v0.7.17)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.16)
+## Features (v0.7.17)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -68,7 +68,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - Profil-spezifische Target-Overrides in `tack.ini` (`[target "...".debug]` / `[target "...".release]`)
 - Shared Core Code: `src/core/` wird 1× pro Profil gebaut und optional gelinkt
 - `tack bom`: erzeugt ein Build-Manifest (BOM) als `build/bom.md` und `build/bom.html`.
-- `tack sbom`: erzeugt eine SBOM in mehreren Formaten (Default: tack‑JSON unter `build/sbom.json`; CycloneDX/SPDX mit formatabhängigen Defaults, steuerbar via `tack.ini`).
+- `tack sbom`: erzeugt eine **Build-Input-SBOM** in mehreren Formaten (Default: tack‑JSON unter `build/sbom.json`; CycloneDX/SPDX mit formatabhängigen Defaults; `--all-targets` schreibt je Target eine eigene JSON-Datei).
 - `tack doc`: erzeugt offline HTML-Doku in `build/doc/` (Wrapper um Markdown) für **alle Root-Markdowns** (`*.md` im Projekt-Root) sowie optional alle `docs/**/*.md` (wenn vorhanden) und verlinkt die BOM.
 - `tack init`: legt bei Bedarf (nicht destruktiv) `templates/` inkl. Standard-CSS/Template sowie eine Start-`tack.ini` an.
 - Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
@@ -111,7 +111,7 @@ Dieses Repo legt `tack` unter `src/tack.c` ab. Du kannst es aber auch in die Rep
 - **Tests**
   - `tests/**/*_test.c` → wird gebaut und ausgeführt
 
-## Compilerbewusste Profil-Flags (v0.7.16)
+## Compilerbewusste Profil-Flags (ab v0.7.15)
 
 - **Debug**: tack setzt immer `-g` und `-DDEBUG=1`.
 - **TinyCC/tcc**: zusätzlich wird `-bt20` gesetzt, weil dieser Schalter tcc-spezifisch ist.
@@ -127,10 +127,10 @@ tack kann drei Arten von „Dokumentation“ ausgeben, die oft verwechselt werde
 - **BOM**: ein **Build-Manifest** für das konkrete Build (Targets, Inputs, Flags, Toolchain/OS, Output-Pfade).  
   Zweck: Debugging, Nachvollziehbarkeit, Reproduzierbarkeit.
 - **SBOM**: eine **Software Bill Of Materials** im Supply-Chain-Sinne (Komponenten + Abhängigkeiten, z.B. CycloneDX/SPDX).  
-  `tack sbom` erzeugt eine **deterministische SBOM** aus den bekannten Build‑Inputs.  
+  `tack sbom` erzeugt daraus bewusst eine **deterministische Build-Input-SBOM**: erfasst werden bekannte Quellpfade, Include-Pfade, Defines, Compiler-/Linker-Flags und weitere direkt beobachtbare Build-Eingaben.  
   Standardmäßig ist das Format **tack‑spezifisch** (`format: "tack-sbom-1"`) und landet als JSON unter `build/sbom.json`.  
-  Über `[sbom]` in `tack.ini` kannst du Format, Spec-Version und Ausgabepfad steuern (siehe Konfiguration).  
-  CycloneDX (`specVersion` 1.4) und SPDX (`SPDX-2.3`) werden unterstützt, jeweils mit formatabhängigen Default‑Dateinamen.  
+  CycloneDX (`specVersion` 1.4) und SPDX (`SPDX-2.3`) werden unterstützt, aber **ohne Resolver/Package-Manager keine Versionsauflösung fremder Komponenten**. Die Ausgabe ist also bewusst eher „Input-SBOM“ als vollständige Supply-Chain-SBOM mit Komponenten-Versionen und Beziehungen.  
+  Über `[sbom]` in `tack.ini` kannst du Format, Spec-Version und den **single-target**-Ausgabepfad `output` steuern (siehe Konfiguration). Für mehrere Targets gibt es `tack sbom --all-targets`, das standardmäßig `build/sbom.<target>.json` bzw. `.cdx.json` / `.spdx.json` schreibt.  
   Es werden **keine** Versions‑Ratespiele aus Linker‑Flags betrieben (z.B. kein OpenSSL‑Guess aus `-lssl`).
 
 ### Suche / „cargo-like UI“
@@ -240,7 +240,7 @@ Der Unterschied ist bewusst: Nach `tack clean` wird das Depfile vor einem mögli
   - `--cache` löscht zusätzlich `.tack-cache/` (Compile-Cache-Reset)
 - `clobber` – `build/` komplett löschen (löscht auch `.tack-cache/`)
 - `bom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – Build-Manifest als Markdown/HTML
-- `sbom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – deterministische SBOM (Standard-JSON, Format via `tack.ini`)
+- `sbom [debug|release] [--target NAME | --all-targets] [--outdir DIR] [-v] [--strict] [--no-core]` – deterministische Build-Input-SBOM (ein Ziel oder Batch-Export je Target)
 - `doc [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – Offline-HTML-Doku (Root-`*.md` + optional `docs/**/*.md` + BOM)
 
 Tipp: `tack build --help` (oder `-h`) zeigt die Hilfe **für dieses Sub‑Kommando**.
@@ -318,7 +318,8 @@ defines = TACK_RELEASE=1
 **Schlüssel in `[sbom]`**
 - `format = tack|tack-sbom-1|cyclonedx|cyclonedx-1.4|spdx|spdx-2.3` (Default: `tack-sbom-1`)
 - `spec_version = ...` (optional; z. B. `1.4` für CycloneDX oder `2.3` für SPDX; für tack wird daraus `tack-sbom-<spec>`)
-- `output = <pfad>` (optional; Default: `build/sbom.json`, `build/sbom.cdx.json`, `build/sbom.spdx.json` je nach Format)
+- `output = <pfad>` (optional; **nur für Single-Target-Export**; Default: `build/sbom.json`, `build/sbom.cdx.json`, `build/sbom.spdx.json` je nach Format)
+- Mehrziel-Export: `tack sbom --all-targets [--outdir DIR]` schreibt standardmäßig `build/sbom.<target>.json` bzw. `.cdx.json` / `.spdx.json`.
 
 **Flag-Semantik (CFLAGS/DFLAGS/LFLAGS)**  
 - `includes`, `defines`, `cflags`, `ldflags`, `libs` sind **Extra-Listen**. tack ergänzt sie zu seinen internen Basis-Flags (Warnungen + Profil-Flags wie `-g`/`-O2`).  
@@ -550,7 +551,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.16)
+## Features (v0.7.17)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -570,7 +571,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - profile-specific target overrides in `tack.ini` (`[target "...".debug]` / `[target "...".release]`)
 - Shared core code: `src/core/` built once per profile, optionally linked
 - `tack bom`: generates a build manifest (BOM) as `build/bom.md` and `build/bom.html`.
-- `tack sbom`: generates an SBOM in multiple formats (default: tack JSON at `build/sbom.json`; CycloneDX/SPDX with format-specific defaults, controlled via `tack.ini`).
+- `tack sbom`: emits a **build-input SBOM** in multiple formats (default: tack JSON at `build/sbom.json`; CycloneDX/SPDX with format-specific defaults; `--all-targets` writes one JSON file per target).
 - `tack doc`: generates offline HTML docs in `build/doc/` (wrapper around Markdown) for all root-level `*.md` files plus optional `docs/**/*.md` (if present), and links the BOM.
 - `tack init`: non-destructively creates `templates/` with default CSS/template and a starter `tack.ini` when needed.
 - Optional: HTML templates + CSS for DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
@@ -612,7 +613,7 @@ This repo keeps tack at `src/tack.c`. You may also place it in the repo root —
 - **Tests**
   - `tests/**/*_test.c` (built and executed)
 
-## Compiler-aware profile flags (v0.7.16)
+## Compiler-aware profile flags (since v0.7.15)
 
 - **Debug**: tack always emits `-g` and `-DDEBUG=1`.
 - **TinyCC/tcc**: tack additionally emits `-bt20`, because that switch is tcc-specific.
@@ -628,10 +629,10 @@ tack can output three kinds of “documentation” that are often mixed up:
 - **BOM**: a **build manifest** for a specific build (targets, inputs, flags, toolchain/OS, output paths).  
   Purpose: debugging, traceability, reproducibility.
 - **SBOM**: a **Software Bill of Materials** in the supply-chain sense (components + dependencies, e.g. CycloneDX/SPDX).  
-  `tack sbom` emits a **deterministic SBOM** from known build inputs.  
+  `tack sbom` therefore emits a **deterministic build-input SBOM**: known source paths, include paths, defines, compiler/linker flags, and other directly observed build inputs are recorded.  
   By default the format is **tack-specific** (`format: "tack-sbom-1"`) and is written as JSON to `build/sbom.json`.  
-  Use `[sbom]` in `tack.ini` to control format, spec version, and output path (see configuration).  
-  CycloneDX (`specVersion` 1.4) and SPDX (`SPDX-2.3`) are supported, each with format-specific default filenames.  
+  CycloneDX (`specVersion` 1.4) and SPDX (`SPDX-2.3`) are supported, but **without a resolver/package manager tack does not invent third-party component versions**. The result is intentionally closer to an “input SBOM” than a complete supply-chain SBOM with resolved component versions and dependency relationships.  
+  Use `[sbom]` in `tack.ini` to control format, spec version, and the **single-target** output path `output` (see configuration). For multiple targets use `tack sbom --all-targets`, which writes `build/sbom.<target>.json` (or `.cdx.json` / `.spdx.json`) by default.  
   It intentionally avoids guesswork (e.g. it does not try to infer exact OpenSSL versions from `-lssl`).
 
 ### Search / “cargo-like UI”
@@ -738,7 +739,7 @@ That distinction is intentional: after `tack clean`, the depfile is rewritten be
   - `--cache` also deletes `.tack-cache/` (compile cache reset)
 - `clobber` – delete `build/` entirely (also deletes `.tack-cache/`)
 - `bom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – build manifest as Markdown/HTML
-- `sbom [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – deterministic SBOM (default JSON output, format via `tack.ini`)
+- `sbom [debug|release] [--target NAME | --all-targets] [--outdir DIR] [-v] [--strict] [--no-core]` – deterministic build-input SBOM (single target or one JSON per target)
 - `doc [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – offline HTML docs (root `*.md` + optional `docs/**/*.md` + BOM)
 
 ### Exit codes
@@ -777,7 +778,8 @@ defines = TACK_RELEASE=1
 Use `[sbom]` in `tack.ini`:
 - `format = tack|tack-sbom-1|cyclonedx|cyclonedx-1.4|spdx|spdx-2.3` (default: `tack-sbom-1`)
 - `spec_version = ...` (optional; e.g. `1.4` for CycloneDX or `2.3` for SPDX; for tack it becomes `tack-sbom-<spec>`)
-- `output = <path>` (optional; default: `build/sbom.json`, `build/sbom.cdx.json`, or `build/sbom.spdx.json` by format)
+- `output = <path>` (optional; **single-target only**; default: `build/sbom.json`, `build/sbom.cdx.json`, or `build/sbom.spdx.json` by format)
+- Multi-target export: `tack sbom --all-targets [--outdir DIR]` writes `build/sbom.<target>.json` (or `.cdx.json` / `.spdx.json`) by default.
 
 **DOC/BOM templates (optional, v0.7.1)**  
 `tack.ini` may also contain `[doc]` and `[bom]` sections with `template = PATH` and `css = PATH`.  
