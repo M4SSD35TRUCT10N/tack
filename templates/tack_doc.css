@@ -16,6 +16,7 @@
 html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--sans);line-height:1.55}
 a{color:var(--link);text-decoration:none}
 a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 header{border-bottom:1px solid var(--border);padding:0.75rem 1rem;position:sticky;top:0;background:var(--bg);z-index:5}
 header .row{max-width:var(--maxw);margin:0 auto;display:flex;gap:var(--gap);align-items:center}
 header .brand{font-weight:700}
@@ -49,4 +50,22 @@ footer{max-width:var(--maxw);margin:0 auto;padding:1rem;color:var(--muted);borde
   header, nav{display:none !important}
   article{border:none}
   a{text-decoration:underline;color:#000}
+}
+
+@media (prefers-contrast: more){
+  a{text-decoration:underline}
+  header,nav,article,pre,table,th,td,aside.toc,footer{border-width:2px}
+  nav a[aria-current="page"]{outline:2px solid currentColor;outline-offset:1px;font-weight:700}
+  header input[type="search"]{border-width:2px}
+}
+
+@media (forced-colors: active){
+  :root{
+    --bg:Canvas; --fg:CanvasText; --muted:GrayText; --border:ButtonText;
+    --link:LinkText; --codebg:Canvas;
+  }
+  a{text-decoration:underline}
+  header input[type="search"]{background:Field;color:FieldText;border-color:ButtonText}
+  nav a[aria-current="page"]{background:Highlight;color:HighlightText;outline:2px solid HighlightText;outline-offset:1px}
+  pre,code{border-color:ButtonText}
 }

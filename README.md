@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.19)
+# tack — Tiny ANSI-C Kit (v0.7.20)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.19)
+## Features (v0.7.20)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -72,6 +72,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - `tack doc`: erzeugt offline HTML-Doku in `build/doc/` (Wrapper um Markdown) für **alle Root-Markdowns** (`*.md` im Projekt-Root) sowie optional alle `docs/**/*.md` (wenn vorhanden) und verlinkt die BOM.
 - `tack init`: legt bei Bedarf (nicht destruktiv) `templates/` inkl. Standard-CSS/Template sowie eine Start-`tack.ini` an.
 - Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
+- Die mitgelieferte `templates/tack_doc.css` enthält jetzt Grundunterstützung für Hell/Dunkel (`prefers-color-scheme`) sowie High-Contrast/Forced-Colors (`prefers-contrast: more`, `forced-colors: active`).
 - HTML-Ausgabe: stabile Template-Ankerpunkte (Marker + IDs) für CSS-Hooks und optionales Post-Processing.
 - **Konfiguration / Layering**:
   - `--config <path>` (explizite INI-Datei; **höchste Priorität**)
@@ -551,7 +552,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.19)
+## Features (v0.7.20)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -575,6 +576,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - `tack doc`: generates offline HTML docs in `build/doc/` (wrapper around Markdown) for all root-level `*.md` files plus optional `docs/**/*.md` (if present), and links the BOM.
 - `tack init`: non-destructively creates `templates/` with default CSS/template and a starter `tack.ini` when needed.
 - Optional: HTML templates + CSS for DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
+- The shipped `templates/tack_doc.css` now includes baseline support for light/dark (`prefers-color-scheme`) plus high-contrast / forced-colors (`prefers-contrast: more`, `forced-colors: active`).
 - HTML output: stable template anchor markers (markers + IDs) for CSS hooks and optional post-processing.
 - **Configuration layering**:
   - `--config <path>` (explicit INI file; **highest priority**)

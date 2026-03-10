@@ -1,4 +1,4 @@
-# tack templates (DE/EN)  v0.7.14+
+# tack templates (DE/EN)  v0.7.20+
 
 Recommended layout: place this `templates/` directory next to your `src/` directory (repo root). `tack init` can create this folder for new projects.
 
@@ -31,6 +31,7 @@ template = templates/tack_template_search_inline.html
 Hinweise:
 - Die Inline-Suche filtert Navigationslinks und findet Überschriften auf der aktuellen Seite.
 - Eine Suche über mehrere Seiten erfordert einen generierten `search-index.json`. Ein Platzhalter ist enthalten.
+- Die mitgelieferte `tack_doc.css` enthält jetzt Grundunterstützung für `prefers-color-scheme`, `prefers-contrast: more` und `forced-colors: active`, damit DOC/BOM-Ausgaben in Hell/Dunkel/High-Contrast ohne JavaScript besser lesbar bleiben.
 
 ---
 
@@ -59,3 +60,4 @@ template = templates/tack_template_search_inline.html
 Notes:
 - The inline search filters navigation links and finds headings on the current page.
 - Cross-page search requires a generated `search-index.json`. A placeholder is included.
+- The shipped `tack_doc.css` now includes baseline support for `prefers-color-scheme`, `prefers-contrast: more`, and `forced-colors: active` so DOC/BOM output remains readable in light/dark/high-contrast setups without JavaScript.

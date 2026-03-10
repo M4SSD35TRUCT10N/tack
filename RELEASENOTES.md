@@ -9,6 +9,11 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.20
+- CSS-Feinschliff für die mitgelieferten DOC/BOM-Templates: `templates/tack_doc.css` enthält jetzt Grundunterstützung für `prefers-contrast: more` und `forced-colors: active`.
+- Lesbarkeit/Orientierung in kontraststarken Modi verbessert: Links werden unterstrichen, Rahmen etwas deutlicher gezeichnet, der aktuelle Nav-Eintrag fällt klarer auf, und der Tastaturfokus ist sichtbarer.
+- Dokumentation in README/FAQ/templates/README ergänzt; in diesem Schritt wurde bewusst kein Produktions-C-Code geändert.
+
 ### v0.7.19
 - Windows-Long-Path-Guidance in README/FAQ deutlich erweitert: konkrete Praxisempfehlungen für flache Workspace-Pfade, Aktivierung von `LongPathsEnabled` bzw. Gruppenrichtlinie und Hinweis auf erforderlichen Neustart/Reboot.
 - Doku stellt jetzt ausdrücklich klar, dass Long-Paths unter Windows nur helfen, wenn das jeweilige Programm selbst **long-path-aware** ist; externe Tool-Limits bleiben also relevant.
@@ -120,6 +125,11 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.20
+- Shipped CSS polish for the DOC/BOM templates: `templates/tack_doc.css` now includes baseline support for `prefers-contrast: more` and `forced-colors: active`.
+- Improved readability/orientation in higher-contrast modes: links are underlined, borders become stronger, the current nav item is more obvious, and keyboard focus is easier to see.
+- Documentation updated in README/FAQ/templates/README; this step intentionally does not change production C code.
 
 ### v0.7.19
 - Expanded Windows long-path guidance in README/FAQ: concrete advice for shallow workspace roots, enabling `LongPathsEnabled` / Group Policy, and restarting the shell or rebooting afterwards.

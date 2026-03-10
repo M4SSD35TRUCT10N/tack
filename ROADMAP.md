@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.19
+# tack ROADMAP (DE/EN) — v0.7.20
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -95,9 +95,14 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 - Dokumentiert sind flache Workspace-Pfade, die Aktivierung von `LongPathsEnabled` bzw. der Gruppenrichtlinie sowie der Hinweis, dass danach ein Neustart/Reboot nötig sein kann.
 - Die Doku stellt jetzt ausdrücklich klar, dass Long-Paths nur helfen, wenn das jeweilige Programm selbst **long-path-aware** ist; externe Tool-Grenzen bleiben relevant.
 
+### Erledigt in v0.7.20
+- `templates/tack_doc.css` enthält jetzt Grundunterstützung für `prefers-contrast: more` und `forced-colors: active`, damit DOC/BOM-Ausgaben unter High-Contrast/Forced-Colors systemfreundlicher bleiben.
+- Lesbarkeit/Orientierung leicht verbessert: stärkere Rahmen/Unterstreichungen bei mehr Kontrast, sichtbarer aktueller Nav-Eintrag und klarere Fokusmarkierung ohne JavaScript.
+- `templates/README.md`, README und FAQ dokumentieren die neue Accessibility-Feinabstimmung ausdrücklich.
+
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
-- Optional: High-Contrast/Forced-Colors CSS-Feinschliff für DOC/BOM-Templates
+- Abschlussprüfung der Doku auf Zweisprachigkeit (DE/EN-Inhalte angleichen)
 
 ### Paketmanagement (Idee / Untersuchungen)
 C hat kein Standard‑Paketmanagement wie Rust. Ein tack‑eigenes System wäre ein USP, aber nur mit sehr klarer Scope‑Definition:
@@ -199,9 +204,14 @@ Before “big” releases and announcements, tack should be validated against re
 - The docs cover shallow workspace roots, enabling `LongPathsEnabled` / Group Policy, and the note that restarting the shell or even rebooting may be required afterwards.
 - The docs now explicitly state that long paths only help when the affected program is itself **long-path aware**; external tool limits still matter.
 
+### Done in v0.7.20
+- `templates/tack_doc.css` now includes baseline support for `prefers-contrast: more` and `forced-colors: active` so DOC/BOM output behaves better in system high-contrast / forced-colors modes.
+- Small readability polish: stronger borders/underlines at higher contrast, a clearer current-nav state, and more visible keyboard focus without JavaScript.
+- `templates/README.md`, README, and FAQ now document this accessibility polish explicitly.
+
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs
-- Optional: high-contrast / forced-colors CSS polish for DOC/BOM templates
+- Final bilingual documentation pass (align DE/EN content)
 
 ### Package management (idea / research)
 C has no standard package manager. A tack-native approach could be a USP, but needs strict scope:

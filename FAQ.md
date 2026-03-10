@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.19
+# tack FAQ / FQA (DE/EN) — v0.7.20
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -232,7 +232,7 @@ Ja, weitgehend.
 
 - Hell/Dunkel: CSS-first über `prefers-color-scheme`.
 - Templates + CSS: ab v0.7.1 via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
-- Hoher Kontrast: funktioniert grundsätzlich mit systemweiten High-Contrast/Forced-Colors-Settings; Feinschliff (z.B. `forced-colors`/`prefers-contrast`) bleibt optional.
+- Hoher Kontrast: die mitgelieferte `tack_doc.css` enthält jetzt Grundunterstützung für `prefers-contrast: more` und `forced-colors: active`; systemweite High-Contrast/Forced-Colors-Settings bleiben damit ohne JavaScript besser lesbar.
 
 ### Gibt es eine Volltextsuche in der HTML-Doku?
 
@@ -469,7 +469,7 @@ Yes, mostly.
 
 - Light/dark: CSS-first via `prefers-color-scheme`.
 - Templates + CSS: available since v0.7.1 via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
-- High-contrast: works with system high-contrast / forced-colors settings; extra polish (e.g. `forced-colors`/`prefers-contrast`) remains optional.
+- High-contrast: the shipped `tack_doc.css` now includes baseline support for `prefers-contrast: more` and `forced-colors: active`, so system high-contrast / forced-colors setups stay more readable without JavaScript.
 
 ### Is there full-text search in the generated docs?
 
