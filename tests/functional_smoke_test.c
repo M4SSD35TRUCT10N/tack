@@ -1,5 +1,4 @@
-#define TACK_TEST 1
-#include "../src/tack.c"
+#include "tack_test_embed.h"
 
 #ifdef _WIN32
 #define PATH_LIST_SEP ';'
@@ -249,7 +248,7 @@ int main(void) {
 
     g_no_cache = 0;
     if (file_exists(g_cache_dir)) rm_rf(g_cache_dir);
-    if (build_one_target(t, PROF_DEBUG, 0, 0, 1, 1, 0, 0) != 0) {
+    if (build_one_target(t, PROF_DEBUG, 0, 0, 0, 1, 0, 0) != 0) {
       fprintf(stderr, "build for cache failed\n");
       failures++;
     } else if (!file_exists(g_cache_dir)) {

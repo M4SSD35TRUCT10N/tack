@@ -9,6 +9,12 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.18
+- Test-Hardening für GCC/Clang mit `-Werror`: eingebettete `#include "../src/tack.c"`-Tests nutzen jetzt einen kleinen Wrapper, der `-Wunused-function` bewusst nur im Testkontext unterdrückt.
+- `functional_smoke_test` prüft den Cache-Pfad ohne forcierten Rebuild; damit entspricht die Testerwartung wieder der realen Cache-Semantik (`force` umgeht den Compile-Cache absichtlich).
+- `path_join_test.c` definiert testlokale Hilfsfunktionen jetzt nur noch dort, wo sie tatsächlich gebraucht werden.
+- Produktionscode und Single-File-Ansatz bleiben unverändert; der Fix bleibt absichtlich testlokal.
+
 ### v0.7.17
 - `tack sbom` fachlich präzisiert: Die Doku beschreibt die Ausgabe jetzt ausdrücklich als **Build-Input-SBOM**. CycloneDX/SPDX bleiben Exportformate, aber ohne Resolver/Package-Manager gibt es bewusst keine erfundenen Fremdkomponenten-Versionen.
 - Neuer CLI-Batchmodus: `tack sbom --all-targets` schreibt je aktiviertem Target eine eigene JSON-Datei (`build/sbom.<target>.json`, `build/sbom.<target>.cdx.json`, `build/sbom.<target>.spdx.json`).
@@ -109,6 +115,12 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.18
+- Test hardening for GCC/Clang with `-Werror`: embedded `#include "../src/tack.c"` tests now use a tiny wrapper that suppresses `-Wunused-function` only in the test context.
+- `functional_smoke_test` now checks the cache path without a forced rebuild so the test expectation matches actual cache semantics (`force` intentionally bypasses the compile cache).
+- `path_join_test.c` now defines test-local helpers only where they are actually used.
+- Production code and the single-file approach remain unchanged; this fix intentionally stays local to the tests.
 
 ### v0.7.17
 - `tack sbom` is now positioned more precisely in the docs as a **build-input SBOM**. CycloneDX/SPDX remain export formats, but without a resolver/package manager tack intentionally does not invent third-party component versions.

@@ -1,11 +1,12 @@
-#define TACK_TEST 1
-#include "../src/tack.c"
+#include "tack_test_embed.h"
 
+#ifdef _WIN32
 static int expect_eq(const char *label, const char *got, const char *expected) {
   if (strcmp(got, expected) == 0) return 0;
   fprintf(stderr, "FAIL %s: got \"%s\" expected \"%s\"\n", label, got, expected);
   return 1;
 }
+#endif
 
 int main(void) {
 #ifdef _WIN32

@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.17
+# tack ROADMAP (DE/EN) — v0.7.18
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -84,11 +84,16 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 - `[sbom] output` bleibt bewusst single-target-spezifisch; Einzel-Export und Batch-Export bleiben klar getrennt.
 - Regressionstest `tests/sbom_all_targets_test.c` ergänzt.
 
+### Erledigt in v0.7.18
+- GCC/Clang-Testhärtung für `-Werror`: eingebettete `#include "../src/tack.c"`-Tests nutzen jetzt einen kleinen Wrapper, der `-Wunused-function` nur im Testkontext unterdrückt.
+- `functional_smoke_test` prüft den Cache-Pfad jetzt ohne erzwungenes Rebuild, damit die Erwartung zur tatsächlichen Cache-Semantik passt (`force` umgeht den Compile-Cache absichtlich).
+- `path_join_test.c` definiert testlokale Helfer nur dort, wo sie wirklich verwendet werden.
+- Produktionscode und Single-File-Ansatz bleiben unverändert; die Anpassung ist bewusst auf den Testkontext begrenzt.
+
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
 - Optional: bessere Windows Long‑Path Guidance
 - Optional: High-Contrast/Forced-Colors CSS-Feinschliff für DOC/BOM-Templates
-- Optional: Multiple SBOM-JSONs je Target
 
 ### Paketmanagement (Idee / Untersuchungen)
 C hat kein Standard‑Paketmanagement wie Rust. Ein tack‑eigenes System wäre ein USP, aber nur mit sehr klarer Scope‑Definition:
@@ -173,7 +178,7 @@ Before “big” releases and announcements, tack should be validated against re
 - For cache validation, the depfile itself is intentionally checked via size + FNV-1a while normal dependencies still use `mtime`/size/FNV-1a.
 - Added a regression test for the `clean`/restore path.
 
-### Done in v0.7.17
+### Done in v0.7.18
 - `tack sbom` is now documented more precisely as a **build-input SBOM**. CycloneDX/SPDX remain export formats; without a resolver/package manager tack intentionally does not invent third-party component versions.
 - New CLI batch mode: `tack sbom --all-targets` writes one JSON file per enabled target (`build/sbom.<target>.json`, `.cdx.json`, `.spdx.json`).
 - `[sbom] output` intentionally remains single-target specific, keeping single-export and batch-export semantics clearly separated.
