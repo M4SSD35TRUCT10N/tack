@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.20
+# tack FAQ / FQA (DE/EN) — v0.7.21
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -349,30 +349,6 @@ defines = TACK_RELEASE=1
 - `--no-config`: ignore **INI + tackfile.c**
 - `--no-code-config`: ignore **only tackfile.c**, still load INI
 
-### Windows: What about long paths?
-`tack` allocates joined paths dynamically, but it intentionally remains **fail-fast**. This avoids rigid internal buffers, but it does not remove Windows or toolchain limits.
-
-Practical checklist:
-
-- Keep the repo/workspace path short, e.g. `C:\src\hello` or `C:\w\proj`, instead of deep user-profile paths.
-- If you control the machine, enable Win32 long paths:
-  ```powershell
-  New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
-  -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
-  ```
-- Or use Group Policy: `Computer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths`
-- Restart the shell/IDE afterwards; Microsoft notes that a reboot may still be required because the setting is cached per process.
-- Important: this only helps programs that are themselves **long-path aware**. tack cannot bypass limits in external tools (Git, compiler, archiver, Explorer, shell).
-- If path problems remain, shorten the checkout/build root first and test again.
-
-### Windows: Why doesn’t tack find my `tack.ini` when tack is on `PATH`?
-If `tack.exe` is started from a tools folder that’s on `PATH` and you pass only a bare file name to `--config` (e.g. `--config tack.ini`), the config file may be looked up in the **wrong directory** depending on your setup (for example the tools folder instead of your project folder).
-
-Fix: provide an explicit path.
-
-- relative to the current folder: `tack --config .\tack.ini build release -j 8`
-- or absolute: `tack --config C:\path\to\tack.ini build release -j 8`
-
 ### How do I disable auto tool discovery?
 - CLI: `--no-auto-tools`
 - INI: `[project] disable_auto_tools = yes`
@@ -400,6 +376,53 @@ tack intentionally aborts on:
 - recursion depth limits (scan/rm)
 - token/list limits
 - tackfile.c generator failures
+
+### How do I see why tack rebuilds (“why rebuild”)?
+
+Use `--why` (alias: `--explain`). It is diagnostics-only and does **not** trigger a rebuild by itself.
+
+Examples:
+```bat
+tack build debug --why -j 8
+tack build release --why -j 8
+```
+
+Typical reasons include “missing output”, “input newer than output”, “depfile missing/changed”, or “forced (--rebuild)”.
+
+### Why does `tack build --help` (or `-h`) work?
+
+`tack help` prints the general help. `tack build --help` (or `-h`) prints the help **for that sub-command**.
+
+Examples:
+```bat
+tack build --help
+tack run --help
+tack test --help
+```
+
+### Windows: What about long paths?
+`tack` allocates joined paths dynamically, but it intentionally remains **fail-fast**. This avoids rigid internal buffers, but it does not remove Windows or toolchain limits.
+
+Practical checklist:
+
+- Keep the repo/workspace path short, e.g. `C:\src\hello` or `C:\w\proj`, instead of deep user-profile paths.
+- If you control the machine, enable Win32 long paths:
+  ```powershell
+  New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
+  -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+  ```
+- Or use Group Policy: `Computer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths`
+- Restart the shell/IDE afterwards; Microsoft notes that a reboot may still be required because the setting is cached per process.
+- Important: this only helps programs that are themselves **long-path aware**. tack cannot bypass limits in external tools (Git, compiler, archiver, Explorer, shell).
+- If path problems remain, shorten the checkout/build root first and test again.
+
+### Windows: Why doesn’t tack find my `tack.ini` when tack is on `PATH`?
+If `tack.exe` is started from a tools folder that’s on `PATH` and you pass only a bare file name to `--config` (e.g. `--config tack.ini`), the config file may be looked up in the **wrong directory** depending on your setup (for example the tools folder instead of your project folder).
+
+Fix: provide an explicit path.
+
+- relative to the current folder: `tack --config .\tack.ini build release -j 8`
+- or absolute: `tack --config C:\path\to\tack.ini build release -j 8`
 
 ### Windows: Why did it rebuild every time?
 
@@ -513,7 +536,6 @@ Fail-fast: If `template` or `css` is set but the file is missing or not readable
 The output always includes stable IDs (`#tack-nav`, `#tack-content`, `#tack-footer`) as a contract for CSS hooks.
 Marker comments (`<!-- TACK:BEGIN ... -->`) are provided by the built-in layout or by your template. If you rely on markers with a custom template, wrap the placeholders with the marker comments (see the shipped templates).
 
-
 ### How does tack track header dependencies (rebuilds on `.h` changes)?
 
 Before each compile step, `tack` writes a depfile (`.d`) in the **tack-deps-v1** format and uses it for incremental rebuilds and cache validation. Normal dependencies use `mtime`/size/hash metadata; the depfile itself is intentionally validated via size/hash only so post-`clean` cache restores do not depend on timestamp timing.
@@ -523,29 +545,6 @@ Before each compile step, `tack` writes a depfile (`.d`) in the **tack-deps-v1**
 - For `<...>`, tack resolves against the effective include search paths (`-I`); resolved files are written to depfiles/cache metadata.
 
 If you rely on exotic include patterns (macros/generators), use `--rebuild` or `tack clobber` as a safe fallback.
-
-### How do I see why tack rebuilds (“why rebuild”)?
-
-Use `--why` (alias: `--explain`). It is diagnostics-only and does **not** trigger a rebuild by itself.
-
-Examples:
-```bat
-tack build debug --why -j 8
-tack build release --why -j 8
-```
-
-Typical reasons include “missing output”, “input newer than output”, “depfile missing/changed”, or “forced (--rebuild)”.
-
-### Why does `tack build --help` (or `-h`) work?
-
-`tack help` prints the general help. `tack build --help` (or `-h`) prints the help **for that sub-command**.
-
-Examples:
-```bat
-tack build --help
-tack run --help
-tack test --help
-```
 
 ---
 

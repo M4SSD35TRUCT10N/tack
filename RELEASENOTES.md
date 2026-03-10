@@ -9,6 +9,11 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.21
+- Abschlussprüfung der DE/EN-Doku: README, FAQ, ROADMAP, Release Notes und `templates/README.md` wurden inhaltlich angeglichen statt nur markerbasiert geprüft.
+- README EN enthält jetzt die zuvor nur auf Deutsch dokumentierten Konfigurationsdetails (`tack.ini`, `[doc]`/`[bom]`, Flag-Semantik, Beispiel-INI, clean/clobber-Abgrenzung).
+- FAQ EN wurde in dieselbe Themenreihenfolge wie FAQ DE gebracht; `templates/README.md` enthält nun auch im englischen Teil dieselben Layout-/Template-Hinweise.
+
 ### v0.7.20
 - CSS-Feinschliff für die mitgelieferten DOC/BOM-Templates: `templates/tack_doc.css` enthält jetzt Grundunterstützung für `prefers-contrast: more` und `forced-colors: active`.
 - Lesbarkeit/Orientierung in kontraststarken Modi verbessert: Links werden unterstrichen, Rahmen etwas deutlicher gezeichnet, der aktuelle Nav-Eintrag fällt klarer auf, und der Tastaturfokus ist sichtbarer.
@@ -125,6 +130,11 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.21
+- Final DE/EN documentation pass: README, FAQ, ROADMAP, Release Notes, and `templates/README.md` were aligned by content rather than by markers only.
+- README EN now includes the configuration details that were previously documented only in German (`tack.ini`, `[doc]`/`[bom]`, flag semantics, example INI, clean/clobber distinction).
+- FAQ EN now follows the same topic order as FAQ DE; `templates/README.md` now carries the same layout/template hints in the English section.
 
 ### v0.7.20
 - Shipped CSS polish for the DOC/BOM templates: `templates/tack_doc.css` now includes baseline support for `prefers-contrast: more` and `forced-colors: active`.

@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.20)
+# tack — Tiny ANSI-C Kit (v0.7.21)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.20)
+## Features (v0.7.21)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -118,6 +118,14 @@ Dieses Repo legt `tack` unter `src/tack.c` ab. Du kannst es aber auch in die Rep
 - **TinyCC/tcc**: zusätzlich wird `-bt20` gesetzt, weil dieser Schalter tcc-spezifisch ist.
 - **GCC/Clang**: erhalten **kein** `-bt20`; damit bleibt `TACK_CC=gcc` bzw. `TACK_CC=clang` im Debug-Profil portabel.
 - Zusätzliche `cflags` aus `tack.ini` oder `tackfile.c` bleiben davon getrennt; tack liefert weiterhin seine eingebauten Basis-Profil-Flags.
+
+## Windows: Hinweise zu langen Pfaden (ab v0.7.19)
+
+- tack allokiert zusammengesetzte Pfade dynamisch, bleibt aber **fail-fast** und kann Windows- oder Toolchain-Grenzen nicht übersteuern.
+- Halte Checkout-/Build-Roots unter Windows kurz, z. B. `C:\src\hello` oder `C:\w\proj`, statt tiefer Pfade im Benutzerprofil.
+- Win32-Long-Paths helfen nur, wenn die Systemeinstellung aktiv ist (`LongPathsEnabled=1` oder die Gruppenrichtlinie **Enable Win32 long paths**) **und** das betroffene Programm selbst long-path-aware ist.
+- Nach dem Aktivieren Shell/IDE neu starten; je nach Systemkonfiguration kann auch ein Reboot nötig sein.
+- Auch mit aktivierten Long-Paths können externe Werkzeuge (Git, Compiler, Archivierer, Shell, Explorer) eigene Grenzen behalten. Wenn etwas scheitert, zuerst den Workspace verkürzen.
 
 ## BOM, SBOM und DOC – was ist was?
 
@@ -552,7 +560,16 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.20)
+### What tack is
+- a **single C program** acting as a build tool (C89) that discovers and builds targets,
+- focused on **DX** (uniform commands), **portability**, and **traceable builds**,
+- `tack.ini` as the standard configuration (data-only), with optional `tackfile.c` for code-based configuration.
+
+### What tack is not
+- **not** a package manager (no resolver/registry/lockfile),
+- **not** an IDE project generator like CMake (intentionally).
+
+## Features (v0.7.21)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -583,6 +600,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
   - `tack.ini` (runtime, data‑only, auto‑load)
   - `tackfile.c` (optional, runtime → generated INI layer; lower priority than `tack.ini`)
   - built‑ins in `tack.c` (fallback)
+- **Hardening (v0.6.1–v0.7.0)**: fail-fast bounds checks, safer filesystem traversal (depth / symlink / reparse-point guards), hard input limits, more robust token parsing rules, plus `--no-code-config` for CI/teams.
 
 ## Ecosystem: software that pairs well with tack
 
@@ -658,7 +676,8 @@ Windows:
 tcc -run src/tack.c init
 tcc -run src/tack.c list
 tcc -run src/tack.c build debug -v -j 8
-tcc -run src/tack.c run debug -- --hello "Berlin"
+tcc -run src/tack.c build debug --why -j 8
+tcc -run src/tack.c run debug -- --hello Berlin
 ```
 
 Linux/BSD:
@@ -666,6 +685,7 @@ Linux/BSD:
 tcc -run src/tack.c init
 tcc -run src/tack.c list
 tcc -run src/tack.c build debug -v -j 8
+tcc -run src/tack.c build debug --why -j 8
 tcc -run src/tack.c run debug -- --hello Berlin
 ```
 
@@ -752,6 +772,12 @@ That distinction is intentional: after `tack clean`, the depfile is rewritten be
 - `sbom [debug|release] [--target NAME | --all-targets] [--outdir DIR] [-v] [--strict] [--no-core]` – deterministic build-input SBOM (single target or one JSON per target)
 - `doc [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – offline HTML docs (root `*.md` + optional `docs/**/*.md` + BOM)
 
+### Why “clean” and “clobber” (instead of distclean)?
+`distclean` comes from Make-based worlds (“also clean generated config”).  
+In tack the separation is explicit:
+- **clean**: “remove build leftovers, keep the structure”
+- **clobber**: “remove everything”
+
 ### Exit codes
 
 - **0** – success
@@ -762,18 +788,51 @@ That distinction is intentional: after `tack clean`, the depfile is rewritten be
 
 ### 1) `tack.ini` — data-only config (recommended)
 
-Auto-loaded if present (or via `--config`), unless `--no-config` is set.
+If `tack.ini` is present (or specified via `--config PATH`), tack loads it automatically unless you set `--no-config`.
 
-See the German section above for the full key list. The format is the same.
+**Sections**
+- `[project]`
+- `[target "NAME"]` (or without quotes: `[target tool:foo]`)
+- `[doc]` (optional: HTML template/CSS for `tack doc`)
+- `[bom]` (optional: HTML template/CSS for `tack bom`)
+- `[sbom]` (format/output for `tack sbom`)
 
-Profile-specific target overrides are supported via sections like:
+**Keys in `[project]`**
+- `default_target = app`
+- `disable_auto_tools = yes|no`
+
+**Keys in `[target ...]`**
+- `src = <dir>`        (recursive `.c` scan)
+- `bin = <name>`       (base executable name)
+- `id = <safe_id>`     (optional; folder name under `build/<id>/...`)
+- `enabled = yes|no`
+- `remove = yes|no`
+- `core = yes|no`
+- `includes = a;b;c`   (without `-I`, tack adds `-I` itself)
+- `defines  = A=1;B=2` (without `-D`, tack adds `-D` itself)
+- `cflags   = ...`     (tokens, separated by `;`)
+- `ldflags  = ...`     (tokens, separated by `;`)
+- `libs     = ...`     (tokens, separated by `;`)
+
+**Profile-specific overrides in `tack.ini`**
+You can define extra overrides per target for `debug`/`release`:
+
 - `[target "NAME".debug]`
 - `[target "NAME".release]`
 
-These sections accept only `core`, `includes`, `defines`, `cflags`, `ldflags`, `libs`. Profile values replace the base lists for that profile when set.
+Only the extra lists plus `core` are valid in these profile sections:
+
+- `core = yes|no`
+- `includes = ...`
+- `defines  = ...`
+- `cflags   = ...`
+- `ldflags  = ...`
+- `libs     = ...`
+
+**Merge rule:** profile values replace the base lists from `[target "NAME"]` (or from `tackfile.c` / built-ins) for that profile. Fields that are not set remain unchanged.
 
 **Defines vs. CFLAGS (profile overrides)**  
-`defines = FOO=1` is semantically identical to `cflags = -DFOO=1`: tack turns `defines` into `-D` flags internally.  
+`defines = FOO=1` is semantically identical to `cflags = -DFOO=1`: tack turns `defines` into internal `-D` flags.  
 Use `defines` for preprocessor macros and `cflags` for general compiler flags.
 
 Example (equivalent):
@@ -784,25 +843,47 @@ defines = TACK_RELEASE=1
 ; cflags = -DTACK_RELEASE=1
 ```
 
-**SBOM output (optional)**  
-Use `[sbom]` in `tack.ini`:
+**Keys in `[sbom]`**
 - `format = tack|tack-sbom-1|cyclonedx|cyclonedx-1.4|spdx|spdx-2.3` (default: `tack-sbom-1`)
-- `spec_version = ...` (optional; e.g. `1.4` for CycloneDX or `2.3` for SPDX; for tack it becomes `tack-sbom-<spec>`)
-- `output = <path>` (optional; **single-target only**; default: `build/sbom.json`, `build/sbom.cdx.json`, or `build/sbom.spdx.json` by format)
+- `spec_version = ...` (optional; e.g. `1.4` for CycloneDX or `2.3` for SPDX; for tack this becomes `tack-sbom-<spec>`)
+- `output = <path>` (optional; **single-target export only**; default: `build/sbom.json`, `build/sbom.cdx.json`, `build/sbom.spdx.json` by format)
 - Multi-target export: `tack sbom --all-targets [--outdir DIR]` writes `build/sbom.<target>.json` (or `.cdx.json` / `.spdx.json`) by default.
 
-**DOC/BOM templates (optional, v0.7.1)**  
-`tack.ini` may also contain `[doc]` and `[bom]` sections with `template = PATH` and `css = PATH`.  
-A `templates/` folder next to `src/` is recommended. The template must contain `{{TACK_CONTENT_HTML}}` (required).
+**Flag semantics (CFLAGS/DFLAGS/LFLAGS)**  
+- `includes`, `defines`, `cflags`, `ldflags`, `libs` are **extra lists**. tack appends them to its internal base flags (warnings + profile flags like `-g` / `-O2`).  
+- Per target, values from `tack.ini` **replace** the corresponding extra lists from `tackfile.c` / built-ins (they are not concatenated).  
+- Built-ins stay active as a fallback as long as `tack.ini` does not set a target override for the key in question.
+- Profile sections replace the base lists only for their profile (`debug` / `release`).
 
-Fail-fast behavior:
-- If `template = PATH` is set and the file is missing or not readable, tack exits with **code 2**.
-- If `css = PATH` is set and the file is missing or not readable, tack exits with **code 2**.
-- If the template does not contain `{{TACK_CONTENT_HTML}}`, tack exits with **code 2**.
+**List format:** primarily semicolon-separated (`;`). Since **v0.6.5**, **whitespace** as separator and **quoted tokens** are also supported (e.g. paths with spaces). Recommendation: use `;`, because it is the clearest form.  
+Whitespace around tokens is fine, but tokens should not contain embedded spaces unless quoted.
 
-Marker contract:
-- tack always emits stable IDs (`#tack-nav`, `#tack-content`, `#tack-footer`).
-- Marker comments (`<!-- TACK:BEGIN ... -->`) are provided by the built-in layout or by your template. If you rely on markers with a custom template, wrap the placeholders with the marker comments (see the shipped templates).
+Example `tack.ini`:
+```ini
+[project]
+default_target = app
+disable_auto_tools = no
+
+[target "app"]
+core = yes
+includes = include; src
+defines = FEATURE_X=1
+
+[target "tool:gen"]
+src = tools/gen
+bin = gen
+core = yes
+libs = -lws2_32
+
+[target "tool:gen".debug]
+cflags = -DTACK_DEBUG_TOOLS=1
+
+[target "tool:old"]
+enabled = no
+
+[target "tool:tmp"]
+remove = yes
+```
 
 ### 2) `tackfile.c` — optional code config (runtime, fail-fast)
 
@@ -813,6 +894,51 @@ If `tackfile.c` exists in the project root:
 3. tack loads that generated INI as a **low-priority layer** (below `tack.ini`)
 
 If `tackfile.c` cannot be compiled or executed, tack exits with an error (fail-fast).
+
+> **CI/team note:** use `--no-code-config` if `tackfile.c` may exist in the repo, but must **not** be executed in CI/team environments.
+
+#### `[doc]` / `[bom]` — HTML template and CSS (optional)
+
+These sections are optional. Without entries, tack uses the built-in HTML layout. A template is only used when `template = ...` is set.
+
+**Fail-fast:** if `template` or `css` is set but the file is missing or unreadable, tack exits with **code 2**.
+
+**Recommendation:** keep templates in `templates/` next to `src/` in the repo (assets, not source code).
+
+**Keys**
+- `template = PATH` (HTML file; read at runtime, default limit max. 1 MiB; not copied into the output)
+- `css = PATH` (CSS file; copied into the output and linked via `<link>`)
+
+**Fallback rule for BOM:** if `[bom]` is not set, BOM inherits the values from `[doc]`.
+
+Example:
+```ini
+[doc]
+template = templates/tack_template_min.html
+css      = templates/tack_doc.css
+
+[bom]
+; optional: if omitted, the fallback uses [doc]
+template = templates/tack_template_min.html
+css      = templates/tack_doc.css
+```
+
+**Template placeholders**
+- `{{TACK_PAGE_TITLE}}` (escaped)
+- `{{TACK_PROJECT_TITLE}}` (escaped)
+- `{{TACK_HEAD_ASSETS}}`
+- `{{TACK_NAV_HTML}}`
+- `{{TACK_TOC_HTML}}`
+- `{{TACK_CONTENT_HTML}}` (**required**, otherwise error)
+- `{{TACK_FOOTER_HTML}}`
+
+The output contains stable markers (`<!-- TACK:BEGIN ... -->`) and IDs (`#tack-nav`, `#tack-content`, `#tack-footer`) as a contract for CSS hooks and optional post-processing.
+
+- **IDs** are always emitted by tack (NAV/CONTENT/FOOTER).
+- **Markers** come either from the built-in layout **or** from the template. If a custom template needs markers, it must wrap the placeholders with them (the shipped templates already do this).
+
+**Why this design?**  
+Many teams want “data only” (`tack.ini`) — but sometimes code is the cleanest way to define targets dynamically. The generator approach keeps the host (`tack.exe`) stable while still allowing controlled code-based flexibility.
 
 #### Macros in `tackfile.c` (same format as before)
 

@@ -1,4 +1,4 @@
-# tack templates (DE/EN)  v0.7.20+
+# tack templates (DE/EN)  v0.7.21+
 
 Recommended layout: place this `templates/` directory next to your `src/` directory (repo root). `tack init` can create this folder for new projects.
 
@@ -36,6 +36,8 @@ Hinweise:
 ---
 
 ## English
+
+Recommended layout: place the `templates/` directory next to `src/` in the repo root. `tack init` can create this directory for new projects.
 
 ### tack.ini example
 

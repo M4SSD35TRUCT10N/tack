@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.20
+# tack ROADMAP (DE/EN) — v0.7.21
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -99,6 +99,11 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 - `templates/tack_doc.css` enthält jetzt Grundunterstützung für `prefers-contrast: more` und `forced-colors: active`, damit DOC/BOM-Ausgaben unter High-Contrast/Forced-Colors systemfreundlicher bleiben.
 - Lesbarkeit/Orientierung leicht verbessert: stärkere Rahmen/Unterstreichungen bei mehr Kontrast, sichtbarer aktueller Nav-Eintrag und klarere Fokusmarkierung ohne JavaScript.
 - `templates/README.md`, README und FAQ dokumentieren die neue Accessibility-Feinabstimmung ausdrücklich.
+
+### Erledigt in v0.7.21
+- Abschlussprüfung der Doku auf Zweisprachigkeit: README, FAQ, ROADMAP, Release Notes und `templates/README.md` enthalten jetzt denselben Sachstand in DE/EN.
+- README EN dokumentiert jetzt die bislang nur im deutschen Teil vorhandenen Konfigurationsdetails und die Abgrenzung `clean`/`clobber`.
+- FAQ EN wurde an dieselbe Themenreihenfolge wie FAQ DE angepasst; `templates/README.md` wurde ebenfalls inhaltlich angeglichen.
 
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
@@ -208,6 +213,11 @@ Before “big” releases and announcements, tack should be validated against re
 - `templates/tack_doc.css` now includes baseline support for `prefers-contrast: more` and `forced-colors: active` so DOC/BOM output behaves better in system high-contrast / forced-colors modes.
 - Small readability polish: stronger borders/underlines at higher contrast, a clearer current-nav state, and more visible keyboard focus without JavaScript.
 - `templates/README.md`, README, and FAQ now document this accessibility polish explicitly.
+
+### Done in v0.7.21
+- Final bilingual documentation pass: README, FAQ, ROADMAP, Release Notes, and `templates/README.md` now carry the same current-state information in DE/EN.
+- README EN now documents the configuration details and the `clean`/`clobber` distinction that had previously only been spelled out in the German section.
+- FAQ EN was reordered to the same topic sequence as FAQ DE; `templates/README.md` was aligned as well.
 
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs
