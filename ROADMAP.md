@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.13
+# tack ROADMAP (DE/EN) — v0.7.15
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -66,6 +66,12 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 
 ### Erledigt in v0.7.14
 - `tack new <name>`: erstellt das Projektverzeichnis `<name>/` und führt darin `tack init` aus (One‑Step‑Scaffold).
+
+### Erledigt in v0.7.15
+- Compilerbewusste Debug-Profil-Flags: `-g` und `-DDEBUG=1` bleiben generisch, `-bt20` wird nur noch für tcc/TinyCC gesetzt.
+- GCC/Clang-Starts über `TACK_CC` scheitern im Debug-Profil nicht mehr an einem tcc-spezifischen Schalter.
+- Regressionstest für BOM-/Flag-Verhalten von tcc vs. gcc ergänzt.
+- README/FAQ konkretisieren die effektiven eingebauten Profil-Flags.
 
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
@@ -144,6 +150,12 @@ Before “big” releases and announcements, tack should be validated against re
 
 ### Done in v0.7.14
 - `tack new <name>`: creates the project directory `<name>/` and runs `tack init` inside it (one-step scaffold).
+
+### Done in v0.7.15
+- Compiler-aware debug profile flags: `-g` and `-DDEBUG=1` stay generic, while `-bt20` is now emitted only for tcc/TinyCC.
+- GCC/Clang invocations via `TACK_CC` no longer fail in debug builds because of a tcc-only switch.
+- Added a regression test for BOM/flag behavior across tcc vs. gcc.
+- README/FAQ now state the effective built-in profile flags more explicitly.
 
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs

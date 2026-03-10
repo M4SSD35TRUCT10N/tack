@@ -9,6 +9,12 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.15
+- Compilerbewusste Debug-Profil-Flags: tack setzt `-g` und `-DDEBUG=1` allgemein, `-bt20` aber nur noch für tcc/TinyCC.
+- `TACK_CC=gcc` bzw. `TACK_CC=clang` funktionieren damit im Debug-Profil portabler; der im Paper reproduzierte `-bt20`-Fehler wird vermieden.
+- Doku präzisiert die effektiven Basis-Profil-Flags in README/FAQ.
+- Neuer Regressionstest `tests/compiler_profile_flags_test.c` prüft BOM/Flag-Verhalten für tcc vs. gcc.
+
 ### v0.7.14
 - `tack new <name>`: erstellt ein Verzeichnis `<name>/` und führt darin automatisch `tack init` aus (Projekt-Scaffold in einem Schritt).
 
@@ -91,6 +97,12 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.15
+- Compiler-aware debug profile flags: tack always emits `-g` and `-DDEBUG=1`, but now only emits `-bt20` for tcc/TinyCC.
+- This keeps `TACK_CC=gcc` and `TACK_CC=clang` portable in debug builds and avoids the `-bt20` failure reproduced in the paper.
+- Documentation now states the effective built-in profile flags more precisely in README/FAQ.
+- New regression test `tests/compiler_profile_flags_test.c` checks BOM/flag behavior for tcc vs. gcc.
 
 ### v0.7.14
 - `tack new <name>`: creates a `<name>/` directory and automatically runs `tack init` inside it (one-step project scaffold).

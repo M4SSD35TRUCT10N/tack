@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.14
+# tack FAQ / FQA (DE/EN) — v0.7.15
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -31,7 +31,7 @@ Ja: `tack init` legt, falls nicht vorhanden, eine sinnvolle `.gitignore` sowie `
 Das ist bewusst „non-destructive“, damit bestehende Projektregeln erhalten bleiben.
 
 ### Welche Compiler funktionieren?
-Standard ist **tcc**. Über `TACK_CC` kannst du z.B. `gcc` oder `clang` nutzen, solange sie „klassische“ C‑Kommandozeilen verstehen.  
+Standard ist **tcc**. Über `TACK_CC` kannst du z.B. `gcc` oder `clang` nutzen, solange sie „klassische“ C‑Kommandozeilen verstehen. Im Debug-Profil setzt tack die Basis-Flags compilerbewusst: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC.  
 **Wichtig:** `TACK_CC` ist der **Compiler**, nicht „Compiler + Flags“. Flags gehören in `tack.ini`.
 
 ### Warum lehnt tack `TACK_CC="clang -std=c89"` ab?
@@ -277,7 +277,7 @@ If the files already exist, tack **won't overwrite** them; it only appends a cle
 This is intentionally non-destructive to preserve existing project rules.
 
 ### Which compilers work?
-Default is **tcc**. You can set `TACK_CC` to `gcc`/`clang` etc. as long as they behave like classic C compilers.  
+Default is **tcc**. You can set `TACK_CC` to `gcc`/`clang` etc. as long as they behave like classic C compilers. In debug builds tack applies compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC.  
 Important: `TACK_CC` is the compiler program, not “compiler + flags”. Put flags into `tack.ini`.
 
 ### Why does tack reject `TACK_CC="clang -std=c89"`?
@@ -418,7 +418,7 @@ Without JS, use the index page + browser search (Ctrl+F). An optional minimal JS
 ### Do values in `tack.ini` extend or replace flags from built-ins / tackfile?
 
 For a given target, list values in `tack.ini` (e.g. `cflags`, `defines`, `ldflags`, `libs`) **replace** the corresponding extra lists from `tackfile.c` / built-ins.  
-These extra lists are then appended to tack’s internal base flags (warnings + profile flags such as `-g` / `-O2`).
+These extra lists are then appended to tack’s internal base flags (warnings + profile flags such as `-g` / `-O2`; `-bt20` is added only for tcc/TinyCC debug builds).
 
 ### Does the HTML output support templates and CSS?
 

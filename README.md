@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.14)
+# tack — Tiny ANSI-C Kit (v0.7.15)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.14)
+## Features (v0.7.15)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -82,7 +82,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 
 ## Ökosystem: Software, die gut mit tack zusammenspielt
 
-- **Compiler/Toolchain:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM (über `TACK_CC`).
+- **Compiler/Toolchain:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM (über `TACK_CC`). Das Debug-Profil nutzt compilerbewusste Basis-Flags: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC.
 - **Versionsverwaltung:** Git, Fossil (tack `init` legt u. a. `.gitignore` + Fossil-Ignore an).
 - **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (einfach `tack build` / `tack test` aufrufen).
 - **Editor/IDE:** VS Code (Tasks), Vim/Neovim, Emacs, CLion/IntelliJ (External Tools), Visual Studio (External Tools).
@@ -110,6 +110,13 @@ Dieses Repo legt `tack` unter `src/tack.c` ab. Du kannst es aber auch in die Rep
   - `tools/<name>/` → Target `tool:<name>` (1 Ebene tief; Quellen darunter rekursiv)
 - **Tests**
   - `tests/**/*_test.c` → wird gebaut und ausgeführt
+
+## Compilerbewusste Profil-Flags (v0.7.15)
+
+- **Debug**: tack setzt immer `-g` und `-DDEBUG=1`.
+- **TinyCC/tcc**: zusätzlich wird `-bt20` gesetzt, weil dieser Schalter tcc-spezifisch ist.
+- **GCC/Clang**: erhalten **kein** `-bt20`; damit bleibt `TACK_CC=gcc` bzw. `TACK_CC=clang` im Debug-Profil portabel.
+- Zusätzliche `cflags` aus `tack.ini` oder `tackfile.c` bleiben davon getrennt; tack liefert weiterhin seine eingebauten Basis-Profil-Flags.
 
 ## BOM, SBOM und DOC – was ist was?
 
@@ -542,7 +549,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.14)
+## Features (v0.7.15)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -575,7 +582,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 
 ## Ecosystem: software that pairs well with tack
 
-- **Compilers/toolchains:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM (via `TACK_CC`).
+- **Compilers/toolchains:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM (via `TACK_CC`). The debug profile uses compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC.
 - **Version control:** Git, Fossil (tack `init` provisions `.gitignore` and Fossil ignore settings, among other things).
 - **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (just call `tack build` / `tack test`).
 - **Editors/IDEs:** VS Code (Tasks), Vim/Neovim, Emacs, CLion/IntelliJ (External Tools), Visual Studio (External Tools).
@@ -603,6 +610,13 @@ This repo keeps tack at `src/tack.c`. You may also place it in the repo root —
   - `tools/<name>/` → target `tool:<name>` (one level deep; sources below scanned recursively)
 - **Tests**
   - `tests/**/*_test.c` (built and executed)
+
+## Compiler-aware profile flags (v0.7.15)
+
+- **Debug**: tack always emits `-g` and `-DDEBUG=1`.
+- **TinyCC/tcc**: tack additionally emits `-bt20`, because that switch is tcc-specific.
+- **GCC/Clang**: do **not** receive `-bt20`; this keeps `TACK_CC=gcc` and `TACK_CC=clang` portable in debug builds.
+- Extra `cflags` from `tack.ini` or `tackfile.c` remain separate from this; tack still provides the built-in base profile flags.
 
 ## BOM, SBOM and DOC — what is what?
 
