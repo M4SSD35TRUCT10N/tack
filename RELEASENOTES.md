@@ -9,6 +9,11 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.19
+- Windows-Long-Path-Guidance in README/FAQ deutlich erweitert: konkrete Praxisempfehlungen für flache Workspace-Pfade, Aktivierung von `LongPathsEnabled` bzw. Gruppenrichtlinie und Hinweis auf erforderlichen Neustart/Reboot.
+- Doku stellt jetzt ausdrücklich klar, dass Long-Paths unter Windows nur helfen, wenn das jeweilige Programm selbst **long-path-aware** ist; externe Tool-Limits bleiben also relevant.
+- Keine Produktionscode-Änderung in diesem Schritt; es handelt sich bewusst um einen kleinen Doku-/Erfahrungs-Commit.
+
 ### v0.7.18
 - Test-Hardening für GCC/Clang mit `-Werror`: eingebettete `#include "../src/tack.c"`-Tests nutzen jetzt einen kleinen Wrapper, der `-Wunused-function` bewusst nur im Testkontext unterdrückt.
 - `functional_smoke_test` prüft den Cache-Pfad ohne forcierten Rebuild; damit entspricht die Testerwartung wieder der realen Cache-Semantik (`force` umgeht den Compile-Cache absichtlich).
@@ -115,6 +120,11 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.19
+- Expanded Windows long-path guidance in README/FAQ: concrete advice for shallow workspace roots, enabling `LongPathsEnabled` / Group Policy, and restarting the shell or rebooting afterwards.
+- The docs now explicitly state that long paths only help when the affected program is itself **long-path aware**; external tool limits still matter.
+- No production-code change in this step; this is intentionally a small documentation/operability commit.
 
 ### v0.7.18
 - Test hardening for GCC/Clang with `-Werror`: embedded `#include "../src/tack.c"` tests now use a tiny wrapper that suppresses `-Wunused-function` only in the test context.

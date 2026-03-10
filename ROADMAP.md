@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.18
+# tack ROADMAP (DE/EN) — v0.7.19
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -90,9 +90,13 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 - `path_join_test.c` definiert testlokale Helfer nur dort, wo sie wirklich verwendet werden.
 - Produktionscode und Single-File-Ansatz bleiben unverändert; die Anpassung ist bewusst auf den Testkontext begrenzt.
 
+### Erledigt in v0.7.19
+- README/FAQ enthalten jetzt eine deutlich konkretere Windows-Long-Path-Guidance.
+- Dokumentiert sind flache Workspace-Pfade, die Aktivierung von `LongPathsEnabled` bzw. der Gruppenrichtlinie sowie der Hinweis, dass danach ein Neustart/Reboot nötig sein kann.
+- Die Doku stellt jetzt ausdrücklich klar, dass Long-Paths nur helfen, wenn das jeweilige Programm selbst **long-path-aware** ist; externe Tool-Grenzen bleiben relevant.
+
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
-- Optional: bessere Windows Long‑Path Guidance
 - Optional: High-Contrast/Forced-Colors CSS-Feinschliff für DOC/BOM-Templates
 
 ### Paketmanagement (Idee / Untersuchungen)
@@ -178,17 +182,26 @@ Before “big” releases and announcements, tack should be validated against re
 - For cache validation, the depfile itself is intentionally checked via size + FNV-1a while normal dependencies still use `mtime`/size/FNV-1a.
 - Added a regression test for the `clean`/restore path.
 
-### Done in v0.7.18
+### Done in v0.7.17
 - `tack sbom` is now documented more precisely as a **build-input SBOM**. CycloneDX/SPDX remain export formats; without a resolver/package manager tack intentionally does not invent third-party component versions.
 - New CLI batch mode: `tack sbom --all-targets` writes one JSON file per enabled target (`build/sbom.<target>.json`, `.cdx.json`, `.spdx.json`).
 - `[sbom] output` intentionally remains single-target specific, keeping single-export and batch-export semantics clearly separated.
 - Added regression test `tests/sbom_all_targets_test.c`.
 
+### Done in v0.7.18
+- GCC/Clang test hardening for `-Werror`: embedded `#include "../src/tack.c"` tests now use a small wrapper that suppresses `-Wunused-function` only in the test context.
+- `functional_smoke_test` now checks the cache path without a forced rebuild so the expectation matches actual cache semantics (`force` intentionally bypasses the compile cache).
+- `path_join_test.c` now defines test-local helpers only where they are actually used.
+- Production code and the single-file approach remain unchanged; the adjustment intentionally stays local to the test context.
+
+### Done in v0.7.19
+- README/FAQ now contain much more concrete Windows long-path guidance.
+- The docs cover shallow workspace roots, enabling `LongPathsEnabled` / Group Policy, and the note that restarting the shell or even rebooting may be required afterwards.
+- The docs now explicitly state that long paths only help when the affected program is itself **long-path aware**; external tool limits still matter.
+
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs
-- Optional: better Windows long-path guidance
 - Optional: high-contrast / forced-colors CSS polish for DOC/BOM templates
-- Optional: multiple SBOM-JSONs per target
 
 ### Package management (idea / research)
 C has no standard package manager. A tack-native approach could be a USP, but needs strict scope:

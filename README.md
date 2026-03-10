@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.18)
+# tack — Tiny ANSI-C Kit (v0.7.19)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.18)
+## Features (v0.7.19)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -551,7 +551,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - you want to **debug build logic as C code**,
 - you want **portability** (C89) and easy distribution (one file or a small `tack.exe`).
 
-## Features (v0.7.18)
+## Features (v0.7.19)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -619,6 +619,14 @@ This repo keeps tack at `src/tack.c`. You may also place it in the repo root —
 - **TinyCC/tcc**: tack additionally emits `-bt20`, because that switch is tcc-specific.
 - **GCC/Clang**: do **not** receive `-bt20`; this keeps `TACK_CC=gcc` and `TACK_CC=clang` portable in debug builds.
 - Extra `cflags` from `tack.ini` or `tackfile.c` remain separate from this; tack still provides the built-in base profile flags.
+
+## Windows long-path guidance (since v0.7.19)
+
+- tack allocates joined paths dynamically, but it still stays **fail-fast** and cannot override Windows or toolchain limits.
+- Keep Windows checkout/build roots short, e.g. `C:\src\hello` or `C:\w\proj`, instead of deep user-profile paths.
+- Win32 long paths only help when the system setting is enabled (`LongPathsEnabled=1` or the **Enable Win32 long paths** Group Policy) **and** the affected program is long-path aware.
+- After enabling it, restart the shell/IDE; depending on the system setup, a reboot may also be required.
+- Even with long paths enabled, external tools (Git, compiler, archiver, shell, Explorer) may still enforce their own limits. If something breaks, shorten the workspace first.
 
 ## BOM, SBOM and DOC — what is what?
 

@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.18
+# tack FAQ / FQA (DE/EN) — v0.7.19
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -141,7 +141,20 @@ tack test --help
 ```
 
 ### Windows: Was ist mit langen Pfaden?
-tack baut Pfade dynamisch, nutzt aber trotzdem harte Limits (fail-fast). Wenn dein Windows Setup Long-Paths unterstützt, hilft das. Bei extrem langen Repo-Pfaden bekommst du eine klare Fehlermeldung.
+`tack` baut Join-Pfade dynamisch, bleibt aber bewusst **fail-fast**. Das hilft gegen starre interne Puffer, ersetzt aber keine Windows- oder Toolchain-Grenzen.
+
+Praktische Checkliste:
+
+- Repo/Workspace möglichst kurz halten, z. B. `C:\src\hello` oder `C:\w\proj` statt tiefer Benutzerprofil-Pfade.
+- Wenn du die Maschine kontrollierst, Win32-Long-Paths aktivieren:
+  ```powershell
+  New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
+  -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+  ```
+- Alternativ per Gruppenrichtlinie: `Computer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths`
+- Shell/IDE danach neu starten; Microsoft weist darauf hin, dass je nach Prozesszustand auch ein Reboot nötig sein kann.
+- Wichtig: Das hilft nur Programmen, die selbst **long-path-aware** sind. tack kann Grenzen externer Werkzeuge (Git, Compiler, Archiver, Explorer, Shell) nicht umgehen.
+- Wenn weiterhin Pfadprobleme auftreten: zuerst den Checkout-/Build-Pfad verkürzen und dann erneut testen.
 
 ### Windows: Warum findet tack meine `tack.ini` nicht, wenn tack im `PATH` liegt?
 Wenn `tack.exe` aus einem Tool-Ordner im `PATH` gestartet wird und bei `--config` nur ein Dateiname ohne Pfad angegeben wird (z.B. `--config tack.ini`), kann die Config-Datei – je nach Aufruf/Setup – im **falschen Verzeichnis** gesucht werden (z.B. im Tool-Ordner statt im Projektordner).
@@ -335,6 +348,22 @@ defines = TACK_RELEASE=1
 ### `--no-config` vs `--no-code-config`?
 - `--no-config`: ignore **INI + tackfile.c**
 - `--no-code-config`: ignore **only tackfile.c**, still load INI
+
+### Windows: What about long paths?
+`tack` allocates joined paths dynamically, but it intentionally remains **fail-fast**. This avoids rigid internal buffers, but it does not remove Windows or toolchain limits.
+
+Practical checklist:
+
+- Keep the repo/workspace path short, e.g. `C:\src\hello` or `C:\w\proj`, instead of deep user-profile paths.
+- If you control the machine, enable Win32 long paths:
+  ```powershell
+  New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
+  -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+  ```
+- Or use Group Policy: `Computer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths`
+- Restart the shell/IDE afterwards; Microsoft notes that a reboot may still be required because the setting is cached per process.
+- Important: this only helps programs that are themselves **long-path aware**. tack cannot bypass limits in external tools (Git, compiler, archiver, Explorer, shell).
+- If path problems remain, shorten the checkout/build root first and test again.
 
 ### Windows: Why doesn’t tack find my `tack.ini` when tack is on `PATH`?
 If `tack.exe` is started from a tools folder that’s on `PATH` and you pass only a bare file name to `--config` (e.g. `--config tack.ini`), the config file may be looked up in the **wrong directory** depending on your setup (for example the tools folder instead of your project folder).
