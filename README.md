@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.22)
+# tack — Tiny ANSI-C Kit (v0.7.23)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.22)
+## Features (v0.7.23)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -63,7 +63,9 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - Diagnose: `--why`/`--explain` erklärt Rebuild-Entscheidungen („why rebuild“)
 - Windows: robustere Depfile-/Pfadbehandlung (custom Depfiles, normalisierte Pfade) → weniger unnötige Rebuilds
 - Help-Passthrough: `tack build --help` / `-h` zeigt die Kommando-Hilfe
-- Strict Mode: `--strict` aktiviert zusätzlich `-Wunsupported`
+- Strict Mode: `--strict` aktiviert zusätzlich `-Wunsupported` **nur für tcc/TinyCC**; GCC/Clang erhalten weiterhin nur die gemeinsamen Warn-Flags.
+- Sichere Target-Pfade als Default: `id` und `bin` müssen einfache, pfadsichere Tokens bleiben; `src` bleibt ein relativer Repo-Pfad ohne `..`-Traversal. Legacy-/Power-Fälle erfordern jetzt ein ausdrückliches Opt-in via `--unsafe-paths` oder `[project] allow_unsafe_paths = yes`.
+- CycloneDX-/SPDX-Metadaten fachlich nachgezogen: CycloneDX erhält `serialNumber` + `metadata.timestamp`, SPDX ein echtes UTC-`created` und einen eindeutigeren `documentNamespace`. Für reproduzierbare Pipelines respektiert tack `SOURCE_DATE_EPOCH`, falls gesetzt.
 - Echte Target-Konfiguration: Includes/Defines/CFLAGS/LDFLAGS/LIBS pro Target
 - Profil-spezifische Target-Overrides in `tack.ini` (`[target "...".debug]` / `[target "...".release]`)
 - Shared Core Code: `src/core/` wird 1× pro Profil gebaut und optional gelinkt
@@ -119,6 +121,14 @@ Dieses Repo legt `tack` unter `src/tack.c` ab. Du kannst es aber auch in die Rep
 - **GCC/Clang**: erhalten **kein** `-bt20`; damit bleibt `TACK_CC=gcc` bzw. `TACK_CC=clang` im Debug-Profil portabel.
 - Zusätzliche `cflags` aus `tack.ini` oder `tackfile.c` bleiben davon getrennt; tack liefert weiterhin seine eingebauten Basis-Profil-Flags.
 
+## Sichere Target-Pfade (ab v0.7.23)
+
+- `id` und `bin` werden standardmäßig als **einfache, pfadsichere Tokens** validiert: keine Separatoren, keine Laufwerkspräfixe, kein `..`.
+- `src` bleibt standardmäßig ein **repo-relativer Pfad**: keine absoluten Pfade, keine `..`-Segmente. Damit bleiben Build-Ausgaben innerhalb des erwarteten Projekt-/`build/`-Bereichs.
+- Diese Prüfung schließt bewusst das im Review reproduzierte INI-/Target-Traversal für `id`/`bin`/`src`.
+- Für bewusst „mächtige“ Alt- oder Spezialfälle gibt es ein explizites Opt-in: global per `--unsafe-paths` oder repo-lokal per `[project] allow_unsafe_paths = yes`.
+- Empfehlung für CI/Teams: den sicheren Default beibehalten und zusätzlich bei untrusted Builds eher `--no-code-config` bzw. im Zweifel `--no-config` nutzen.
+
 ## Windows: Hinweise zu langen Pfaden (ab v0.7.19)
 
 - tack allokiert zusammengesetzte Pfade dynamisch, bleibt aber **fail-fast** und kann Windows- oder Toolchain-Grenzen nicht übersteuern.
@@ -140,6 +150,7 @@ tack kann drei Arten von „Dokumentation“ ausgeben, die oft verwechselt werde
   Standardmäßig ist das Format **tack‑spezifisch** (`format: "tack-sbom-1"`) und landet als JSON unter `build/sbom.json`.  
   CycloneDX (`specVersion` 1.4) und SPDX (`SPDX-2.3`) werden unterstützt, aber **ohne Resolver/Package-Manager keine Versionsauflösung fremder Komponenten**. Die Ausgabe ist also bewusst eher „Input-SBOM“ als vollständige Supply-Chain-SBOM mit Komponenten-Versionen und Beziehungen.  
   Über `[sbom]` in `tack.ini` kannst du Format, Spec-Version und den **single-target**-Ausgabepfad `output` steuern (siehe Konfiguration). Für mehrere Targets gibt es `tack sbom --all-targets`, das standardmäßig `build/sbom.<target>.json` bzw. `.cdx.json` / `.spdx.json` schreibt.  
+  Für CycloneDX/SPDX schreibt tack dabei jetzt auch die **Dokument-Metadaten** konsistenter: CycloneDX bekommt `serialNumber` und `metadata.timestamp`, SPDX ein echtes UTC-`creationInfo.created` und einen eindeutigen `documentNamespace`. Für reproduzierbare Builds wird dabei `SOURCE_DATE_EPOCH` genutzt, wenn die Variable gesetzt ist.  
   Es werden **keine** Versions‑Ratespiele aus Linker‑Flags betrieben (z.B. kein OpenSSL‑Guess aus `-lssl`).
 
 ### Suche / „cargo-like UI“
@@ -194,6 +205,7 @@ tack.exe --no-cache build debug
 - `--no-code-config`: **nur** `tackfile.c` deaktivieren, laden der INI-Datei bleibt aktiv (CI/Team‑Modus)
 - `--no-auto-tools`: `tools/<name>` Auto-Discovery deaktivieren (für vollständig deklarative Builds)
 - `--no-cache`: Compile-Cache deaktivieren (`.tack-cache/`)
+- `--unsafe-paths`: unsichere Target-Pfade aus `tack.ini`/`tackfile.c` ausdrücklich erlauben (nur für kontrollierte Sonderfälle)
 
 ## Compile-Cache (.tack-cache/)
 
@@ -281,11 +293,12 @@ Wenn `tack.ini` vorhanden ist (oder per `--config PATH` gesetzt wird), lädt tac
 **Schlüssel in `[project]`**
 - `default_target = app`
 - `disable_auto_tools = yes|no`
+- `allow_unsafe_paths = yes|no` (Default: `no`; nur für bewusst kontrollierte Sonderfälle)
 
 **Schlüssel in `[target ...]`**
-- `src = <dir>`        (rekursiver `.c`-Scan)
-- `bin = <name>`       (Exe-Base-Name)
-- `id = <safe_id>`     (optional; Ordnername unter `build/<id>/...`)
+- `src = <dir>`        (rekursiver `.c`-Scan; standardmäßig nur repo-relativ und ohne `..`)
+- `bin = <name>`       (Exe-Base-Name; standardmäßig ohne Separatoren/`..`)
+- `id = <safe_id>`     (optional; Ordnername unter `build/<id>/...`, standardmäßig ohne Separatoren/`..`)
 - `enabled = yes|no`
 - `remove = yes|no`
 - `core = yes|no`
@@ -312,6 +325,8 @@ In diesen Profil-Sektionen gelten nur die Extra-Listen + `core`:
 
 **Merge-Regel:** Profilwerte überschreiben die Basis-Listen aus `[target "NAME"]` (oder aus `tackfile.c`/Built-ins) pro Profil. Nicht gesetzte Felder bleiben unverändert.
 
+**Pfadsicherheit:** Der sichere Default verhindert `..`-Traversal und Pfad-Separatormissbrauch in `id`/`bin`; `src` bleibt repo-relativ. Wer das bewusst lockern muss, setzt `--unsafe-paths` oder `[project] allow_unsafe_paths = yes` explizit.
+
 **Defines vs. CFLAGS (Profil-Overrides)**  
 `defines = FOO=1` ist semantisch identisch zu `cflags = -DFOO=1`: tack wandelt `defines` intern in `-D`‑Flags um.  
 Für Präprozessor‑Makros ist `defines` die klarere/lesbarere Variante; `cflags` ist für allgemeine Compiler‑Flags gedacht.
@@ -329,6 +344,7 @@ defines = TACK_RELEASE=1
 - `spec_version = ...` (optional; z. B. `1.4` für CycloneDX oder `2.3` für SPDX; für tack wird daraus `tack-sbom-<spec>`)
 - `output = <pfad>` (optional; **nur für Single-Target-Export**; Default: `build/sbom.json`, `build/sbom.cdx.json`, `build/sbom.spdx.json` je nach Format)
 - Mehrziel-Export: `tack sbom --all-targets [--outdir DIR]` schreibt standardmäßig `build/sbom.<target>.json` bzw. `.cdx.json` / `.spdx.json`.
+- Für CycloneDX/SPDX werden zusätzlich Dokument-Metadaten (`serialNumber`/`metadata.timestamp` bzw. `creationInfo.created`/`documentNamespace`) geschrieben; bei gesetztem `SOURCE_DATE_EPOCH` nutzt tack diesen Wert für reproduzierbare Timestamps.
 
 **Flag-Semantik (CFLAGS/DFLAGS/LFLAGS)**  
 - `includes`, `defines`, `cflags`, `ldflags`, `libs` sind **Extra-Listen**. tack ergänzt sie zu seinen internen Basis-Flags (Warnungen + Profil-Flags wie `-g`/`-O2`).  
@@ -344,6 +360,7 @@ Beispiel `tack.ini`:
 [project]
 default_target = app
 disable_auto_tools = no
+allow_unsafe_paths = no
 
 [target "app"]
 core = yes
@@ -569,7 +586,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - **not** a package manager (no resolver/registry/lockfile),
 - **not** an IDE project generator like CMake (intentionally).
 
-## Features (v0.7.22)
+## Features (v0.7.23)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -584,7 +601,9 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - Diagnostics: `--why`/`--explain` explains rebuild decisions (“why rebuild”)
 - Windows: more robust depfile/path handling (custom depfiles, normalized paths) → fewer unnecessary rebuilds
 - Help passthrough: `tack build --help` / `-h` shows sub-command help
-- strict mode: `--strict` enables `-Wunsupported` (default suppresses it)
+- strict mode: `--strict` enables `-Wunsupported` **only for tcc/TinyCC**; GCC/Clang keep the common warning set.
+- Safe target paths by default: `id` and `bin` must stay simple filesystem-safe tokens; `src` stays a repo-relative path without `..` traversal. Legacy/power-user cases now require explicit opt-in via `--unsafe-paths` or `[project] allow_unsafe_paths = yes`.
+- CycloneDX/SPDX metadata tightened up: CycloneDX now gets `serialNumber` + `metadata.timestamp`, SPDX a real UTC `created` value and a more unique `documentNamespace`. For reproducible pipelines tack respects `SOURCE_DATE_EPOCH` when it is set.
 - real per‑target config: includes/defines/cflags/ldflags/libs/core
 - profile-specific target overrides in `tack.ini` (`[target "...".debug]` / `[target "...".release]`)
 - Shared core code: `src/core/` built once per profile, optionally linked
@@ -640,6 +659,14 @@ This repo keeps tack at `src/tack.c`. You may also place it in the repo root —
 - **GCC/Clang**: do **not** receive `-bt20`; this keeps `TACK_CC=gcc` and `TACK_CC=clang` portable in debug builds.
 - Extra `cflags` from `tack.ini` or `tackfile.c` remain separate from this; tack still provides the built-in base profile flags.
 
+## Safe target paths (since v0.7.23)
+
+- `id` and `bin` are now validated as **simple filesystem-safe tokens** by default: no separators, no drive prefixes, no `..`.
+- `src` stays a **repo-relative path** by default: no absolute paths and no `..` segments. This keeps build outputs inside the expected project/`build/` area.
+- This intentionally closes the INI/target traversal that was reproduced for `id`/`bin`/`src` in the re-evaluation.
+- For intentional power-user / legacy cases there is an explicit opt-in: globally via `--unsafe-paths` or repo-locally via `[project] allow_unsafe_paths = yes`.
+- Recommendation for CI/teams: keep the safe default and additionally prefer `--no-code-config` (or, when needed, `--no-config`) for untrusted builds.
+
 ## Windows long-path guidance (since v0.7.19)
 
 - tack allocates joined paths dynamically, but it still stays **fail-fast** and cannot override Windows or toolchain limits.
@@ -661,6 +688,7 @@ tack can output three kinds of “documentation” that are often mixed up:
   By default the format is **tack-specific** (`format: "tack-sbom-1"`) and is written as JSON to `build/sbom.json`.  
   CycloneDX (`specVersion` 1.4) and SPDX (`SPDX-2.3`) are supported, but **without a resolver/package manager tack does not invent third-party component versions**. The result is intentionally closer to an “input SBOM” than a complete supply-chain SBOM with resolved component versions and dependency relationships.  
   Use `[sbom]` in `tack.ini` to control format, spec version, and the **single-target** output path `output` (see configuration). For multiple targets use `tack sbom --all-targets`, which writes `build/sbom.<target>.json` (or `.cdx.json` / `.spdx.json`) by default.  
+  For CycloneDX/SPDX, tack now also writes more consistent **document metadata**: CycloneDX gets `serialNumber` and `metadata.timestamp`, SPDX a real UTC `creationInfo.created` value and a unique `documentNamespace`. For reproducible builds, `SOURCE_DATE_EPOCH` is used when it is set.  
   It intentionally avoids guesswork (e.g. it does not try to infer exact OpenSSL versions from `-lssl`).
 
 ### Search / “cargo-like UI”
@@ -714,6 +742,7 @@ tack.exe --no-cache build debug
 - `--no-code-config`: disable **only** `tackfile.c` (INI stays active)
 - `--no-auto-tools`: disable `tools/<name>` auto discovery (useful for fully declarative builds)
 - `--no-cache`: disable the compile cache (`.tack-cache/`)
+- `--unsafe-paths`: explicitly allow unsafe target paths from `tack.ini`/`tackfile.c` (controlled special cases only)
 
 ## Compile cache (.tack-cache/)
 
@@ -800,11 +829,12 @@ If `tack.ini` is present (or specified via `--config PATH`), tack loads it autom
 **Keys in `[project]`**
 - `default_target = app`
 - `disable_auto_tools = yes|no`
+- `allow_unsafe_paths = yes|no` (default: `no`; controlled special cases only)
 
 **Keys in `[target ...]`**
-- `src = <dir>`        (recursive `.c` scan)
-- `bin = <name>`       (base executable name)
-- `id = <safe_id>`     (optional; folder name under `build/<id>/...`)
+- `src = <dir>`        (recursive `.c` scan; repo-relative and without `..` by default)
+- `bin = <name>`       (base executable name; no separators/`..` by default)
+- `id = <safe_id>`     (optional; folder name under `build/<id>/...`, no separators/`..` by default)
 - `enabled = yes|no`
 - `remove = yes|no`
 - `core = yes|no`
@@ -831,6 +861,8 @@ Only the extra lists plus `core` are valid in these profile sections:
 
 **Merge rule:** profile values replace the base lists from `[target "NAME"]` (or from `tackfile.c` / built-ins) for that profile. Fields that are not set remain unchanged.
 
+**Path safety:** the safe default blocks `..` traversal and separator abuse in `id`/`bin`; `src` stays repo-relative. If you intentionally need looser behavior, set `--unsafe-paths` or `[project] allow_unsafe_paths = yes` explicitly.
+
 **Defines vs. CFLAGS (profile overrides)**  
 `defines = FOO=1` is semantically identical to `cflags = -DFOO=1`: tack turns `defines` into internal `-D` flags.  
 Use `defines` for preprocessor macros and `cflags` for general compiler flags.
@@ -848,6 +880,7 @@ defines = TACK_RELEASE=1
 - `spec_version = ...` (optional; e.g. `1.4` for CycloneDX or `2.3` for SPDX; for tack this becomes `tack-sbom-<spec>`)
 - `output = <path>` (optional; **single-target export only**; default: `build/sbom.json`, `build/sbom.cdx.json`, `build/sbom.spdx.json` by format)
 - Multi-target export: `tack sbom --all-targets [--outdir DIR]` writes `build/sbom.<target>.json` (or `.cdx.json` / `.spdx.json`) by default.
+- For CycloneDX/SPDX, tack also writes document metadata (`serialNumber`/`metadata.timestamp` and `creationInfo.created`/`documentNamespace`); when `SOURCE_DATE_EPOCH` is set, that value is used for reproducible timestamps.
 
 **Flag semantics (CFLAGS/DFLAGS/LFLAGS)**  
 - `includes`, `defines`, `cflags`, `ldflags`, `libs` are **extra lists**. tack appends them to its internal base flags (warnings + profile flags like `-g` / `-O2`).  
@@ -863,6 +896,7 @@ Example `tack.ini`:
 [project]
 default_target = app
 disable_auto_tools = no
+allow_unsafe_paths = no
 
 [target "app"]
 core = yes

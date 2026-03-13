@@ -54,6 +54,30 @@ int main(void) {
   failures += expect_argv_eq("release-flags", &av, "-O2 -DNDEBUG=1");
   av_free(&av);
 
+  av_init(&av);
+  push_common_warnings_for_cc(&av, 0, "gcc");
+  failures += expect_argv_eq("warn-gcc-default", &av,
+      "-Wall -Werror -Wwrite-strings -Wimplicit-function-declaration");
+  av_free(&av);
+
+  av_init(&av);
+  push_common_warnings_for_cc(&av, 0, "clang");
+  failures += expect_argv_eq("warn-clang-default", &av,
+      "-Wall -Werror -Wwrite-strings -Wimplicit-function-declaration");
+  av_free(&av);
+
+  av_init(&av);
+  push_common_warnings_for_cc(&av, 0, "tcc");
+  failures += expect_argv_eq("warn-tcc-default", &av,
+      "-Wall -Werror -Wwrite-strings -Wimplicit-function-declaration -Wno-unsupported");
+  av_free(&av);
+
+  av_init(&av);
+  push_common_warnings_for_cc(&av, 1, "tcc");
+  failures += expect_argv_eq("warn-tcc-strict", &av,
+      "-Wall -Werror -Wwrite-strings -Wimplicit-function-declaration -Wunsupported");
+  av_free(&av);
+
   if (failures != 0) return 1;
   puts("compiler_profile_flags_test: ok");
   return 0;

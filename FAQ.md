@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.22
+# tack FAQ / FQA (DE/EN) — v0.7.23
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -156,6 +156,7 @@ Praktische Checkliste:
 - Wichtig: Das hilft nur Programmen, die selbst **long-path-aware** sind. tack kann Grenzen externer Werkzeuge (Git, Compiler, Archiver, Explorer, Shell) nicht umgehen.
 - Wenn weiterhin Pfadprobleme auftreten: zuerst den Checkout-/Build-Pfad verkürzen und dann erneut testen.
 
+
 ### Windows: Warum findet tack meine `tack.ini` nicht, wenn tack im `PATH` liegt?
 Wenn `tack.exe` aus einem Tool-Ordner im `PATH` gestartet wird und bei `--config` nur ein Dateiname ohne Pfad angegeben wird (z.B. `--config tack.ini`), kann die Config-Datei – je nach Aufruf/Setup – im **falschen Verzeichnis** gesucht werden (z.B. im Tool-Ordner statt im Projektordner).
 
@@ -171,6 +172,15 @@ Wenn tack bei unveränderten Quellen in jedem Lauf neu baut, ist das fast immer 
 - Ab **v0.7.2** werden typische Windows-Depfile-Pfade (z.B. `C:\...` / Backslashes) robuster verarbeitet.
 - Wenn es trotzdem passiert: einmal mit `--why` laufen lassen und die Diagnose-Zeile anschauen (z.B. „depfile missing/changed“, „input newer than output“).
 
+### Warum lehnt tack jetzt bestimmte `id`/`bin`/`src`-Werte ab?
+
+Ab **v0.7.23** validiert tack Target-Pfade standardmäßig strenger:
+
+- `id` und `bin` müssen einfache, pfadsichere Tokens bleiben (keine Separatoren, keine Laufwerkspräfixe, kein `..`).
+- `src` bleibt standardmäßig repo-relativ (keine absoluten Pfade, keine `..`-Segmente).
+- Damit schließt tack bewusst das reproduzierte Pfad-Traversal aus `tack.ini`/`tackfile.c`, bei dem Build-Artefakte außerhalb von `build/` oder sogar außerhalb des Projektroots landen konnten.
+- Wer für bewusst kontrollierte Spezialfälle das alte, „mächtigere“ Verhalten braucht, muss es jetzt explizit erlauben: global per `--unsafe-paths` oder repo-lokal per `[project] allow_unsafe_paths = yes`.
+
 ### Was ist der Unterschied zwischen BOM und SBOM?
 
 **tack BOM** ist ein *Build-Manifest*: es beschreibt, *wie ein konkretes Build erzeugt wurde* (Targets, Inputs, Flags, Toolchain/OS, Outputs).
@@ -178,7 +188,7 @@ Wenn tack bei unveränderten Quellen in jedem Lauf neu baut, ist das fast immer 
 Eine **SBOM** (Software Bill of Materials) ist ein Supply-Chain-Artefakt (Komponenten + Abhängigkeiten, z.B. CycloneDX/SPDX).  
 `tack sbom` erzeugt daraus bewusst eine **deterministische Build-Input-SBOM** aus den bekannten Build-Inputs (Default: `tack-sbom-1` unter `build/sbom.json`).  
 CycloneDX/SPDX werden unterstützt, aber ohne Resolver/Package-Manager löst tack **keine** fremden Komponenten-Versionen auf. Die Ausgabe ist also eher „Input-SBOM“ als vollständige Supply-Chain-SBOM mit Versionsauflösung.  
-Über `[sbom]` in `tack.ini` kannst du Format, Spec-Version und den **Single-Target**-Ausgabepfad `output` steuern (Standard-Dateien: `build/sbom.cdx.json` und `build/sbom.spdx.json`).  
+Über `[sbom]` in `tack.ini` kannst du Format, Spec-Version und den **Single-Target**-Ausgabepfad `output` steuern (Standard-Dateien: `build/sbom.cdx.json` und `build/sbom.spdx.json`). CycloneDX/SPDX enthalten dabei auch die zugehörigen Dokument-Metadaten.  
 Das tack-BOM vermeidet bewusst Ratespiele (z.B. keine Versionsableitung aus Linker-Flags).
 
 **Aufbau der SBOM relativ zum Quellbaum (Beispiel):**
@@ -207,6 +217,15 @@ Wenn du `tack sbom --target app` ausführst, schreibt tack eine JSON-Datei mit:
 Wichtig: Die SBOM enthält nur **bekannte Build-Inputs** (Dateipfade, Flags, libs).  
 Sie versucht **nicht**, Abhängigkeitsversionen zu erraten oder fremde Komponenten zu „auflösen“.
 
+### Wie setzt tack SBOM-Timestamps und Dokument-IDs?
+
+Ab **v0.7.23** schreibt tack die Standard-Metadaten für CycloneDX/SPDX wieder fachlich sinnvoll:
+
+- **CycloneDX**: `serialNumber` und `metadata.timestamp` werden gesetzt.
+- **SPDX**: `creationInfo.created` wird als echte UTC-Zeit geschrieben; `documentNamespace` wird eindeutiger erzeugt.
+- Für reproduzierbare Pipelines respektiert tack `SOURCE_DATE_EPOCH`, wenn die Variable gesetzt ist. Dann werden die SBOM-Timestamps aus diesem Wert abgeleitet statt aus der aktuellen Uhrzeit.
+- Die Ausgabe bleibt trotzdem eine **Build-Input-SBOM**; tack erfindet weiterhin keine fremden Komponenten-Versionen.
+
 ### Wie erzeuge ich SBOMs für alle Targets?
 
 Nutze:
@@ -220,6 +239,7 @@ Dann schreibt tack standardmäßig **eine Datei pro aktiviertem Target**:
 - bei CycloneDX/SPDX entsprechend `*.cdx.json` bzw. `*.spdx.json`
 
 Wichtig: `[sbom] output = ...` bleibt bewusst ein **Single-Target-Pfad**. Für Batch-Exports ist `--all-targets` zuständig.
+
 
 ### Erzeugt `tack doc` API-Dokumentation wie `cargo doc` / rustdoc?
 
@@ -279,6 +299,7 @@ Marker-Kommentare (`<!-- TACK:BEGIN ... -->`) liefert das eingebaute Layout oder
 ---
 
 ## English (FAQ)
+
 
 ### Does tack use a compile cache?
 Yes. `tack` can store compile outputs in `.tack-cache/` to speed up repeated builds.
@@ -431,6 +452,15 @@ If tack rebuilds on every run without source changes, it is usually a depfile pa
 - Since **v0.7.2**, typical Windows depfile paths (e.g. `C:\...` / backslashes) are handled more robustly.
 - If it still happens: run once with `--why` and look at the reason (e.g. “depfile missing/changed”, “input newer than output”).
 
+### Why does tack now reject some `id`/`bin`/`src` values?
+
+As of **v0.7.23**, tack validates target paths more strictly by default:
+
+- `id` and `bin` must stay simple filesystem-safe tokens (no separators, no drive prefixes, no `..`).
+- `src` stays repo-relative by default (no absolute paths, no `..` segments).
+- This intentionally closes the reproduced path traversal from `tack.ini`/`tackfile.c`, where build artifacts could end up outside `build/` or even outside the project root.
+- If you intentionally need the old, more powerful behavior for controlled special cases, you must opt in explicitly: globally via `--unsafe-paths` or repo-locally via `[project] allow_unsafe_paths = yes`.
+
 ### What is the difference between BOM and SBOM?
 
 **tack BOM** is a *build manifest*: it describes **how a specific build was produced** (targets, inputs, flags, toolchain/OS, outputs).
@@ -438,7 +468,7 @@ If tack rebuilds on every run without source changes, it is usually a depfile pa
 An **SBOM** (Software Bill of Materials) is a supply-chain artifact (components + dependencies, e.g. CycloneDX/SPDX).  
 `tack sbom` intentionally emits a **deterministic build-input SBOM** from known build inputs (default: `tack-sbom-1` at `build/sbom.json`).  
 CycloneDX/SPDX are supported, but without a resolver/package manager tack does **not** resolve third-party component versions. The result is therefore closer to an “input SBOM” than a fully resolved supply-chain SBOM.  
-Use `[sbom]` in `tack.ini` to control the format, spec version, and the **single-target** output path `output` (default files: `build/sbom.cdx.json` and `build/sbom.spdx.json`).  
+Use `[sbom]` in `tack.ini` to control the format, spec version, and the **single-target** output path `output` (default files: `build/sbom.cdx.json` and `build/sbom.spdx.json`). CycloneDX/SPDX also carry their document metadata there.  
 tack BOM intentionally avoids guesswork (e.g. it does not try to infer exact library versions from linker flags).
 
 **How the SBOM maps to the source tree (example):**
@@ -466,6 +496,15 @@ When you run `tack sbom --target app`, tack writes a JSON file with:
 
 Note: The SBOM only contains **known build inputs** (file paths, flags, libs).  
 It **does not** try to resolve third-party component versions or infer dependencies.
+
+### How does tack set SBOM timestamps and document IDs?
+
+As of **v0.7.23**, tack again writes the standard metadata for CycloneDX/SPDX in a more sensible way:
+
+- **CycloneDX**: `serialNumber` and `metadata.timestamp` are written.
+- **SPDX**: `creationInfo.created` is written as a real UTC timestamp; `documentNamespace` is generated more uniquely.
+- For reproducible pipelines, tack respects `SOURCE_DATE_EPOCH` when that variable is set. In that case SBOM timestamps are derived from that value instead of the current clock time.
+- The result remains a **build-input SBOM**; tack still does not invent third-party component versions.
 
 ### How do I emit SBOMs for all targets?
 

@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.7.22
+ * v0.7.23
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -63,7 +63,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.7.22"
+#define TACK_VERSION "0.7.23"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -92,17 +92,20 @@
  *   --config <path>    use explicit INI file (highest priority)
  *   --no-auto-tools    disable tool discovery at runtime
  *   --no-cache         disable compile cache
+ *   --unsafe-paths     allow unsafe target paths from config/tackfile
  */
 static int g_no_config = 0;
 static int g_no_code_config = 0; /* ignore tackfile.c but still load INI */
 static const char *g_config_path_cli = 0;
 static int g_no_auto_tools_cli = 0;
 static int g_no_cache = 0;
+static int g_allow_unsafe_paths_cli = 0;
 
 static int g_config_loaded = 0;
 static char g_config_path[TACK_MAX_CONFIG_PATH + 1] = {0};
 static char *g_config_default_target = 0; /* owned; freed at exit */
 static int g_config_disable_auto_tools = 0;
+static int g_config_allow_unsafe_paths = 0;
 static char *g_config_doc_template = 0; /* owned */
 static char *g_config_doc_css = 0;      /* owned */
 static char *g_config_bom_template = 0; /* owned */
@@ -155,17 +158,23 @@ static const char *default_target_name(void) {
 #endif
 }
 
-/* Warnings: keep strict, but avoid killing builds due to GCC attributes in system headers */
-static const char *g_warn_flags_base[] = {
+static int allow_unsafe_paths_enabled(void) {
+  if (g_allow_unsafe_paths_cli) return 1;
+  if (g_config_loaded && g_config_allow_unsafe_paths) return 1;
+  return 0;
+}
+
+/* Warnings: keep strict, but gate compiler-specific flags explicitly. */
+static const char *g_warn_flags_common[] = {
   "-Wall",
   "-Werror",
   "-Wwrite-strings",
   "-Wimplicit-function-declaration",
-  "-Wno-unsupported",
   0
 };
-/* Optional strict: re-enable unsupported warnings */
-static const char *g_warn_flags_strict_add[] = { "-Wunsupported", 0 };
+
+static const char *g_warn_flags_tcc_default[] = { "-Wno-unsupported", 0 };
+static const char *g_warn_flags_tcc_strict[] = { "-Wunsupported", 0 };
 
 /* Profiles */
 typedef enum { PROF_DEBUG = 0, PROF_RELEASE = 1 } Profile;
@@ -2269,6 +2278,59 @@ typedef struct {
   int remove;            /* action: 1 remove target from graph */
 } TargetDef;
 
+static int has_drive_prefix(const char *s) {
+  if (!s) return 0;
+  return (isalpha((unsigned char)s[0]) && s[1] == ':') ? 1 : 0;
+}
+
+static int is_safe_simple_token(const char *s) {
+  const char *p;
+  if (!s || !s[0]) return 0;
+  if (streq(s, ".") || streq(s, "..")) return 0;
+  for (p = s; *p; p++) {
+    unsigned char c = (unsigned char)*p;
+    if (!(isalnum(c) || c == '-' || c == '_' || c == '.')) return 0;
+  }
+  if (strstr(s, "..")) return 0;
+  return 1;
+}
+
+static int is_safe_relative_path(const char *s) {
+  const char *p;
+  const char *seg;
+  if (!s || !s[0]) return 0;
+  if (has_drive_prefix(s)) return 0;
+  if (s[0] == '/' || s[0] == '\\') return 0;
+  seg = s;
+  for (p = s; ; p++) {
+    if (*p == '/' || *p == '\\' || *p == '\0') {
+      size_t n = (size_t)(p - seg);
+      if (n == 0) return 0;
+      if (n == 2 && seg[0] == '.' && seg[1] == '.') return 0;
+      seg = p + 1;
+      if (*p == '\0') break;
+    }
+  }
+  return 1;
+}
+
+static int validate_target_path_value(const char *field, const char *value) {
+  if (allow_unsafe_paths_enabled()) return 0;
+  if (!value || !value[0]) return 0;
+  if (streq(field, "src")) {
+    if (!is_safe_relative_path(value)) {
+      fprintf(stderr, "tack: invalid %s (unsafe path): %s\n", field, value);
+      return 2;
+    }
+  } else {
+    if (!is_safe_simple_token(value)) {
+      fprintf(stderr, "tack: invalid %s (unsafe path): %s\n", field, value);
+      return 2;
+    }
+  }
+  return 0;
+}
+
 /* Optional external configuration:
  *
  * tack supports two ways to keep project-specific build setup out of tack.c:
@@ -2445,41 +2507,49 @@ static void tv_remove_at(TargetVec *v, int idx) {
   v->count--;
 }
 
-static void tv_update_at_fields(TargetVec *v, int idx, const TargetDef *d) {
-  if (idx < 0 || idx >= v->count) return;
+static int tv_update_at_fields(TargetVec *v, int idx, const TargetDef *d) {
+  if (idx < 0 || idx >= v->count) return 0;
 
   if (d->src_dir) {
+    if (validate_target_path_value("src", d->src_dir) != 0) return 2;
     free(v->items[idx].src_dir);
     v->items[idx].src_dir = xstrdup(d->src_dir);
   }
   if (d->bin_base) {
+    if (validate_target_path_value("bin", d->bin_base) != 0) return 2;
     free(v->items[idx].bin_base);
     v->items[idx].bin_base = xstrdup(d->bin_base);
   }
   if (d->id) {
+    if (validate_target_path_value("id", d->id) != 0) return 2;
     free(v->items[idx].id);
     v->items[idx].id = xstrdup(d->id);
   }
+  return 0;
 }
 
-static void tv_apply_targetdef(TargetVec *v, const TargetDef *d) {
+static int tv_apply_targetdef(TargetVec *v, const TargetDef *d) {
   int idx;
 
-  if (!d || !d->name) return;
+  if (!d || !d->name) return 0;
 
     idx = tv_find_index_by_name(v, d->name);
 
   /* remove wins */
   if (d->remove) {
     if (idx >= 0) tv_remove_at(v, idx);
-    return;
+    return 0;
   }
 
   /* action-only: enable/disable existing */
   if (!d->src_dir && !d->bin_base && !d->id) {
     if (idx >= 0) v->items[idx].enabled = d->enabled ? 1 : 0;
-    return;
+    return 0;
   }
+
+  if (d->src_dir && validate_target_path_value("src", d->src_dir) != 0) return 2;
+  if (d->bin_base && validate_target_path_value("bin", d->bin_base) != 0) return 2;
+  if (d->id && validate_target_path_value("id", d->id) != 0) return 2;
 
   /* upsert */
   if (idx < 0) {
@@ -2488,10 +2558,11 @@ static void tv_apply_targetdef(TargetVec *v, const TargetDef *d) {
     idx = v->count - 1;
   }
 
-    tv_update_at_fields(v, idx, d);
+  if (tv_update_at_fields(v, idx, d) != 0) return 2;
 
   /* enabled defaults to 1; if explicitly 0, allow disabling */
   v->items[idx].enabled = (d->enabled ? 1 : 0);
+  return 0;
 }
 
 /* --------------------------- tackfile.c targets --------------------------- */
@@ -2499,7 +2570,7 @@ static void tv_apply_targetdef(TargetVec *v, const TargetDef *d) {
 static void apply_tackfile_targets(TargetVec *out) {
   int i;
   for (i = 0; TACKFILE_TARGETS[i].name; i++) {
-    tv_apply_targetdef(out, &TACKFILE_TARGETS[i]);
+    if (tv_apply_targetdef(out, &TACKFILE_TARGETS[i]) != 0) tack_die("invalid target configuration");
   }
 }
 #else
@@ -3012,7 +3083,6 @@ static const TargetProfileOverride *find_ini_profile_override(const char *name, 
 static int ini_load_file(const char *path) {
   FILE *f;
   char line[TACK_MAX_LINE];
-  int lineno = 0;
 
   enum { SEC_NONE = 0, SEC_PROJECT = 1, SEC_TARGET = 2, SEC_TARGET_PROFILE = 3, SEC_DOC = 4, SEC_BOM = 5, SEC_SBOM = 6, SEC_FMT = 7, SEC_FMT_RULE = 8 } sec = SEC_NONE;
   IniTargetCfg *cur_t = 0;
@@ -3024,7 +3094,6 @@ static int ini_load_file(const char *path) {
 
   while (fgets(line, sizeof(line), f)) {
     char *s, *eq;
-    lineno++;
 
     /* fail-fast on truncated lines */
     if (!strchr(line, '\n') && !feof(f)) {
@@ -3161,6 +3230,9 @@ static int ini_load_file(const char *path) {
         } else if (strieq(key, "disable_auto_tools")) {
           int b;
           if (parse_bool(val, &b)) g_config_disable_auto_tools = b;
+        } else if (strieq(key, "allow_unsafe_paths")) {
+          int b;
+          if (parse_bool(val, &b)) g_config_allow_unsafe_paths = b;
         }
         continue;
       }
@@ -3382,14 +3454,14 @@ static void apply_ini_targets(TargetVec *out) {
 
     if (t->remove_set && t->remove) {
       d.remove = 1;
-      tv_apply_targetdef(out, &d);
+      if (tv_apply_targetdef(out, &d) != 0) tack_die("invalid target configuration");
       continue;
     }
 
     /* action-only enable/disable */
     if (!t->src_dir && !t->bin_base && !t->id && t->enabled_set) {
       d.enabled = t->enabled ? 1 : 0;
-      tv_apply_targetdef(out, &d);
+      if (tv_apply_targetdef(out, &d) != 0) tack_die("invalid target configuration");
       continue;
     }
 
@@ -3402,7 +3474,7 @@ static void apply_ini_targets(TargetVec *out) {
     d.enabled = t->enabled_set ? (t->enabled ? 1 : 0) : 1;
     d.remove = 0;
 
-    tv_apply_targetdef(out, &d);
+    if (tv_apply_targetdef(out, &d) != 0) tack_die("invalid target configuration");
 
     /* If target exists and enabled_set was specified, we already applied it.
      * If enabled_set was not specified and target existed disabled, leave it as-is?
@@ -3641,6 +3713,7 @@ static void config_reset(void) {
   g_config_default_target = 0;
 
   g_config_disable_auto_tools = 0;
+  g_config_allow_unsafe_paths = 0;
   free(g_config_doc_template); g_config_doc_template = 0;
   free(g_config_doc_css); g_config_doc_css = 0;
   free(g_config_bom_template); g_config_bom_template = 0;
@@ -3724,6 +3797,7 @@ static void config_free(void) {
   
   free(g_config_default_target);
   g_config_default_target = 0;
+  g_config_allow_unsafe_paths = 0;
   
   free(g_config_doc_template); g_config_doc_template = 0;
   free(g_config_doc_css); g_config_doc_css = 0;
@@ -3918,9 +3992,15 @@ static void push_profile_flags(Argv *av, Profile p) {
   push_profile_flags_for_cc(av, p, get_cc());
 }
 
+static void push_common_warnings_for_cc(Argv *av, int strict, const char *cc) {
+  av_push_list(av, g_warn_flags_common);
+  if (compiler_name_is_tcc(cc)) {
+    av_push_list(av, strict ? g_warn_flags_tcc_strict : g_warn_flags_tcc_default);
+  }
+}
+
 static void push_common_warnings(Argv *av, int strict) {
-  av_push_list(av, g_warn_flags_base);
-  if (strict) av_push_list(av, g_warn_flags_strict_add);
+  push_common_warnings_for_cc(av, strict, get_cc());
 }
 
 /* spawn compile jobs with -j pool */
@@ -4490,6 +4570,20 @@ static void print_help(void) {
   puts("  tack clean [--cache] [-v]");
   puts("  tack clobber [-v]");
   puts("  tack bom  [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]");
+  puts("  tack sbom [debug|release] [--target NAME] [--outdir DIR] [--all-targets] [-v] [--no-core]");
+  puts("");
+  puts("Global options (before the command):");
+  puts("  --no-config         ignore tack.ini and tackfile.c");
+  puts("  --no-code-config    ignore tackfile.c (still use tack.ini / --config)");
+  puts("  --config PATH     use explicit INI file (highest priority)");
+  puts("  --no-auto-tools   disable runtime tool discovery");
+  puts("  --no-cache          disable compile cache");
+  puts("  --unsafe-paths    allow unsafe target paths from config/tackfile");
+  puts("");
+  puts("Notes:");
+  puts("  - --strict enables -Wunsupported only for tcc/TinyCC");
+  puts("  - target id/bin are safe-token validated by default");
+  puts("  - target src must stay repo-relative by default");
   puts("  tack sbom [debug|release] [--target NAME | --all-targets] [--outdir DIR] [-v] [--strict] [--no-core]");
   puts("  tack doc  [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]");
   puts("");
@@ -4500,6 +4594,7 @@ static void print_help(void) {
   puts("  --no-code-config    ignore tackfile.c (still use tack.ini / --config)");
   puts("  --no-auto-tools     disable tool discovery at runtime");
   puts("  --no-cache          disable compile cache");
+  puts("  --unsafe-paths      allow unsafe target paths from config/tackfile");
   puts("");
 
   puts("Notes:");
@@ -4518,7 +4613,9 @@ static void print_help(void) {
   puts("             --all-targets writes build/sbom.<target>.json (or .cdx/.spdx) per enabled target");
   puts("  - doc     = writes HTML into build/doc/ (README/FAQ/ROADMAP/RELEASENOTES + optional docs/**/*.md + BOM)");
   puts("  - sbom format is set via [sbom] format = tack-sbom-1 | cyclonedx | cyclonedx-1.4 | spdx | spdx-2.3");
-  puts("  - --strict enables -Wunsupported");
+  puts("  - --strict enables -Wunsupported only for tcc/TinyCC");
+  puts("  - target id/bin are safe-token validated by default");
+  puts("  - target src must stay repo-relative by default");
   puts("  - --why prints short \"why rebuild\" diagnostics for compile/link decisions");
   puts("  - cache   = stored under .tack-cache/ (deps via mtime/size/hash; depfile via size/hash; use --no-cache to disable)");
 }
@@ -4561,6 +4658,7 @@ static void cmd_doctor(void) {
 #endif
 
   printf("Overrides : built-ins + optional tackfile.c + optional tack.ini\n");
+  printf("Path safety: %s\n", allow_unsafe_paths_enabled() ? "unsafe paths allowed" : "safe target paths enforced");
 }
 
 /* --------------------------- init: ignore files --------------------------- */
@@ -4825,7 +4923,7 @@ static const char *TACK_INIT_TEMPLATE_MIN_HTML =
   "</html>\n";
 
 static const char *TACK_INIT_DEFAULT_TACK_INI =
-  "; tack.ini — generated by `tack init` (tack v0.7.22)\n"
+  "; tack.ini — generated by `tack init` (tack v0.7.23)\n"
   "; ---------------------------------------------------------------------------\n"
   "; Minimal, repo-owned configuration.\n"
   "; - If you do not need customization, you can delete this file: tack has built-in defaults.\n"
@@ -4835,6 +4933,7 @@ static const char *TACK_INIT_DEFAULT_TACK_INI =
   "\n"
   "[project]\n"
   "default_target = app\n"
+  "allow_unsafe_paths = no\n"
   "\n"
   "[target \"app\"]\n"
   "src = src\n"
@@ -5219,6 +5318,80 @@ static void fprint_time_local(FILE *f) {
   fprintf(f, "%04d-%02d-%02d %02d:%02d:%02d",
           tmv->tm_year + 1900, tmv->tm_mon + 1, tmv->tm_mday,
           tmv->tm_hour, tmv->tm_min, tmv->tm_sec);
+}
+
+static int parse_source_date_epoch(time_t *out) {
+  const char *s = getenv("SOURCE_DATE_EPOCH");
+  unsigned long v = 0;
+  if (!s || !s[0]) return 0;
+  while (*s) {
+    unsigned char c = (unsigned char)*s;
+    if (!isdigit(c)) return 0;
+    if (v > (ULONG_MAX - (unsigned long)(c - '0')) / 10UL) return 0;
+    v = v * 10UL + (unsigned long)(c - '0');
+    s++;
+  }
+  *out = (time_t)v;
+  return 1;
+}
+
+static time_t sbom_timestamp_value(void) {
+  time_t t;
+  if (parse_source_date_epoch(&t)) return t;
+  return time(0);
+}
+
+static void format_time_utc_iso8601(char *out, size_t cap, time_t t) {
+  struct tm *tmv;
+  (void)cap;
+  tmv = gmtime(&t);
+  if (!tmv) {
+    sprintf(out, "%ld", (long)t);
+    return;
+  }
+  sprintf(out, "%04d-%02d-%02dT%02d:%02d:%02dZ",
+                tmv->tm_year + 1900, tmv->tm_mon + 1, tmv->tm_mday,
+                tmv->tm_hour, tmv->tm_min, tmv->tm_sec);
+}
+
+static void make_uuid_like(char *out, size_t cap, const char *seed_a, const char *seed_b) {
+  unsigned long h1 = 2166136261UL;
+  (void)cap;
+  unsigned long h2 = 2166136261UL;
+  unsigned long h3 = 2166136261UL;
+  unsigned long h4 = 2166136261UL;
+  unsigned char bytes[16];
+  char tbuf[64];
+  static unsigned long counter = 0;
+  int i;
+
+  sprintf(tbuf, "%lu-%lu", (unsigned long)sbom_timestamp_value(), counter++);
+  h1 = fnv1a_str(h1, seed_a ? seed_a : "");
+  h1 = fnv1a_str(h1, tbuf);
+  h2 = fnv1a_str(h2, seed_b ? seed_b : "");
+  h2 = fnv1a_str(h2, tbuf);
+  h3 = fnv1a_str(h3, seed_a ? seed_a : "");
+  h3 = fnv1a_str(h3, seed_b ? seed_b : "");
+  h3 = fnv1a_str(h3, "uuid-3");
+  h4 = fnv1a_str(h4, seed_b ? seed_b : "");
+  h4 = fnv1a_str(h4, seed_a ? seed_a : "");
+  h4 = fnv1a_str(h4, "uuid-4");
+
+  for (i = 0; i < 4; i++) {
+    bytes[i] = (unsigned char)((h1 >> (i * 8)) & 0xffUL);
+    bytes[4 + i] = (unsigned char)((h2 >> (i * 8)) & 0xffUL);
+    bytes[8 + i] = (unsigned char)((h3 >> (i * 8)) & 0xffUL);
+    bytes[12 + i] = (unsigned char)((h4 >> (i * 8)) & 0xffUL);
+  }
+  bytes[6] = (unsigned char)((bytes[6] & 0x0fU) | 0x40U);
+  bytes[8] = (unsigned char)((bytes[8] & 0x3fU) | 0x80U);
+
+  sprintf(out,
+          "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+                bytes[0], bytes[1], bytes[2], bytes[3],
+                bytes[4], bytes[5], bytes[6], bytes[7],
+                bytes[8], bytes[9], bytes[10], bytes[11],
+                bytes[12], bytes[13], bytes[14], bytes[15]);
 }
 
 /* --------------------------- HTML templating (optional) --------------------------- */
@@ -5898,9 +6071,10 @@ static int cmd_bom(Profile p, TargetVec *tv, const Target *t, int verbose, int s
   fprintf(f, "### Common warnings\n\n");
   {
     int i;
-    for (i = 0; g_warn_flags_base[i]; i++) fprintf(f, "- `%s`\n", g_warn_flags_base[i]);
-    if (strict) {
-      for (i = 0; g_warn_flags_strict_add[i]; i++) fprintf(f, "- `%s`\n", g_warn_flags_strict_add[i]);
+    for (i = 0; g_warn_flags_common[i]; i++) fprintf(f, "- `%s`\n", g_warn_flags_common[i]);
+    if (compiler_name_is_tcc(get_cc())) {
+      const char * const *extra = strict ? g_warn_flags_tcc_strict : g_warn_flags_tcc_default;
+      for (i = 0; extra[i]; i++) fprintf(f, "- `%s`\n", extra[i]);
     }
     fputc('\n', f);
   }
@@ -6298,7 +6472,16 @@ static void write_cdx_components(FILE *f, int indent, const StrVec *core_srcs, c
 }
 
 static void write_sbom_cyclonedx(FILE *f, const SbomData *d) {
+  char timestamp_buf[32];
+  char serial_buf[64];
+  char serial_urn[80];
   const char *spec_version = d->sbom_spec_version ? d->sbom_spec_version : "1.4";
+
+  format_time_utc_iso8601(timestamp_buf, sizeof(timestamp_buf), sbom_timestamp_value());
+  make_uuid_like(serial_buf, sizeof(serial_buf), d->t->id, spec_version);
+  tack_copy(serial_urn, sizeof(serial_urn), "urn:uuid:");
+  tack_cat(serial_urn, sizeof(serial_urn), serial_buf);
+
   fputs("{\n", f);
   json_write_indent(f, 2);
   fputs("\"bomFormat\": ", f);
@@ -6310,9 +6493,17 @@ static void write_sbom_cyclonedx(FILE *f, const SbomData *d) {
   fputs(",\n", f);
   json_write_indent(f, 2);
   fputs("\"version\": 1,\n", f);
+  json_write_indent(f, 2);
+  fputs("\"serialNumber\": ", f);
+  json_write_string(f, serial_urn);
+  fputs(",\n", f);
 
   json_write_indent(f, 2);
   fputs("\"metadata\": {\n", f);
+  json_write_indent(f, 4);
+  fputs("\"timestamp\": ", f);
+  json_write_string(f, timestamp_buf);
+  fputs(",\n", f);
   json_write_indent(f, 4);
   fputs("\"tools\": [\n", f);
   json_write_indent(f, 6);
@@ -6360,6 +6551,8 @@ static void write_sbom_spdx(FILE *f, const SbomData *d) {
   char namespace_buf[512];
   char creator_buf[128];
   char version_buf[32];
+  char timestamp_buf[32];
+  char uuid_buf[64];
   const char *spec_version = d->sbom_spec_version ? d->sbom_spec_version : "2.3";
   int has_prefix = 0;
   if (spec_version) {
@@ -6372,8 +6565,12 @@ static void write_sbom_spdx(FILE *f, const SbomData *d) {
     }
   }
 
+  format_time_utc_iso8601(timestamp_buf, sizeof(timestamp_buf), sbom_timestamp_value());
+  make_uuid_like(uuid_buf, sizeof(uuid_buf), d->t->id, spec_version);
   tack_copy(namespace_buf, sizeof(namespace_buf), "https://tack.invalid/spdx/");
-  tack_cat(namespace_buf, sizeof(namespace_buf), d->t->name);
+  tack_cat(namespace_buf, sizeof(namespace_buf), d->t->id);
+  tack_cat(namespace_buf, sizeof(namespace_buf), "/");
+  tack_cat(namespace_buf, sizeof(namespace_buf), uuid_buf);
   tack_copy(creator_buf, sizeof(creator_buf), "Tool: tack ");
   tack_cat(creator_buf, sizeof(creator_buf), TACK_VERSION);
   if (has_prefix) {
@@ -6409,7 +6606,7 @@ static void write_sbom_spdx(FILE *f, const SbomData *d) {
   fputs("\"creationInfo\": {\n", f);
   json_write_indent(f, 4);
   fputs("\"created\": ", f);
-  json_write_string(f, "1970-01-01T00:00:00Z");
+  json_write_string(f, timestamp_buf);
   fputs(",\n", f);
   json_write_indent(f, 4);
   fputs("\"creators\": [\n", f);
@@ -6438,9 +6635,7 @@ static void write_sbom_spdx(FILE *f, const SbomData *d) {
   json_write_string(f, "NOASSERTION");
   fputs(",\n", f);
   json_write_indent(f, 6);
-  fputs("\"filesAnalyzed\": ", f);
-  json_write_bool(f, 0);
-  fputc('\n', f);
+  fputs("\"filesAnalyzed\": false\n", f);
   json_write_indent(f, 4);
   fputs("}\n", f);
   json_write_indent(f, 2);
@@ -7970,6 +8165,7 @@ int main(int argc, char **argv) {
     }
     if (streq(argv[argi], "--no-auto-tools")) { g_no_auto_tools_cli = 1; argi++; continue; }
     if (streq(argv[argi], "--no-cache")) { g_no_cache = 1; argi++; continue; }
+    if (streq(argv[argi], "--unsafe-paths")) { g_allow_unsafe_paths_cli = 1; argi++; continue; }
     break;
   }
 
