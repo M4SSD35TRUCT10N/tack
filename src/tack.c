@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.7.24
+ * v0.7.25
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -63,7 +63,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.7.24"
+#define TACK_VERSION "0.7.25"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -377,7 +377,7 @@ static int file_contains_substr(const char *path, const char *needle) {
   return ok;
 }
 
-static void fputs_lines(FILE *f, const char **lines) {
+static void fputs_lines(FILE *f, const char * const *lines) {
   int i;
   if (!f || !lines) return;
   for (i = 0; lines[i]; i++) fputs(lines[i], f);
@@ -389,6 +389,16 @@ static int write_file_if_missing(const char *path, const char *content) {
   f = fopen(path, "wb");
   if (!f) return 1;
   fputs(content, f);
+  fclose(f);
+  return 0;
+}
+
+static int write_file_lines_if_missing(const char *path, const char * const *lines) {
+  FILE *f;
+  if (file_exists(path)) return 0;
+  f = fopen(path, "wb");
+  if (!f) return 1;
+  fputs_lines(f, lines);
   fclose(f);
   return 0;
 }
@@ -649,6 +659,9 @@ typedef struct {
   int count;
   int cap;
 } StrVec;
+
+static void sv_sort_unique(StrVec *v);
+static int fmt_exe_in_path(const char *exe);
 
 static void sv_init(StrVec *v) { v->items = 0; v->count = 0; v->cap = 0; }
 
@@ -2129,6 +2142,142 @@ static int cache_write_meta(const char *dep_path, const char *meta_path) {
   return 0;
 }
 
+static void sv_copy_sorted(StrVec *dst, const StrVec *src) {
+  int i;
+  sv_init(dst);
+  if (!src) return;
+  for (i = 0; i < src->count; i++) sv_push(dst, src->items[i]);
+  sv_sort_unique(dst);
+}
+
+static void link_meta_path_for_exe(char *out, size_t cap, const char *out_exe) {
+  tack_copy(out, cap, out_exe);
+  tack_cat(out, cap, ".linkmeta");
+}
+
+static int write_link_meta(const char *meta_path, const StrVec *inputs) {
+  FILE *f;
+  StrVec sorted;
+  int i;
+
+  sv_copy_sorted(&sorted, inputs);
+  f = fopen(meta_path, "wb");
+  if (!f) { sv_free(&sorted); return 1; }
+  for (i = 0; i < sorted.count; i++) {
+    if (write_meta_dep_entry(f, sorted.items[i]) != 0) {
+      fclose(f);
+      sv_free(&sorted);
+      return 1;
+    }
+  }
+  fclose(f);
+  sv_free(&sorted);
+  return 0;
+}
+
+static int linkmeta_needs_relink_explain(const char *meta_path, const StrVec *inputs,
+                                         char *why, size_t why_sz) {
+  FILE *f;
+  StrVec sorted;
+  char line[4096];
+  int i;
+
+  f = fopen(meta_path, "rb");
+  if (!f) {
+    tack_snprintf(why, why_sz, "link metadata missing: %s", meta_path);
+    return 1;
+  }
+
+  sv_copy_sorted(&sorted, inputs);
+  for (i = 0; i < sorted.count; i++) {
+    char *t1;
+    char *t2;
+    char *t3;
+    char *path;
+    char *endptr;
+    long sz_rec;
+    unsigned long h_rec;
+    long sz_cur;
+    unsigned long h_cur;
+    size_t len;
+
+    if (!fgets(line, sizeof(line), f)) {
+      fclose(f);
+      sv_free(&sorted);
+      tack_snprintf(why, why_sz, "link metadata incomplete: %s", meta_path);
+      return 1;
+    }
+
+    t1 = strchr(line, '\t');
+    if (!t1) { fclose(f); sv_free(&sorted); tack_snprintf(why, why_sz, "link metadata format error: %s", meta_path); return 1; }
+    *t1 = '\0';
+    t2 = strchr(t1 + 1, '\t');
+    if (!t2) { fclose(f); sv_free(&sorted); tack_snprintf(why, why_sz, "link metadata format error: %s", meta_path); return 1; }
+    *t2 = '\0';
+    t3 = strchr(t2 + 1, '\t');
+    if (!t3) { fclose(f); sv_free(&sorted); tack_snprintf(why, why_sz, "link metadata format error: %s", meta_path); return 1; }
+    *t3 = '\0';
+
+    (void)strtol(line, &endptr, 10);
+    if (endptr == line) { fclose(f); sv_free(&sorted); tack_snprintf(why, why_sz, "link metadata format error: %s", meta_path); return 1; }
+
+    sz_rec = strtol(t1 + 1, &endptr, 10);
+    if (endptr == (t1 + 1)) { fclose(f); sv_free(&sorted); tack_snprintf(why, why_sz, "link metadata format error: %s", meta_path); return 1; }
+
+    h_rec = strtoul(t2 + 1, &endptr, 16);
+    if (endptr == (t2 + 1)) { fclose(f); sv_free(&sorted); tack_snprintf(why, why_sz, "link metadata format error: %s", meta_path); return 1; }
+    h_rec &= 0xfffffffful;
+
+    path = t3 + 1;
+    len = strlen(path);
+    while (len > 0 && (path[len - 1] == '\n' || path[len - 1] == '\r')) path[--len] = '\0';
+
+    if (!streq(path, sorted.items[i])) {
+      fclose(f);
+      sv_free(&sorted);
+      tack_snprintf(why, why_sz, "link inputs changed: %s", sorted.items[i]);
+      return 1;
+    }
+
+    sz_cur = file_size(path);
+    if (sz_cur < 0) {
+      fclose(f);
+      sv_free(&sorted);
+      tack_snprintf(why, why_sz, "link input missing: %s", path);
+      return 1;
+    }
+    if (sz_cur != sz_rec) {
+      fclose(f);
+      sv_free(&sorted);
+      tack_snprintf(why, why_sz, "link input changed (size): %s", path);
+      return 1;
+    }
+    if (file_hash32_fnv1a(path, &h_cur) != 0) {
+      fclose(f);
+      sv_free(&sorted);
+      tack_snprintf(why, why_sz, "link input unreadable: %s", path);
+      return 1;
+    }
+    h_cur &= 0xfffffffful;
+    if (h_cur != h_rec) {
+      fclose(f);
+      sv_free(&sorted);
+      tack_snprintf(why, why_sz, "link input changed (content hash): %s", path);
+      return 1;
+    }
+  }
+
+  if (fgets(line, sizeof(line), f)) {
+    fclose(f);
+    sv_free(&sorted);
+    tack_snprintf(why, why_sz, "link inputs changed: extra recorded entries");
+    return 1;
+  }
+
+  fclose(f);
+  sv_free(&sorted);
+  return 0;
+}
 
 static void cache_store(const char *key, const char *obj_path, const char *dep_path) {
   char cache_obj[512];
@@ -2203,7 +2352,7 @@ static int obj_needs_rebuild_explain(const char *obj_path, const char *src_path,
   return 0;
 }
 
-static int exe_needs_relink_explain(const char *out_exe, StrVec *inputs, int force,
+static int exe_needs_relink_explain(const char *out_exe, StrVec *inputs, int force, int inputs_touched,
                                    char *why, size_t why_sz) {
   int i;
   long exe_t;
@@ -2221,6 +2370,17 @@ static int exe_needs_relink_explain(const char *out_exe, StrVec *inputs, int for
   exe_t = file_mtime(out_exe);
   if (exe_t < 0) {
     tack_snprintf(why, why_sz, "output unreadable: %s", out_exe);
+    return 1;
+  }
+
+  {
+    char meta_path[1024];
+    link_meta_path_for_exe(meta_path, sizeof(meta_path), out_exe);
+    if (linkmeta_needs_relink_explain(meta_path, inputs, why, why_sz)) return 1;
+  }
+
+  if (inputs_touched) {
+    tack_snprintf(why, why_sz, "input rebuilt/restored in current run");
     return 1;
   }
 
@@ -4019,11 +4179,13 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
                            const char * const *def_extra,
                            const char * const *cflags_extra,
                            Profile p, int verbose, int why, int force, int jobs, int strict,
-                           StrVec *out_objs) {
+                           StrVec *out_objs, int *out_touched) {
   CompileJob *running;
   int running_n;
   int i;
+  int touched;
 
+  touched = 0;
   if (jobs < 1) jobs = 1;
 
   running = (CompileJob*)xmalloc((size_t)jobs * sizeof(CompileJob));
@@ -4135,6 +4297,7 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
         if (rc != 0) { free(running); return 1; }
         if (cache_write_meta(dep_path, meta_path) != 0) { free(running); return 1; }
         if (cache_enabled) cache_store(cache_key, obj_path, dep_path);
+        touched = 1;
       } else {
         if (running_n >= jobs) {
           int rcw = proc_wait(&running[0].proc);
@@ -4158,6 +4321,7 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
           tack_copy(running[running_n].cache_key, sizeof(running[running_n].cache_key), cache_key);
         }
         running_n++;
+        touched = 1;
         sv_free(&tmp_defs);
         av_free(&av);
       }
@@ -4179,6 +4343,7 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
   }
 
   free(running);
+  if (out_touched) *out_touched = touched;
   return 0;
 }
 
@@ -4251,7 +4416,7 @@ static int link_executable(const char *cc, const char *out_exe,
 
 /* --------------------------- core + target build --------------------------- */
 
-static int build_core(Profile p, int verbose, int why, int force, int jobs, int strict, StrVec *out_core_objs) {
+static int build_core(Profile p, int verbose, int why, int force, int jobs, int strict, StrVec *out_core_objs, int *out_touched) {
   const char *cc;
   StrVec core_srcs;
   char root[512], objd[512], depd[512], bind[512];
@@ -4263,12 +4428,14 @@ static int build_core(Profile p, int verbose, int why, int force, int jobs, int 
 
   if (!file_exists(g_core_dir) || !is_dir_path(g_core_dir)) {
     /* no core */
+    if (out_touched) *out_touched = 0;
     return 0;
   }
 
   scan_dir_recursive_suffix(&core_srcs, g_core_dir, ".c");
   if (core_srcs.count == 0) {
     sv_free(&core_srcs);
+    if (out_touched) *out_touched = 0;
     return 0;
   }
 
@@ -4299,7 +4466,7 @@ static int build_core(Profile p, int verbose, int why, int force, int jobs, int 
   if (compile_sources(cc, &core_srcs, objd, depd,
                       inc_common, 0, 0, 0,
                       p, verbose, why, force, jobs, strict,
-                      out_core_objs) != 0) {
+                      out_core_objs, out_touched) != 0) {
     sv_free(&core_srcs);
     return 1;
   }
@@ -4312,6 +4479,8 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
   const char *cc;
   EffectiveOverride ov;
   int use_core;
+  int core_touched;
+  int objs_touched;
 
   StrVec srcs;
   StrVec objs;
@@ -4324,6 +4493,8 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
 
   cc = get_cc();
 
+  core_touched = 0;
+  objs_touched = 0;
   get_effective_override(t->name, p, &ov);
 
   use_core = ov.use_core;
@@ -4383,7 +4554,7 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
 
   /* build core (once per target build invocation) */
   if (use_core) {
-    if (build_core(p, verbose, why, force, jobs, strict, &core_objs) != 0) {
+    if (build_core(p, verbose, why, force, jobs, strict, &core_objs, &core_touched) != 0) {
       sv_free(&srcs); sv_free(&objs); sv_free(&core_objs);
       return 1;
     }
@@ -4396,7 +4567,7 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
                       ov.defines,
                       ov.cflags,
                       p, verbose, why, force, jobs, strict,
-                      &objs) != 0) {
+                      &objs, &objs_touched) != 0) {
     sv_free(&srcs); sv_free(&objs); sv_free(&core_objs);
     return 1;
   }
@@ -4414,7 +4585,7 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
 
     {
       char why_msg[512];
-      need_link = exe_needs_relink_explain(out_exe, &all, force,
+      need_link = exe_needs_relink_explain(out_exe, &all, force, (core_touched || objs_touched),
                                           why ? why_msg : 0, why ? sizeof(why_msg) : 0);
       if (need_link && why) {
         printf("why link: %s (%s)\n", out_exe, why_msg);
@@ -4422,6 +4593,7 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
     }
 
     if (need_link) {
+      char link_meta[1024];
       int rc = link_executable(cc, out_exe, &all,
                                inc_common,
                                ov.includes,
@@ -4429,6 +4601,10 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
                                ov.ldflags,
                                ov.libs,
                                p, verbose, strict);
+      if (rc == 0) {
+        link_meta_path_for_exe(link_meta, sizeof(link_meta), out_exe);
+        if (write_link_meta(link_meta, &all) != 0) rc = 1;
+      }
       sv_free(&all);
       if (rc != 0) { sv_free(&srcs); sv_free(&objs); sv_free(&core_objs); return 1; }
     } else if (verbose) {
@@ -4626,6 +4802,7 @@ static void cmd_doctor(void) {
   printf("Compiler default: %s\n", g_cc_default);
   printf("Compiler override: set env TACK_CC\n");
   printf("Compiler in use: %s\n", get_cc());
+  printf("Compiler found: %s\n", fmt_exe_in_path(get_cc()) ? "yes" : "no");
 #ifdef _WIN32
   printf("OS: Windows\n");
 #else
@@ -4827,142 +5004,158 @@ static const char *FOSSIL_IGNORE_FULL_LINES[] = {
 
 /* --------------------------- init templates --------------------------- */
 
-static const char *TACK_INIT_TEMPLATES_CSS =
-  "/* tack_doc.css — minimal, CSS-first, offline-friendly */\n"
-  ":root{\n"
-  "  --bg:#ffffff; --fg:#111111; --muted:#555555; --border:#e6e6e6;\n"
-  "  --link:#0b57d0; --codebg:#f6f6f6;\n"
-  "  --maxw: 1100px; --gap: 1rem; --radius: 10px;\n"
-  "  --sans: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;\n"
-  "  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, \"Liberation Mono\", monospace;\n"
-  "}\n"
-  "@media (prefers-color-scheme: dark){\n"
-  "  :root{\n"
-  "    --bg:#0f1115; --fg:#e8e8e8; --muted:#b7b7b7; --border:#2a2f3a;\n"
-  "    --link:#7aa2ff; --codebg:#161a22;\n"
-  "  }\n"
-  "}\n"
-  "*{box-sizing:border-box}\n"
-  "html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--sans);line-height:1.55}\n"
-  "a{color:var(--link);text-decoration:none}\n"
-  "a:hover{text-decoration:underline}\n"
-  "header{border-bottom:1px solid var(--border);padding:0.75rem 1rem;position:sticky;top:0;background:var(--bg);z-index:5}\n"
-  "header .row{max-width:var(--maxw);margin:0 auto;display:flex;gap:var(--gap);align-items:center}\n"
-  "header .brand{font-weight:700}\n"
-  "header .spacer{flex:1}\n"
-  "header input[type=\"search\"]{\n"
-  "  width:min(420px, 46vw);\n"
-  "  padding:0.45rem 0.6rem;border:1px solid var(--border);border-radius:8px;\n"
-  "  background:var(--bg);color:var(--fg);\n"
-  "}\n"
-  "main.wrap{max-width:var(--maxw);margin:0 auto;display:grid;grid-template-columns: 280px 1fr;gap:var(--gap);padding:1rem}\n"
-  "nav{border:1px solid var(--border);border-radius:var(--radius);padding:0.75rem;max-height: calc(100vh - 7rem);overflow:auto}\n"
-  "nav h2{margin:0 0 0.5rem 0;font-size:1rem}\n"
-  "nav ul{list-style:none;margin:0;padding:0}\n"
-  "nav li{margin:0.2rem 0}\n"
-  "nav a{display:block;padding:0.25rem 0.35rem;border-radius:6px}\n"
-  "nav a[aria-current=\"page\"]{background:var(--codebg);font-weight:600}\n"
-  "article{border:1px solid var(--border);border-radius:var(--radius);padding:1rem;min-width:0}\n"
-  "article h1{margin-top:0}\n"
-  "pre,code{font-family:var(--mono)}\n"
-  "pre{background:var(--codebg);padding:0.75rem;border-radius:8px;overflow:auto;border:1px solid var(--border)}\n"
-  "code{background:var(--codebg);padding:0.1rem 0.25rem;border-radius:6px}\n"
-  "table{border-collapse:collapse;width:100%}\n"
-  "th,td{border:1px solid var(--border);padding:0.4rem 0.5rem;text-align:left;vertical-align:top}\n"
-  "aside.toc{border:1px dashed var(--border);border-radius:var(--radius);padding:0.75rem;margin:0 0 1rem 0;color:var(--muted)}\n"
-  "footer{max-width:var(--maxw);margin:0 auto;padding:1rem;color:var(--muted);border-top:1px solid var(--border)}\n"
-  "@media (max-width: 980px){\n"
-  "  main.wrap{grid-template-columns:1fr}\n"
-  "  nav{max-height:none}\n"
-  "}\n"
-  "@media print{\n"
-  "  header, nav{display:none !important}\n"
-  "  article{border:none}\n"
-  "  a{text-decoration:underline;color:#000}\n"
-  "}\n";
+static const char * const TACK_INIT_TEMPLATES_CSS_LINES[] = {
+  "/* tack_doc.css - minimal, CSS-first, offline-friendly */\n",
+  ":root{\n",
+  "  --bg:#ffffff; --fg:#111111; --muted:#555555; --border:#e6e6e6;\n",
+  "  --link:#0b57d0; --codebg:#f6f6f6;\n",
+  "  --maxw: 1100px; --gap: 1rem; --radius: 10px;\n",
+  "  --sans: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;\n",
+  "  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, \"Liberation Mono\", monospace;\n",
+  "}\n",
+  "@media (prefers-color-scheme: dark){\n",
+  "  :root{\n",
+  "    --bg:#0f1115; --fg:#e8e8e8; --muted:#b7b7b7; --border:#2a2f3a;\n",
+  "    --link:#7aa2ff; --codebg:#161a22;\n",
+  "  }\n",
+  "}\n",
+  "*{box-sizing:border-box}\n",
+  "html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--sans);line-height:1.55}\n",
+  "a{color:var(--link);text-decoration:none}\n",
+  "a:hover{text-decoration:underline}\n",
+  "a:focus-visible{outline:2px solid var(--link);outline-offset:2px;text-decoration:underline}\n",
+  "header{border-bottom:1px solid var(--border);padding:0.75rem 1rem;position:sticky;top:0;background:var(--bg);z-index:5}\n",
+  "header .row{max-width:var(--maxw);margin:0 auto;display:flex;gap:var(--gap);align-items:center}\n",
+  "header .brand{font-weight:700}\n",
+  "header .spacer{flex:1}\n",
+  "header input[type=\"search\"]{\n",
+  "  width:min(420px, 46vw);\n",
+  "  padding:0.45rem 0.6rem;border:1px solid var(--border);border-radius:8px;\n",
+  "  background:var(--bg);color:var(--fg);\n",
+  "}\n",
+  "main.wrap{max-width:var(--maxw);margin:0 auto;display:grid;grid-template-columns: 280px 1fr;gap:var(--gap);padding:1rem}\n",
+  "nav{border:1px solid var(--border);border-radius:var(--radius);padding:0.75rem;max-height: calc(100vh - 7rem);overflow:auto}\n",
+  "nav h2{margin:0 0 0.5rem 0;font-size:1rem}\n",
+  "nav ul{list-style:none;margin:0;padding:0}\n",
+  "nav li{margin:0.2rem 0}\n",
+  "nav a{display:block;padding:0.25rem 0.35rem;border-radius:6px}\n",
+  "nav a[aria-current=\"page\"]{background:var(--codebg);font-weight:600}\n",
+  "article{border:1px solid var(--border);border-radius:var(--radius);padding:1rem;min-width:0}\n",
+  "article h1{margin-top:0}\n",
+  "pre,code{font-family:var(--mono)}\n",
+  "pre{background:var(--codebg);padding:0.75rem;border-radius:8px;overflow:auto;border:1px solid var(--border)}\n",
+  "code{background:var(--codebg);padding:0.1rem 0.25rem;border-radius:6px}\n",
+  "table{border-collapse:collapse;width:100%}\n",
+  "th,td{border:1px solid var(--border);padding:0.4rem 0.5rem;text-align:left;vertical-align:top}\n",
+  "aside.toc{border:1px dashed var(--border);border-radius:var(--radius);padding:0.75rem;margin:0 0 1rem 0;color:var(--muted)}\n",
+  "footer{max-width:var(--maxw);margin:0 auto;padding:1rem;color:var(--muted);border-top:1px solid var(--border)}\n",
+  "@media (max-width: 980px){\n",
+  "  main.wrap{grid-template-columns:1fr}\n",
+  "  nav{max-height:none}\n",
+  "}\n",
+  "@media (prefers-contrast: more){\n",
+  "  a{text-decoration:underline}\n",
+  "  nav a[aria-current=\"page\"]{outline:2px solid currentColor}\n",
+  "}\n",
+  "@media (forced-colors: active){\n",
+  "  *{forced-color-adjust:auto}\n",
+  "  a{text-decoration:underline}\n",
+  "  nav a[aria-current=\"page\"]{outline:2px solid LinkText}\n",
+  "}\n",
+  "@media print{\n",
+  "  header, nav{display:none !important}\n",
+  "  article{border:none}\n",
+  "  a{text-decoration:underline;color:#000}\n",
+  "}\n",
+  0
+};
 
-static const char *TACK_INIT_TEMPLATE_MIN_HTML =
-  "<!doctype html>\n"
-  "<html lang=\"en\">\n"
-  "<head>\n"
-  "  <meta charset=\"utf-8\">\n"
-  "  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
-  "  <title>{{TACK_PAGE_TITLE}}</title>\n"
-  "  <!-- TACK:BEGIN HEAD_ASSETS -->\n"
-  "  {{TACK_HEAD_ASSETS}}\n"
-  "  <!-- TACK:END HEAD_ASSETS -->\n"
-  "</head>\n"
-  "<body>\n"
-  "<header>\n"
-  "  <div class=\"row\">\n"
-  "    <div class=\"brand\">{{TACK_PROJECT_TITLE}}</div>\n"
-  "    <div class=\"spacer\"></div>\n"
-  "  </div>\n"
-  "</header>\n"
-  "\n"
-  "<main class=\"wrap\">\n"
-  "  <!-- TACK:BEGIN NAV -->\n"
-  "  {{TACK_NAV_HTML}}\n"
-  "  <!-- TACK:END NAV -->\n"
-  "\n"
-  "  <article>\n"
-  "    <!-- TACK:BEGIN TOC -->\n"
-  "    {{TACK_TOC_HTML}}\n"
-  "    <!-- TACK:END TOC -->\n"
-  "\n"
-  "    <!-- TACK:BEGIN CONTENT -->\n"
-  "    {{TACK_CONTENT_HTML}}\n"
-  "    <!-- TACK:END CONTENT -->\n"
-  "  </article>\n"
-  "</main>\n"
-  "\n"
-  "<!-- TACK:BEGIN FOOTER -->\n"
-  "{{TACK_FOOTER_HTML}}\n"
-  "<!-- TACK:END FOOTER -->\n"
-  "</body>\n"
-  "</html>\n";
+static const char * const TACK_INIT_TEMPLATE_MIN_HTML_LINES[] = {
+  "<!doctype html>\n",
+  "<html lang=\"en\">\n",
+  "<head>\n",
+  "  <meta charset=\"utf-8\">\n",
+  "  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n",
+  "  <title>{{TACK_PAGE_TITLE}}</title>\n",
+  "  <!-- TACK:BEGIN HEAD_ASSETS -->\n",
+  "  {{TACK_HEAD_ASSETS}}\n",
+  "  <!-- TACK:END HEAD_ASSETS -->\n",
+  "</head>\n",
+  "<body>\n",
+  "<header>\n",
+  "  <div class=\"row\">\n",
+  "    <div class=\"brand\">{{TACK_PROJECT_TITLE}}</div>\n",
+  "    <div class=\"spacer\"></div>\n",
+  "  </div>\n",
+  "</header>\n",
+  "\n",
+  "<main class=\"wrap\">\n",
+  "  <!-- TACK:BEGIN NAV -->\n",
+  "  {{TACK_NAV_HTML}}\n",
+  "  <!-- TACK:END NAV -->\n",
+  "\n",
+  "  <article>\n",
+  "    <!-- TACK:BEGIN TOC -->\n",
+  "    {{TACK_TOC_HTML}}\n",
+  "    <!-- TACK:END TOC -->\n",
+  "\n",
+  "    <!-- TACK:BEGIN CONTENT -->\n",
+  "    {{TACK_CONTENT_HTML}}\n",
+  "    <!-- TACK:END CONTENT -->\n",
+  "  </article>\n",
+  "</main>\n",
+  "\n",
+  "<!-- TACK:BEGIN FOOTER -->\n",
+  "{{TACK_FOOTER_HTML}}\n",
+  "<!-- TACK:END FOOTER -->\n",
+  "</body>\n",
+  "</html>\n",
+  0
+};
 
-static const char *TACK_INIT_DEFAULT_TACK_INI =
-  "; tack.ini — generated by `tack init` (tack v" TACK_VERSION ")\n"
-  "; ---------------------------------------------------------------------------\n"
-  "; Minimal, repo-owned configuration.\n"
-  "; - If you do not need customization, you can delete this file: tack has built-in defaults.\n"
-  "; - Docs/BOM: templates/ is created by `tack init` (CSS-first, offline-friendly).\n"
-  "; - Lists are ';'-separated (recommended). Quoted tokens are supported.\n"
-  "; ---------------------------------------------------------------------------\n"
-  "\n"
-  "[project]\n"
-  "default_target = app\n"
-  "allow_unsafe_paths = no\n"
-  "\n"
-  "[target \"app\"]\n"
-  "src = src\n"
-  "bin = app\n"
-  "core = yes\n"
-  "includes = src\n"
-  "\n"
-  "[doc]\n"
-  "template = templates/tack_template_min.html\n"
-  "css      = templates/tack_doc.css\n"
-  "\n"
-  "[bom]\n"
-  "template = templates/tack_template_min.html\n"
-  "css      = templates/tack_doc.css\n"
-  "\n"
-  "; Optional: fmt – orchestrate external formatters (policy lives in this repo)\n"
-  ";[fmt]\n"
-  ";enabled = yes\n"
-  ";fail_fast = yes\n"
-  ";defaults = auto\n"
-  ";rules = c\n"
-  ";exclude = thirdparty/**;build/**;.git/**;.fossil/**;.hg/**\n"
-  ";\n"
-  ";[fmt \"c\"]\n"
-  ";tool = clang-format\n"
-  ";mode = file\n"
-  ";include = src/**/*.c;src/**/*.h;include/**/*.h;tools/**/*.c;tools/**/*.h;tests/**/*.c;tests/**/*.h\n"
-  ";cmd = clang-format -i --style=file @FILE@\n"
-  ";requires = clang-format\n";
+static const char * const TACK_INIT_DEFAULT_TACK_INI_LINES[] = {
+  "; tack.ini - generated by `tack init` (tack v" TACK_VERSION ")\n",
+  "; ---------------------------------------------------------------------------\n",
+  "; Minimal, repo-owned configuration.\n",
+  "; - If you do not need customization, you can delete this file: tack has built-in defaults.\n",
+  "; - Docs/BOM: templates/ is created by `tack init` (CSS-first, offline-friendly).\n",
+  "; - Lists are ';'-separated (recommended). Quoted tokens are supported.\n",
+  "; ---------------------------------------------------------------------------\n",
+  "\n",
+  "[project]\n",
+  "default_target = app\n",
+  "allow_unsafe_paths = no\n",
+  "\n",
+  "[target \"app\"]\n",
+  "src = src\n",
+  "bin = app\n",
+  "core = yes\n",
+  "includes = src\n",
+  "\n",
+  "[doc]\n",
+  "template = templates/tack_template_min.html\n",
+  "css      = templates/tack_doc.css\n",
+  "\n",
+  "[bom]\n",
+  "template = templates/tack_template_min.html\n",
+  "css      = templates/tack_doc.css\n",
+  "\n",
+  "; Optional: fmt - orchestrate external formatters (policy lives in this repo)\n",
+  ";[fmt]\n",
+  ";enabled = yes\n",
+  ";fail_fast = yes\n",
+  ";defaults = auto\n",
+  ";rules = c\n",
+  ";exclude = thirdparty/**;build/**;.git/**;.fossil/**;.hg/**\n",
+  ";\n",
+  ";[fmt \"c\"]\n",
+  ";tool = clang-format\n",
+  ";mode = file\n",
+  ";include = src/**/*.c;src/**/*.h;include/**/*.h;tools/**/*.c;tools/**/*.h;tests/**/*.c;tests/**/*.h\n",
+  ";cmd = clang-format -i --style=file @FILE@\n",
+  ";requires = clang-format\n",
+  0
+};
 
 static const char *TACK_INIT_MAIN_C =
   "#include <stdio.h>\n\n"
@@ -4983,15 +5176,15 @@ static int cmd_init(void) {
 
   /* templates + default config (non-destructive) */
   ensure_dir("templates");
-  if (write_file_if_missing("templates/tack_doc.css", TACK_INIT_TEMPLATES_CSS) != 0) {
+  if (write_file_lines_if_missing("templates/tack_doc.css", TACK_INIT_TEMPLATES_CSS_LINES) != 0) {
     fprintf(stderr, "tack: init: cannot create templates/tack_doc.css\n");
     return 1;
   }
-  if (write_file_if_missing("templates/tack_template_min.html", TACK_INIT_TEMPLATE_MIN_HTML) != 0) {
+  if (write_file_lines_if_missing("templates/tack_template_min.html", TACK_INIT_TEMPLATE_MIN_HTML_LINES) != 0) {
     fprintf(stderr, "tack: init: cannot create templates/tack_template_min.html\n");
     return 1;
   }
-  if (write_file_if_missing("tack.ini", TACK_INIT_DEFAULT_TACK_INI) != 0) {
+  if (write_file_lines_if_missing("tack.ini", TACK_INIT_DEFAULT_TACK_INI_LINES) != 0) {
     fprintf(stderr, "tack: init: cannot create tack.ini\n");
     return 1;
   }
@@ -5356,7 +5549,6 @@ static void format_time_utc_iso8601(char *out, size_t cap, time_t t) {
 
 static void make_uuid_like(char *out, size_t cap, const char *seed_a, const char *seed_b) {
   unsigned long h1 = 2166136261UL;
-  (void)cap;
   unsigned long h2 = 2166136261UL;
   unsigned long h3 = 2166136261UL;
   unsigned long h4 = 2166136261UL;
@@ -5364,6 +5556,7 @@ static void make_uuid_like(char *out, size_t cap, const char *seed_a, const char
   char tbuf[64];
   static unsigned long counter = 0;
   int i;
+  (void)cap;
 
   sprintf(tbuf, "%lu-%lu", (unsigned long)sbom_timestamp_value(), counter++);
   h1 = fnv1a_str(h1, seed_a ? seed_a : "");
@@ -7011,7 +7204,7 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
           tack_snprintf(title2, sizeof(title2), "tack %s", mdp);
         }
 
-        if (verbose) printf("tack: doc: %s", out);
+        if (verbose) printf("tack: doc: %s\n", out);
         rc2 = write_doc_page(out, title2, nav_inner, &hc, mdp);
         free(lbl);
         if (rc2 != 0) { free(nav_inner); sv_free(&docs_md); sv_free(&docs_html); sv_free(&root_md); sv_free(&root_html); return rc2; }

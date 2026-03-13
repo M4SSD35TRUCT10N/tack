@@ -9,6 +9,12 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.7.25
+- P0-Fix für Incremental-Linking: tack erzwingt den Link-Schritt jetzt, wenn in diesem Lauf ein Objekt neu kompiliert oder aus dem Cache restauriert wurde. Zusätzlich wird pro Binary eine kleine `.linkmeta`-Datei geschrieben und geprüft, damit stille stale Binaries auch über mehrere Läufe hinweg erkannt werden.
+- Neue Regression `tests/incremental_link_test.c`: reproduziert die Header-only-Änderung mit absichtlich gleichgezogenen Output-Timestamps und stellt sicher, dass das Binary danach wirklich den neuen Wert ausführt.
+- Striktes C89/C90 nachgezogen: die eingebetteten Init-Templates werden jetzt als C90-freundliche String-Listen geschrieben; `tests/strict_c89_compile_test.c` prüft einen `-std=c89 -pedantic -Werror`-Compile von `src/tack.c`.
+- UX/Diagnose: `tack doctor` meldet jetzt zusätzlich, ob der aktuell gewählte Compiler im `PATH` gefunden wird; die verbose DOC-Ausgabe schreibt Einzelseitenpfade wieder sauber mit Zeilenumbrüchen.
+
 ### v0.7.24
 - `tack init` erzeugt `src/main.c` jetzt versionsneutral mit `puts("Hello from tack!")` statt mit einer hart verdrahteten Altversion; künftige Releases müssen das Scaffold damit nicht mehr pro Version anfassen.
 - `TACK_INIT_DEFAULT_TACK_INI` referenziert `TACK_VERSION` jetzt direkt statt eine Versionsnummer zu duplizieren; die generierte `tack.ini` bleibt dadurch enger an der echten Tool-Version.
@@ -149,6 +155,12 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.7.25
+- P0 fix for incremental linking: tack now forces the link step when an object was rebuilt or restored from cache in the current run. In addition, each binary now gets a small `.linkmeta` file so silent stale binaries are detected across later runs as well.
+- New regression `tests/incremental_link_test.c`: reproduces the header-only change with intentionally flattened output timestamps and verifies that the resulting binary actually runs the new value.
+- Strict C89/C90 tightened up: the embedded init templates are now emitted from C90-friendly string lists; `tests/strict_c89_compile_test.c` checks a `-std=c89 -pedantic -Werror` compile of `src/tack.c`.
+- UX/diagnostics: `tack doctor` now also reports whether the currently selected compiler is actually found on `PATH`; verbose DOC output once again prints individual page paths with proper line breaks.
 
 ### v0.7.24
 - `tack init` now writes `src/main.c` in a version-neutral form with `puts("Hello from tack!")` instead of a hard-coded legacy version string, so future releases no longer need to touch the scaffold per version.

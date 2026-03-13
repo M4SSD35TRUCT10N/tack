@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.7.24
+# tack ROADMAP (DE/EN) — v0.7.25
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
@@ -122,6 +122,13 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 - `TACK_INIT_DEFAULT_TACK_INI` bindet `TACK_VERSION` jetzt direkt ein, damit die generierte Start-`tack.ini` nicht erneut durch eine duplizierte Versionszeichenkette driftet.
 - `tests/init_scaffold_version_test.c` deckt jetzt sowohl die generierte `tack.ini` als auch das Standard-`src/main.c` ab, damit Versionsdrift im Scaffold nicht erneut unbemerkt durchrutscht.
 - Interner Altkommentar bereinigt: `tackfile.c auto-config (v0.6.0)` wurde versionsneutral formuliert, um Re-Evaluationen kein unnötiges Drift-Rauschen zu liefern.
+
+### Erledigt in v0.7.25
+- P0-Fix für die Link-Correctness: Wenn in einem Lauf ein Objekt neu kompiliert oder aus dem Cache restauriert wurde, wird der Link-Schritt jetzt zuverlässig ausgeführt.
+- Zusätzliche `.linkmeta`-Metadatei pro Binary eingeführt, damit stale Binaries auch dann erkannt werden, wenn Zeitstempel ungünstig zusammenfallen oder aus früheren Läufen stammen.
+- Regressionstest `incremental_link_test.c` ergänzt, der die Header-only-Änderung mit absichtlich gleichgezogenen Output-Timestamps nachstellt.
+- Striktes C89/C90 nachgezogen: eingebettete Init-Templates als String-Listen, neuer Regressionstest `strict_c89_compile_test.c` für `-std=c89 -pedantic -Werror`.
+- `tack doctor` zeigt jetzt zusätzlich den Compiler-Fundstatus; verbose DOC-Logging wieder mit sauberen Zeilenumbrüchen.
 
 ### Nächste sinnvolle Schritte (v0.7.x Idee)
 - Mehr Beispiel‑Repos + „Schema‑F“ Walkthroughs
@@ -253,6 +260,13 @@ Before “big” releases and announcements, tack should be validated against re
 - `TACK_INIT_DEFAULT_TACK_INI` now embeds `TACK_VERSION` directly so the generated starter `tack.ini` does not drift again through a duplicated version string.
 - `tests/init_scaffold_version_test.c` now covers both the generated `tack.ini` and the default `src/main.c` scaffold so scaffold drift does not slip through again.
 - Internal legacy comment cleaned up: `tackfile.c auto-config (v0.6.0)` was rewritten in version-neutral form to avoid unnecessary drift noise in re-evaluations.
+
+### Erledigt in v0.7.25
+- P0-Fix für die Link-Correctness: Wenn in einem Lauf ein Objekt neu kompiliert oder aus dem Cache restauriert wurde, wird der Link-Schritt jetzt zuverlässig ausgeführt.
+- Zusätzliche `.linkmeta`-Metadatei pro Binary eingeführt, damit stale Binaries auch dann erkannt werden, wenn Zeitstempel ungünstig zusammenfallen oder aus früheren Läufen stammen.
+- Regressionstest `incremental_link_test.c` ergänzt, der die Header-only-Änderung mit absichtlich gleichgezogenen Output-Timestamps nachstellt.
+- Striktes C89/C90 nachgezogen: eingebettete Init-Templates als String-Listen, neuer Regressionstest `strict_c89_compile_test.c` für `-std=c89 -pedantic -Werror`.
+- `tack doctor` zeigt jetzt zusätzlich den Compiler-Fundstatus; verbose DOC-Logging wieder mit sauberen Zeilenumbrüchen.
 
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs

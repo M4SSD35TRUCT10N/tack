@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.24)
+# tack — Tiny ANSI-C Kit (v0.7.25)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.24)
+## Features (v0.7.25)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -60,11 +60,14 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - Paralleles Kompilieren: `-j N`
 - Depfiles (`.d`, `tack-deps-v1`): tack scannt `#include "..."` **und** `#include <...>` rekursiv über Include-Pfade für Incremental Builds (Header-Änderungen triggern Rebuilds)
 - Optionaler Compile-Cache in `.tack-cache/` für schnellere Incremental Builds (abschaltbar mit `--no-cache`)
+- Relink-Correctness gehärtet: Wenn in einem Build ein Objekt neu kompiliert oder aus dem Cache restauriert wurde, wird der Link-Schritt nicht mehr stillschweigend übersprungen; zusätzlich sichert eine Link-Metadatei den Input-Satz gegen stale Binaries ab.
 - Diagnose: `--why`/`--explain` erklärt Rebuild-Entscheidungen („why rebuild“)
 - Windows: robustere Depfile-/Pfadbehandlung (custom Depfiles, normalisierte Pfade) → weniger unnötige Rebuilds
 - Help-Passthrough: `tack build --help` / `-h` zeigt die Kommando-Hilfe
 - Strict Mode: `--strict` aktiviert zusätzlich `-Wunsupported` **nur für tcc/TinyCC**; GCC/Clang erhalten weiterhin nur die gemeinsamen Warn-Flags.
 - Sichere Target-Pfade als Default: `id` und `bin` müssen einfache, pfadsichere Tokens bleiben; `src` bleibt ein relativer Repo-Pfad ohne `..`-Traversal. Legacy-/Power-Fälle erfordern jetzt ein ausdrückliches Opt-in via `--unsafe-paths` oder `[project] allow_unsafe_paths = yes`.
+- `tack doctor` meldet jetzt zusätzlich, ob der aktuell gewählte Compiler (`TACK_CC` oder Default) im `PATH` wirklich gefunden wird.
+- `src/tack.c` baut jetzt auch mit `gcc -std=c89 -pedantic -Werror` sauber; die eingebetteten Init-Templates wurden dafür auf C90-freundliche String-Listen umgestellt.
 - CycloneDX-/SPDX-Metadaten fachlich nachgezogen: CycloneDX erhält `serialNumber` + `metadata.timestamp`, SPDX ein echtes UTC-`created` und einen eindeutigeren `documentNamespace`. Für reproduzierbare Pipelines respektiert tack `SOURCE_DATE_EPOCH`, falls gesetzt.
 - Echte Target-Konfiguration: Includes/Defines/CFLAGS/LDFLAGS/LIBS pro Target
 - Profil-spezifische Target-Overrides in `tack.ini` (`[target "...".debug]` / `[target "...".release]`)
@@ -586,7 +589,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - **not** a package manager (no resolver/registry/lockfile),
 - **not** an IDE project generator like CMake (intentionally).
 
-## Features (v0.7.24)
+## Features (v0.7.25)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja

@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.24
+# tack FAQ / FQA (DE/EN) — v0.7.25
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -33,7 +33,7 @@ Ab **v0.7.24** bleibt auch das erzeugte Standard-`src/main.c` bewusst versionsne
 Das ist bewusst „non-destructive“, damit bestehende Projektregeln erhalten bleiben.
 
 ### Welche Compiler funktionieren?
-Standard ist **tcc**. Über `TACK_CC` kannst du z.B. `gcc` oder `clang` nutzen, solange sie „klassische“ C‑Kommandozeilen verstehen. Im Debug-Profil setzt tack die Basis-Flags compilerbewusst: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC.  
+Standard ist **tcc**. Über `TACK_CC` kannst du z.B. `gcc` oder `clang` nutzen, solange sie „klassische“ C‑Kommandozeilen verstehen. Im Debug-Profil setzt tack die Basis-Flags compilerbewusst: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC. `tack doctor` zeigt zusätzlich, ob der aktuell gewählte Compiler im `PATH` gefunden wird.  
 **Wichtig:** `TACK_CC` ist der **Compiler**, nicht „Compiler + Flags“. Flags gehören in `tack.ini`.
 
 ### Warum lehnt tack `TACK_CC="clang -std=c89"` ab?
