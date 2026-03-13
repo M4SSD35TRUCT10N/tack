@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.7.23
+# tack FAQ / FQA (DE/EN) — v0.7.24
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
@@ -29,6 +29,7 @@ tack ersetzt für viele Projekte das klassische Build-Skript (Makefile/CMakeList
 
 ### Erzeugt tack eine `.gitignore` oder Fossil-Ignore-Regeln?
 Ja: `tack init` legt, falls nicht vorhanden, eine sinnvolle `.gitignore` sowie `.fossil-settings/ignore-glob` an. Zusätzlich erzeugt es (nicht destruktiv) `templates/` inkl. Standard-CSS/Template und eine Start-`tack.ini`. Wenn die Dateien bereits existieren, **überschreibt tack nichts**, sondern hängt nur einen klar markierten `tack`-Block an, sofern er noch fehlt.
+Ab **v0.7.24** bleibt auch das erzeugte Standard-`src/main.c` bewusst versionsneutral (`Hello from tack!`) statt eine feste Versionsnummer zu tragen.
 Das ist bewusst „non-destructive“, damit bestehende Projektregeln erhalten bleiben.
 
 ### Welche Compiler funktionieren?
@@ -323,8 +324,8 @@ Use:
 For many projects, yes: tack replaces custom build scripts by using conventions and providing `build/run/test/clean`. For very complex toolchains, make/cmake may still be the better fit.
 
 ### Does tack create a `.gitignore` or Fossil ignore rules?
-Yes: `tack init` will provision a sensible `.gitignore` and `.fossil-settings/ignore-glob` if they don't exist.
-If the files already exist, tack **won't overwrite** them; it only appends a clearly marked `tack` block if missing.
+Yes: `tack init` will provision a sensible `.gitignore` and `.fossil-settings/ignore-glob` if they don't exist. It also creates `templates/` non-destructively, including default CSS/template files and a starter `tack.ini`.
+If the files already exist, tack **won't overwrite** them; it only appends a clearly marked `tack` block if missing. As of **v0.7.24**, the generated default `src/main.c` also stays deliberately version-neutral (`Hello from tack!`).
 This is intentionally non-destructive to preserve existing project rules.
 
 ### Which compilers work?

@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.23)
+# tack — Tiny ANSI-C Kit (v0.7.24)
 
 ---
 
@@ -48,7 +48,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.23)
+## Features (v0.7.24)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -72,7 +72,7 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - `tack bom`: erzeugt ein Build-Manifest (BOM) als `build/bom.md` und `build/bom.html`.
 - `tack sbom`: erzeugt eine **Build-Input-SBOM** in mehreren Formaten (Default: tack‑JSON unter `build/sbom.json`; CycloneDX/SPDX mit formatabhängigen Defaults; `--all-targets` schreibt je Target eine eigene JSON-Datei).
 - `tack doc`: erzeugt offline HTML-Doku in `build/doc/` (Wrapper um Markdown) für **alle Root-Markdowns** (`*.md` im Projekt-Root) sowie optional alle `docs/**/*.md` (wenn vorhanden) und verlinkt die BOM.
-- `tack init`: legt bei Bedarf (nicht destruktiv) `templates/` inkl. Standard-CSS/Template sowie eine Start-`tack.ini` an.
+- `tack init`: legt bei Bedarf (nicht destruktiv) `templates/` inkl. Standard-CSS/Template sowie eine Start-`tack.ini` an; das Standard-`src/main.c` bleibt bewusst versionsneutral (`Hello from tack!`).
 - Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - Die mitgelieferte `templates/tack_doc.css` enthält jetzt Grundunterstützung für Hell/Dunkel (`prefers-color-scheme`) sowie High-Contrast/Forced-Colors (`prefers-contrast: more`, `forced-colors: active`).
 - HTML-Ausgabe: stabile Template-Ankerpunkte (Marker + IDs) für CSS-Hooks und optionales Post-Processing.
@@ -586,7 +586,7 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - **not** a package manager (no resolver/registry/lockfile),
 - **not** an IDE project generator like CMake (intentionally).
 
-## Features (v0.7.23)
+## Features (v0.7.24)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
