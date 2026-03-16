@@ -117,7 +117,7 @@ Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht ei
 - Versions-/Scaffold-Hygiene nachgezogen: `TACK_VERSION`, die per `tack init` erzeugte `tack.ini` und die mitgelieferte Beispiel-`tack.ini` sind jetzt wieder auf demselben Stand.
 - Regressionstests ergänzt: Compiler-Flag-Gating, Pfadsicherheit, SBOM-Metadaten und Scaffold-Version.
 
- Erledigt in v0.7.24
+### Erledigt in v0.7.24
 - `tack init` erzeugt `src/main.c` jetzt bewusst versionsneutral (`Hello from tack!`) statt mit einer hart verdrahteten Altversionsnummer; damit bleibt das Scaffold über künftige Releases stabiler.
 - `TACK_INIT_DEFAULT_TACK_INI` bindet `TACK_VERSION` jetzt direkt ein, damit die generierte Start-`tack.ini` nicht erneut durch eine duplizierte Versionszeichenkette driftet.
 - `tests/init_scaffold_version_test.c` deckt jetzt sowohl die generierte `tack.ini` als auch das Standard-`src/main.c` ab, damit Versionsdrift im Scaffold nicht erneut unbemerkt durchrutscht.
