@@ -16,8 +16,8 @@
 - Präzisiert mit `docs/specs/0003-compiler-selection-and-policy-split.md`, dass Compilerwahl, Built-ins und zusätzliche Projektpolitik getrennt betrachtet werden.
 - Landet den ersten kleinen 0.8-Produktions-Code-Schritt: Auswahl-Priorität ist jetzt `TACK_CC` → `[project] compiler` → Built-in-Default `tcc`.
 - Führt optional `[project] compiler_policy = auto|tcc|gcc|clang|generic` ein, damit compilerbewusste Built-in-Logik explizit fixiert werden kann, ohne tack zu einer generischen Toolchain-DSL umzubauen.
-- `tack doctor` meldet jetzt zusätzlich **Compilerquelle** und **wirksame Compiler-Policy**.
-- Die mitgelieferte `tack.ini`, die von `tack init` erzeugte Start-Konfiguration, README, FAQ und ROADMAP wurden entsprechend nachgezogen.
+- `tack doctor` meldet jetzt zusätzlich **Compilerquelle**, **wirksame Compiler-Policy** und die **Herkunft dieser Policy**.
+- Die Hilfeausgabe wurde bereinigt und bündelt Compilerwahl/Policy jetzt an einer Stelle; die mitgelieferte `tack.ini`, die von `tack init` erzeugte Start-Konfiguration, README, FAQ und ROADMAP wurden entsprechend nachgezogen.
 - Neuer Regressionstest: `tests/compiler_selection_policy_test.c`.
 
 ### v0.7.25
@@ -174,7 +174,7 @@
 - Sharpens `docs/specs/0003-compiler-selection-and-policy-split.md` so compiler selection, built-ins, and additional project policy are treated as separate layers.
 - Lands the first small 0.8 production-code step: selection priority is now `TACK_CC` → `[project] compiler` → built-in default `tcc`.
 - Adds optional `[project] compiler_policy = auto|tcc|gcc|clang|generic` so compiler-aware built-in behavior can be pinned explicitly without turning tack into a generic toolchain DSL.
-- `tack doctor` now also reports the **compiler source** and the **effective compiler policy**.
+- `tack doctor` now also reports the **compiler source**, the **effective compiler policy**, and the **source of that policy**.
 - The shipped `tack.ini`, the `tack init` starter config, README, FAQ, and ROADMAP were updated accordingly.
 - New regression test: `tests/compiler_selection_policy_test.c`.
 

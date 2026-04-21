@@ -104,7 +104,7 @@ Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/`
 
 ## Ökosystem: Software, die gut mit tack zusammenspielt
 
-- **Compiler/Toolchain:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM. Auswahl-Priorität: `TACK_CC` → `[project] compiler` → Built-in-Default `tcc`. Das Debug-Profil nutzt compilerbewusste Basis-Flags: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC; die Built-in-Policy kann jetzt optional über `[project] compiler_policy` präzisiert werden.
+- **Compiler/Toolchain:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM. Auswahl-Priorität: `TACK_CC` → `[project] compiler` → Built-in-Default `tcc`. Das Debug-Profil nutzt compilerbewusste Basis-Flags: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC; die Built-in-Policy kann jetzt optional über `[project] compiler_policy` präzisiert werden. `tack doctor` zeigt dazu Compilerquelle, wirksame Policy und deren Herkunft an.
 - **Versionsverwaltung:** Git, Fossil (tack `init` legt u. a. `.gitignore` + Fossil-Ignore an).
 - **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (einfach `tack build` / `tack test` aufrufen).
 - **Editor/IDE:** VS Code (Tasks), Vim/Neovim, Emacs, CLion/IntelliJ (External Tools), Visual Studio (External Tools).
@@ -293,7 +293,7 @@ Der Unterschied ist bewusst: Nach `tack clean` wird das Depfile vor einem mögli
 - `sbom [debug|release] [--target NAME | --all-targets] [--outdir DIR] [-v] [--strict] [--no-core]` – deterministische Build-Input-SBOM (ein Ziel oder Batch-Export je Target)
 - `doc [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]` – Offline-HTML-Doku (Root-`*.md` + optional `docs/**/*.md` + BOM)
 
-Tipp: `tack build --help` (oder `-h`) zeigt die Hilfe **für dieses Sub‑Kommando**.
+Tipp: `tack build --help` (oder `-h`) zeigt die Hilfe **für dieses Sub‑Kommando**. `tack doctor` zeigt zusätzlich Compilerwahl, Quellen und die wirksame Compiler-Policy.
 
 ### Warum “clean” und “clobber” (statt distclean)?
 `distclean` stammt aus Make-Welten („putze auch generierte Konfig“).  
@@ -661,7 +661,7 @@ Starting with the 0.8 series, larger direction changes are additionally recorded
 
 ## Ecosystem: software that pairs well with tack
 
-- **Compilers/toolchains:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM. Selection priority is `TACK_CC` → `[project] compiler` → built-in default `tcc`. The debug profile uses compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC; the built-in policy can now be pinned via `[project] compiler_policy` when needed.
+- **Compilers/toolchains:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM. Selection priority is `TACK_CC` → `[project] compiler` → built-in default `tcc`. The debug profile uses compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC; the built-in policy can now be pinned via `[project] compiler_policy` when needed. `tack doctor` also shows the compiler source, active policy, and policy source.
 - **Version control:** Git, Fossil (tack `init` provisions `.gitignore` and Fossil ignore settings, among other things).
 - **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (just call `tack build` / `tack test`).
 - **Editors/IDEs:** VS Code (Tasks), Vim/Neovim, Emacs, CLion/IntelliJ (External Tools), Visual Studio (External Tools).

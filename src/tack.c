@@ -306,10 +306,18 @@ static void compiler_program_copy(char *dst, size_t cap, const char *what, const
 
 static const char *get_cc(void);
 static int compiler_policy_name_is_valid(const char *name);
+static const char *compiler_policy_source_label(void);
 
 static const char *compiler_source_label(void) {
   if (!g_cc_cache_inited) (void)get_cc();
   return g_cc_source_label ? g_cc_source_label : "built-in default";
+}
+
+static const char *compiler_policy_source_label(void) {
+  if (g_config_loaded && g_config_compiler_policy && g_config_compiler_policy[0]) {
+    return "config:[project] compiler_policy";
+  }
+  return "auto-detect";
 }
 
 static const char *get_cc(void) {
@@ -4854,25 +4862,11 @@ static void print_help(void) {
   puts("  tack list");
   puts("  tack fmt  [--check] [--diff] [--list] [--rule NAME] [--target NAME] [--no-defaults] [-v] [--strict] [-- PATH...]");
   puts("  tack build [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core]");
-  puts("  tack run  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]");
-  puts("  tack test [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core]");
+  puts("  tack run   [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]");
+  puts("  tack test  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core]");
   puts("  tack clean [--cache] [-v]");
   puts("  tack clobber [-v]");
   puts("  tack bom  [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]");
-  puts("  tack sbom [debug|release] [--target NAME] [--outdir DIR] [--all-targets] [-v] [--no-core]");
-  puts("");
-  puts("Global options (before the command):");
-  puts("  --no-config         ignore tack.ini and tackfile.c");
-  puts("  --no-code-config    ignore tackfile.c (still use tack.ini / --config)");
-  puts("  --config PATH     use explicit INI file (highest priority)");
-  puts("  --no-auto-tools   disable runtime tool discovery");
-  puts("  --no-cache          disable compile cache");
-  puts("  --unsafe-paths    allow unsafe target paths from config/tackfile");
-  puts("");
-  puts("Notes:");
-  puts("  - --strict enables -Wunsupported only for tcc/TinyCC");
-  puts("  - target id/bin are safe-token validated by default");
-  puts("  - target src must stay repo-relative by default");
   puts("  tack sbom [debug|release] [--target NAME | --all-targets] [--outdir DIR] [-v] [--strict] [--no-core]");
   puts("  tack doc  [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]");
   puts("");
@@ -4886,27 +4880,33 @@ static void print_help(void) {
   puts("  --unsafe-paths      allow unsafe target paths from config/tackfile");
   puts("");
 
+  puts("Compiler selection:");
+  puts("  TACK_CC -> [project] compiler -> built-in default (tcc)");
+  puts("  [project] compiler_policy = auto|tcc|gcc|clang|generic");
+  puts("  tack doctor prints the compiler, source, policy and policy source");
+  puts("");
+
   puts("Notes:");
   puts("  - clean    = remove contents under build/ (keep the build directory)");
   puts("  - clean --cache = also remove .tack-cache/ (compile cache reset)");
   puts("  - clobber  = remove build/ itself (and .tack-cache/)");
   puts("  - clean/clobber -v prints remaining locked paths (if any)");
-  puts("  - init    = also provisions .gitignore and .fossil-settings/ignore-glob (non-destructive)");
-  puts("  - new     = create <name>/ and run init inside it (non-destructive)");
-  puts("  - fmt     = run external formatters (see [fmt] and [fmt \"NAME\"] in tack.ini)");
-  puts("             --check exits 2 when formatting would change files (CI-friendly)");
-  puts("             defaults=auto may enable implicit rules if .clang-format/Cargo.toml/go.mod exist and tools are in PATH");
-  puts("  - bom     = writes build/bom.md and build/bom.html");
-  puts("  - sbom    = writes a build-input SBOM (not package/version resolution)");
-  puts("             default single-target files: build/sbom.json / sbom.cdx.json / sbom.spdx.json");
-  puts("             --all-targets writes build/sbom.<target>.json (or .cdx/.spdx) per enabled target");
-  puts("  - doc     = writes HTML into build/doc/ (README/FAQ/ROADMAP/RELEASENOTES + optional docs/**/*.md + BOM)");
+  puts("  - init     = also provisions .gitignore and .fossil-settings/ignore-glob (non-destructive)");
+  puts("  - new      = create <name>/ and run init inside it (non-destructive)");
+  puts("  - fmt      = run external formatters (see [fmt] and [fmt \"NAME\"] in tack.ini)");
+  puts("               --check exits 2 when formatting would change files (CI-friendly)");
+  puts("               defaults=auto may enable implicit rules if .clang-format/Cargo.toml/go.mod exist and tools are in PATH");
+  puts("  - bom      = writes build/bom.md and build/bom.html");
+  puts("  - sbom     = writes a build-input SBOM (not package/version resolution)");
+  puts("               default single-target files: build/sbom.json / sbom.cdx.json / sbom.spdx.json");
+  puts("               --all-targets writes build/sbom.<target>.json (or .cdx/.spdx) per enabled target");
+  puts("  - doc      = writes HTML into build/doc/ (README/FAQ/ROADMAP/RELEASENOTES + optional docs/**/*.md + BOM)");
   puts("  - sbom format is set via [sbom] format = tack-sbom-1 | cyclonedx | cyclonedx-1.4 | spdx | spdx-2.3");
   puts("  - --strict enables -Wunsupported only for tcc/TinyCC");
   puts("  - target id/bin are safe-token validated by default");
   puts("  - target src must stay repo-relative by default");
   puts("  - --why prints short \"why rebuild\" diagnostics for compile/link decisions");
-  puts("  - cache   = stored under .tack-cache/ (deps via mtime/size/hash; depfile via size/hash; use --no-cache to disable)");
+  puts("  - cache    = stored under .tack-cache/ (deps via mtime/size/hash; depfile via size/hash; use --no-cache to disable)");
 }
 
 static void cmd_version(void) { printf("tack %s\n", TACK_VERSION); }
@@ -4917,6 +4917,7 @@ static void cmd_doctor(void) {
   printf("Compiler in use: %s\n", get_cc());
   printf("Compiler source: %s\n", compiler_source_label());
   printf("Compiler policy: %s\n", compiler_policy_name(compiler_policy_for_cc(get_cc())));
+  printf("Policy source: %s\n", compiler_policy_source_label());
   printf("Compiler found: %s\n", fmt_exe_in_path(get_cc()) ? "yes" : "no");
 #ifdef _WIN32
   printf("OS: Windows\n");
@@ -5241,6 +5242,7 @@ static const char * const TACK_INIT_DEFAULT_TACK_INI_LINES[] = {
   "default_target = app\n",
   "; compiler = tcc\n",
   "; compiler_policy = auto\n",
+  "; compiler priority: TACK_CC -> [project] compiler -> built-in default (tcc)\n",
   "allow_unsafe_paths = no\n",
   "\n",
   "[target \"app\"]\n",

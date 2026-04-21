@@ -45,7 +45,7 @@ Nein. Die 0.8-Serie schärft vor allem die **Begriffe und Zuständigkeiten**. `T
 Weil das den Kern des Projekts verwässern würde. `tack` soll **klein, C89-tauglich, fail-fast und nachvollziehbar** bleiben. Die 0.8-Serie will die vorhandene Compiler-/INI-Politik klarer machen, aber kein frei zusammensetzbares Meta-Buildsystem einführen.
 
 ### Welche Compiler funktionieren?
-Standard ist **tcc**. Die Auswahl-Priorität ist jetzt: `TACK_CC` → `[project] compiler` → Built-in-Default. Über `TACK_CC` oder `[project] compiler` kannst du z.B. `gcc` oder `clang` nutzen, solange sie „klassische“ C‑Kommandozeilen verstehen. Im Debug-Profil setzt tack die Basis-Flags compilerbewusst: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC. Falls nötig, kann die eingebaute Policy zusätzlich über `[project] compiler_policy = auto|tcc|gcc|clang|generic` festgelegt werden. `tack doctor` zeigt jetzt zusätzlich Quelle und wirksame Compiler-Policy an.  
+Standard ist **tcc**. Die Auswahl-Priorität ist jetzt: `TACK_CC` → `[project] compiler` → Built-in-Default. Über `TACK_CC` oder `[project] compiler` kannst du z.B. `gcc` oder `clang` nutzen, solange sie „klassische“ C‑Kommandozeilen verstehen. Im Debug-Profil setzt tack die Basis-Flags compilerbewusst: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC. Falls nötig, kann die eingebaute Policy zusätzlich über `[project] compiler_policy = auto|tcc|gcc|clang|generic` festgelegt werden. `tack doctor` zeigt jetzt zusätzlich Quelle, wirksame Compiler-Policy und die Herkunft dieser Policy an.  
 **Wichtig:** `TACK_CC` und `[project] compiler` sind **Compilerprogramme**, nicht „Compiler + Flags“. Flags gehören in `tack.ini`.
 
 ### Warum lehnt tack `TACK_CC="clang -std=c89"` ab?
@@ -352,7 +352,7 @@ No. The 0.8 series mainly sharpens the **terminology and responsibilities**. `TA
 Because that would dilute the core of the project. `tack` is supposed to stay **small, C89-friendly, fail-fast, and reviewable**. The 0.8 series aims to clarify the existing compiler/INI policy, not to introduce a freely composable meta-build system.
 
 ### Which compilers work?
-Default is **tcc**. Selection priority is now `TACK_CC` → `[project] compiler` → built-in default. You can use `TACK_CC` or `[project] compiler` to select `gcc`/`clang` etc. as long as they behave like classic C compilers. In debug builds tack applies compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC. When needed, the built-in policy can additionally be pinned via `[project] compiler_policy = auto|tcc|gcc|clang|generic`. `tack doctor` now also reports the compiler source and active compiler policy.  
+Default is **tcc**. Selection priority is now `TACK_CC` → `[project] compiler` → built-in default. You can use `TACK_CC` or `[project] compiler` to select `gcc`/`clang` etc. as long as they behave like classic C compilers. In debug builds tack applies compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC. When needed, the built-in policy can additionally be pinned via `[project] compiler_policy = auto|tcc|gcc|clang|generic`. `tack doctor` now also reports the compiler source, active compiler policy, and the source of that policy.  
 Important: `TACK_CC` and `[project] compiler` are compiler programs, not “compiler + flags”. Put flags into `tack.ini`.
 
 ### Why does tack reject `TACK_CC="clang -std=c89"`?
