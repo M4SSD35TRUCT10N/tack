@@ -12,10 +12,13 @@
 ### v0.8.0-dev
 - Eröffnet die **0.8-Serie** als neue Entwicklungslinie für Grundsatzthemen.
 - Führt `docs/README.md`, `docs/adr/0001-open-v0.8-series.md`, `docs/specs/0001-bilingual-documentation-policy.md` und `docs/specs/0002-ini-first-toolchain-policy-foundation.md` ein.
-- Ergänzt README/FAQ/ROADMAP/RELEASENOTES um Verweise auf `docs/` und dokumentiert die **v0.7.25-Featurebasis** als aktuelle Implementierungsreferenz.
-- Präzisiert mit `docs/specs/0003-compiler-selection-and-policy-split.md`, dass `TACK_CC` weiterhin das Compilerprogramm benennt, während zusätzliche Projekt-/Toolchain-Politik in `tack.ini` beschrieben wird.
-- Schärft README/FAQ/ROADMAP sprachlich nach, damit die 0.8-Serie bewusst **keine** generische Toolchain-DSL und **kein** Meta-Buildsystem anstrebt.
-- Produktions-C-Code und Tests bleiben in diesem Commit absichtlich unverändert.
+- Ergänzt README/FAQ/ROADMAP/RELEASENOTES um Verweise auf `docs/`.
+- Präzisiert mit `docs/specs/0003-compiler-selection-and-policy-split.md`, dass Compilerwahl, Built-ins und zusätzliche Projektpolitik getrennt betrachtet werden.
+- Landet den ersten kleinen 0.8-Produktions-Code-Schritt: Auswahl-Priorität ist jetzt `TACK_CC` → `[project] compiler` → Built-in-Default `tcc`.
+- Führt optional `[project] compiler_policy = auto|tcc|gcc|clang|generic` ein, damit compilerbewusste Built-in-Logik explizit fixiert werden kann, ohne tack zu einer generischen Toolchain-DSL umzubauen.
+- `tack doctor` meldet jetzt zusätzlich **Compilerquelle** und **wirksame Compiler-Policy**.
+- Die mitgelieferte `tack.ini`, die von `tack init` erzeugte Start-Konfiguration, README, FAQ und ROADMAP wurden entsprechend nachgezogen.
+- Neuer Regressionstest: `tests/compiler_selection_policy_test.c`.
 
 ### v0.7.25
 - P0-Fix für Incremental-Linking: tack erzwingt den Link-Schritt jetzt, wenn in diesem Lauf ein Objekt neu kompiliert oder aus dem Cache restauriert wurde. Zusätzlich wird pro Binary eine kleine `.linkmeta`-Datei geschrieben und geprüft, damit stille stale Binaries auch über mehrere Läufe hinweg erkannt werden.
@@ -167,10 +170,13 @@
 ### v0.8.0-dev
 - Opens the **0.8 series** as the new development line for foundational topics.
 - Introduces `docs/README.md`, `docs/adr/0001-open-v0.8-series.md`, `docs/specs/0001-bilingual-documentation-policy.md`, and `docs/specs/0002-ini-first-toolchain-policy-foundation.md`.
-- Adds `docs/` references to README/FAQ/ROADMAP/RELEASENOTES and documents the **v0.7.25 feature baseline** as the current implementation reference.
-- Sharpens the split in `docs/specs/0003-compiler-selection-and-policy-split.md`: `TACK_CC` continues to name the compiler program, while additional project/toolchain policy belongs in `tack.ini`.
-- Tightens the wording in README/FAQ/ROADMAP so the 0.8 series explicitly does **not** target a generic toolchain DSL or a meta-build system.
-- Production C code and tests are intentionally unchanged in this commit.
+- Adds backlinks from README/FAQ/ROADMAP/RELEASENOTES into `docs/`.
+- Sharpens `docs/specs/0003-compiler-selection-and-policy-split.md` so compiler selection, built-ins, and additional project policy are treated as separate layers.
+- Lands the first small 0.8 production-code step: selection priority is now `TACK_CC` → `[project] compiler` → built-in default `tcc`.
+- Adds optional `[project] compiler_policy = auto|tcc|gcc|clang|generic` so compiler-aware built-in behavior can be pinned explicitly without turning tack into a generic toolchain DSL.
+- `tack doctor` now also reports the **compiler source** and the **effective compiler policy**.
+- The shipped `tack.ini`, the `tack init` starter config, README, FAQ, and ROADMAP were updated accordingly.
+- New regression test: `tests/compiler_selection_policy_test.c`.
 
 ### v0.7.25
 - P0 fix for incremental linking: tack now forces the link step when an object was rebuilt or restored from cache in the current run. In addition, each binary now gets a small `.linkmeta` file so silent stale binaries are detected across later runs as well.

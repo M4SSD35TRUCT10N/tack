@@ -9,8 +9,8 @@ Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASE
 ### 0.8-Serie eröffnet
 - `docs/` ist jetzt der feste Ort für Spezifikationen und Architekturentscheidungen.
 - Vor größeren 0.8-Codeänderungen sollen erst die Leitplanken in `docs/specs/` bzw. `docs/adr/` dokumentiert werden.
-- Die aktuelle Implementierungsbasis bleibt zunächst **v0.7.25**, bis der erste echte 0.8-Code-Commit folgt.
-- Als nächster kleiner Themenblock wird die Sprache rund um **Compilerwahl vs. INI-Politik vs. Built-ins** präzisiert, bevor Produktionscode geändert wird.
+- Die ersten 0.8-Commits haben die Leitplanken dokumentiert; Commit 0003 bringt jetzt den ersten kleinen Produktions-Code-Schritt.
+- Dieser Schritt setzt bewusst nur die Grundlage für **Compilerwahl vs. INI-Politik vs. Built-ins** um: `[project] compiler` und `[project] compiler_policy`.
 - 0.8 verfolgt bewusst **keine** generische Toolchain-DSL und kein Meta-Buildsystem als Zielbild.
 
 ### Aktueller Fokus: Real‑World‑Ports & Stabilität
@@ -154,8 +154,8 @@ Das bleibt bewusst offen, bis die Build‑Basis in der Praxis sitzt.
 ### 0.8 series opened
 - `docs/` is now the fixed home for specifications and architecture decisions.
 - Before larger 0.8 code changes, the guardrails should first be documented in `docs/specs/` and `docs/adr/`.
-- The current implementation baseline remains **v0.7.25** until the first real 0.8 code commit lands.
-- The next small topic block is to sharpen the language around **compiler selection vs. INI policy vs. built-ins** before production code changes.
+- The previous implementation baseline remained **v0.7.25**; commit 0003 now lands the first small real 0.8 code step.
+- This first step introduces `[project] compiler` and `[project] compiler_policy` as a small, reviewable foundation without turning tack into a meta-build system.
 - 0.8 explicitly does **not** target a generic toolchain DSL or a meta-build system.
 
 ### Current focus: real-world ports & stability

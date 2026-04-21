@@ -106,6 +106,8 @@ static char g_config_path[TACK_MAX_CONFIG_PATH + 1] = {0};
 static char *g_config_default_target = 0; /* owned; freed at exit */
 static int g_config_disable_auto_tools = 0;
 static int g_config_allow_unsafe_paths = 0;
+static char *g_config_compiler = 0;        /* owned; [project] compiler */
+static char *g_config_compiler_policy = 0; /* owned; [project] compiler_policy */
 static char *g_config_doc_template = 0; /* owned */
 static char *g_config_doc_css = 0;      /* owned */
 static char *g_config_bom_template = 0; /* owned */
@@ -242,60 +244,93 @@ static void tack_check_len(const char *what, const char *s, size_t maxlen) {
   }
 }
 
-static const char *get_cc(void) {
-  static int inited = 0;
-  static char ccbuf[TACK_MAX_CC + 1];
+static int g_cc_cache_inited = 0;
+static char g_cc_cache[TACK_MAX_CC + 1] = {0};
+static const char *g_cc_source_label = 0;
+
+static void cc_cache_reset(void) {
+  g_cc_cache_inited = 0;
+  g_cc_cache[0] = '\0';
+  g_cc_source_label = 0;
+}
+
+static void compiler_program_copy(char *dst, size_t cap, const char *what, const char *src) {
   const char *v;
+  size_t n;
 
-  if (inited) return ccbuf;
+  if (!dst || cap == 0) tack_die("internal error: bad compiler buffer");
+  v = src ? src : "";
+  tack_check_len(what, v, TACK_MAX_CC);
 
-  v = getenv("TACK_CC");
-  if (!v || !v[0]) v = g_cc_default;
-  tack_check_len("TACK_CC", v, TACK_MAX_CC);
-
-  /* trim leading whitespace */
   while (*v && isspace((unsigned char)*v)) v++;
-
-  {
-    size_t n = strlen(v);
-
-    /* trim trailing whitespace */
-    while (n > 0 && isspace((unsigned char)v[n - 1])) n--;
-
-    if (n == 0) tack_die("TACK_CC is empty");
-
-    /* strip surrounding quotes if present */
-    if (n >= 2 && v[0] == '"' && v[n - 1] == '"') {
-      v++;
-      n -= 2;
-      while (n > 0 && isspace((unsigned char)v[0])) { v++; n--; }
-      while (n > 0 && isspace((unsigned char)v[n - 1])) n--;
-      if (n == 0) tack_die("TACK_CC is empty");
-    }
-
-    if (n > TACK_MAX_CC) tack_die("TACK_CC too long");
-    memcpy(ccbuf, v, n);
-    ccbuf[n] = '\0';
+  n = strlen(v);
+  while (n > 0 && isspace((unsigned char)v[n - 1])) n--;
+  if (n == 0) {
+    fprintf(stderr, "tack: %s is empty\n", what);
+    exit(2);
   }
 
-  /* CC policy: allow spaces only when this clearly looks like a path.
-     Disallow "clang -std=c89" style values (use cflags/ldflags in tack.ini instead). */
+  if (n >= 2 && v[0] == '"' && v[n - 1] == '"') {
+    v++;
+    n -= 2;
+    while (n > 0 && isspace((unsigned char)v[0])) { v++; n--; }
+    while (n > 0 && isspace((unsigned char)v[n - 1])) n--;
+    if (n == 0) {
+      fprintf(stderr, "tack: %s is empty\n", what);
+      exit(2);
+    }
+  }
+
+  if (n > TACK_MAX_CC) {
+    fprintf(stderr, "tack: %s too long (max %lu)\n", what, (unsigned long)TACK_MAX_CC);
+    exit(2);
+  }
+  memcpy(dst, v, n);
+  dst[n] = '\0';
+
   {
     int has_ws = 0, has_sep = 0, has_drive = 0;
     const char *p;
-    for (p = ccbuf; *p; p++) {
+    for (p = dst; *p; p++) {
       unsigned char ch = (unsigned char)*p;
       if (isspace(ch)) has_ws = 1;
       if (*p == '/' || *p == '\\') has_sep = 1;
       if (*p == ':') has_drive = 1;
     }
     if (has_ws && !has_sep && !has_drive) {
-      tack_die("TACK_CC must be an executable name or path, not a command line (put flags into tack.ini)");
+      fprintf(stderr, "tack: %s must be an executable name or path, not a command line (put flags into tack.ini)\n", what);
+      exit(2);
     }
   }
+}
 
-  inited = 1;
-  return ccbuf;
+static const char *get_cc(void);
+static int compiler_policy_name_is_valid(const char *name);
+
+static const char *compiler_source_label(void) {
+  if (!g_cc_cache_inited) (void)get_cc();
+  return g_cc_source_label ? g_cc_source_label : "built-in default";
+}
+
+static const char *get_cc(void) {
+  const char *v;
+
+  if (g_cc_cache_inited) return g_cc_cache;
+
+  v = getenv("TACK_CC");
+  if (v && v[0]) {
+    compiler_program_copy(g_cc_cache, sizeof(g_cc_cache), "TACK_CC", v);
+    g_cc_source_label = "env:TACK_CC";
+  } else if (g_config_loaded && g_config_compiler && g_config_compiler[0]) {
+    compiler_program_copy(g_cc_cache, sizeof(g_cc_cache), "[project] compiler", g_config_compiler);
+    g_cc_source_label = "config:[project] compiler";
+  } else {
+    compiler_program_copy(g_cc_cache, sizeof(g_cc_cache), "built-in compiler", g_cc_default);
+    g_cc_source_label = "built-in default";
+  }
+
+  g_cc_cache_inited = 1;
+  return g_cc_cache;
 }
 
 static int file_exists(const char *path) {
@@ -3393,6 +3428,20 @@ static int ini_load_file(const char *path) {
         } else if (strieq(key, "allow_unsafe_paths")) {
           int b;
           if (parse_bool(val, &b)) g_config_allow_unsafe_paths = b;
+        } else if (strieq(key, "compiler")) {
+          free(g_config_compiler);
+          tack_check_len("[project] compiler", val, TACK_MAX_CC);
+          g_config_compiler = xstrdup(val);
+          cc_cache_reset();
+        } else if (strieq(key, "compiler_policy")) {
+          if (!compiler_policy_name_is_valid(val)) {
+            fclose(f);
+            fprintf(stderr, "tack: invalid [project] compiler_policy: %s\n", val);
+            return 1;
+          }
+          free(g_config_compiler_policy);
+          tack_check_len("[project] compiler_policy", val, 32);
+          g_config_compiler_policy = xstrdup(val);
         }
         continue;
       }
@@ -3874,6 +3923,8 @@ static void config_reset(void) {
 
   g_config_disable_auto_tools = 0;
   g_config_allow_unsafe_paths = 0;
+  free(g_config_compiler); g_config_compiler = 0;
+  free(g_config_compiler_policy); g_config_compiler_policy = 0;
   free(g_config_doc_template); g_config_doc_template = 0;
   free(g_config_doc_css); g_config_doc_css = 0;
   free(g_config_bom_template); g_config_bom_template = 0;
@@ -3905,6 +3956,7 @@ static void config_reset(void) {
 
   fmt_cfg_reset();
 
+  cc_cache_reset();
   g_config_loaded = 0;
   g_config_path[0] = '\0';
 }
@@ -3958,6 +4010,8 @@ static void config_free(void) {
   free(g_config_default_target);
   g_config_default_target = 0;
   g_config_allow_unsafe_paths = 0;
+  free(g_config_compiler); g_config_compiler = 0;
+  free(g_config_compiler_policy); g_config_compiler_policy = 0;
   
   free(g_config_doc_template); g_config_doc_template = 0;
   free(g_config_doc_css); g_config_doc_css = 0;
@@ -3967,6 +4021,7 @@ static void config_free(void) {
   free(g_config_sbom_spec_version); g_config_sbom_spec_version = 0;
   free(g_config_sbom_output); g_config_sbom_output = 0;
 
+  cc_cache_reset();
   g_config_loaded = 0;
   g_config_path[0] = '\0';
 }
@@ -4126,8 +4181,66 @@ static int compiler_name_is_tcc(const char *cc) {
   return 0;
 }
 
+typedef enum {
+  COMPILER_POLICY_AUTO = 0,
+  COMPILER_POLICY_TCC,
+  COMPILER_POLICY_GCC,
+  COMPILER_POLICY_CLANG,
+  COMPILER_POLICY_GENERIC
+} CompilerPolicy;
+
+static int compiler_policy_name_is_valid(const char *name) {
+  return strieq(name, "auto") || strieq(name, "tcc") ||
+         strieq(name, "gcc") || strieq(name, "clang") ||
+         strieq(name, "generic");
+}
+
+static CompilerPolicy compiler_policy_from_name(const char *name) {
+  if (!name || !name[0] || strieq(name, "auto")) return COMPILER_POLICY_AUTO;
+  if (strieq(name, "tcc")) return COMPILER_POLICY_TCC;
+  if (strieq(name, "gcc")) return COMPILER_POLICY_GCC;
+  if (strieq(name, "clang")) return COMPILER_POLICY_CLANG;
+  if (strieq(name, "generic")) return COMPILER_POLICY_GENERIC;
+  tack_die("invalid compiler policy");
+  return COMPILER_POLICY_AUTO;
+}
+
+static const char *compiler_policy_name(CompilerPolicy p) {
+  switch (p) {
+    case COMPILER_POLICY_TCC: return "tcc";
+    case COMPILER_POLICY_GCC: return "gcc";
+    case COMPILER_POLICY_CLANG: return "clang";
+    case COMPILER_POLICY_GENERIC: return "generic";
+    case COMPILER_POLICY_AUTO:
+    default: return "auto";
+  }
+}
+
+static CompilerPolicy compiler_policy_auto_detect(const char *cc) {
+  const char *base;
+  size_t n;
+  if (!cc || !cc[0]) return COMPILER_POLICY_GENERIC;
+  if (compiler_name_is_tcc(cc)) return COMPILER_POLICY_TCC;
+  base = path_basename_const(cc);
+  n = strlen(base);
+#ifdef _WIN32
+  if (n > 4 && strieq_n(base + n - 4, ".exe", 4)) n -= 4;
+#endif
+  if (n == 3 && strieq_n(base, "gcc", 3)) return COMPILER_POLICY_GCC;
+  if (n == 5 && strieq_n(base, "clang", 5)) return COMPILER_POLICY_CLANG;
+  return COMPILER_POLICY_GENERIC;
+}
+
+static CompilerPolicy compiler_policy_for_cc(const char *cc) {
+  if (g_config_loaded && g_config_compiler_policy && g_config_compiler_policy[0]) {
+    CompilerPolicy p = compiler_policy_from_name(g_config_compiler_policy);
+    if (p != COMPILER_POLICY_AUTO) return p;
+  }
+  return compiler_policy_auto_detect(cc);
+}
+
 static int compiler_supports_tcc_backtrace_flag(const char *cc) {
-  return compiler_name_is_tcc(cc);
+  return compiler_policy_for_cc(cc) == COMPILER_POLICY_TCC;
 }
 
 static void push_debug_profile_flags(Argv *av, const char *cc) {
@@ -4154,7 +4267,7 @@ static void push_profile_flags(Argv *av, Profile p) {
 
 static void push_common_warnings_for_cc(Argv *av, int strict, const char *cc) {
   av_push_list(av, g_warn_flags_common);
-  if (compiler_name_is_tcc(cc)) {
+  if (compiler_policy_for_cc(cc) == COMPILER_POLICY_TCC) {
     av_push_list(av, strict ? g_warn_flags_tcc_strict : g_warn_flags_tcc_default);
   }
 }
@@ -4800,8 +4913,10 @@ static void cmd_version(void) { printf("tack %s\n", TACK_VERSION); }
 
 static void cmd_doctor(void) {
   printf("Compiler default: %s\n", g_cc_default);
-  printf("Compiler override: set env TACK_CC\n");
+  printf("Compiler override: env TACK_CC or [project] compiler\n");
   printf("Compiler in use: %s\n", get_cc());
+  printf("Compiler source: %s\n", compiler_source_label());
+  printf("Compiler policy: %s\n", compiler_policy_name(compiler_policy_for_cc(get_cc())));
   printf("Compiler found: %s\n", fmt_exe_in_path(get_cc()) ? "yes" : "no");
 #ifdef _WIN32
   printf("OS: Windows\n");
@@ -5124,6 +5239,8 @@ static const char * const TACK_INIT_DEFAULT_TACK_INI_LINES[] = {
   "\n",
   "[project]\n",
   "default_target = app\n",
+  "; compiler = tcc\n",
+  "; compiler_policy = auto\n",
   "allow_unsafe_paths = no\n",
   "\n",
   "[target \"app\"]\n",

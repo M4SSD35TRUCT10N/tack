@@ -6,8 +6,8 @@
 
 ## Deutsch (FAQ)
 
-### Warum beginnt die 0.8-Serie schon, obwohl noch kein Produktions-C-Code geändert wurde?
-Weil es sich um eine **Grundsatzänderung im Änderungsprozess** handelt: `docs/` wird als Ort für Spezifikationen und Architekturentscheidungen eingeführt, und künftige größere 0.8-Themen sollen erst dort beschrieben werden. Die aktuelle Implementierungsbasis bleibt dabei bewusst **v0.7.25**.
+### Warum hat die 0.8-Serie mit Doku-Commits begonnen?
+Weil es sich zuerst um eine **Grundsatzänderung im Änderungsprozess** handelte: `docs/` wurde als Ort für Spezifikationen und Architekturentscheidungen eingeführt, damit größere 0.8-Themen erst dort beschrieben und dann in kleinen Code-Schritten umgesetzt werden. Mit Commit 0003 ist nun auch der erste kleine Produktions-Code-Schritt gelandet.
 
 ### Warum gibt es jetzt ein `docs/`-Verzeichnis?
 Damit größere Entscheidungen nicht nur implizit in Commits oder verstreuten Root-Dokumenten leben. `docs/` ergänzt README/FAQ/ROADMAP/RELEASENOTES um nachvollziehbare Spezifikationen und ADRs. Einstieg: [docs/README.md](docs/README.md).
@@ -39,14 +39,14 @@ Ab **v0.7.24** bleibt auch das erzeugte Standard-`src/main.c` bewusst versionsne
 Das ist bewusst „non-destructive“, damit bestehende Projektregeln erhalten bleiben.
 
 ### Ersetzt die 0.8-Serie `TACK_CC` durch INI?
-Nein. Die 0.8-Serie schärft vor allem die **Begriffe und Zuständigkeiten**. `TACK_CC` bleibt der Schalter für das **Compilerprogramm**. Zusätzliche Projekt- oder Toolchain-Politik gehört in `tack.ini`. Genau diese Trennung wird in [SPEC 0003](docs/specs/0003-compiler-selection-and-policy-split.md) festgehalten.
+Nein. Die 0.8-Serie schärft vor allem die **Begriffe und Zuständigkeiten**. `TACK_CC` bleibt der Schalter mit der **höchsten Priorität** für das Compilerprogramm. Neu ist zusätzlich `[project] compiler` für eine repo-lokale Wahl ohne Umgebungsvariable. Zusätzliche Projekt- oder Toolchain-Politik gehört weiter in `tack.ini`, z. B. über `[project] compiler_policy`. Genau diese Trennung wird in [SPEC 0003](docs/specs/0003-compiler-selection-and-policy-split.md) festgehalten.
 
 ### Warum bekommt tack keine generische Toolchain-DSL?
 Weil das den Kern des Projekts verwässern würde. `tack` soll **klein, C89-tauglich, fail-fast und nachvollziehbar** bleiben. Die 0.8-Serie will die vorhandene Compiler-/INI-Politik klarer machen, aber kein frei zusammensetzbares Meta-Buildsystem einführen.
 
 ### Welche Compiler funktionieren?
-Standard ist **tcc**. Über `TACK_CC` kannst du z.B. `gcc` oder `clang` nutzen, solange sie „klassische“ C‑Kommandozeilen verstehen. Im Debug-Profil setzt tack die Basis-Flags compilerbewusst: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC. `tack doctor` zeigt zusätzlich, ob der aktuell gewählte Compiler im `PATH` gefunden wird.  
-**Wichtig:** `TACK_CC` ist der **Compiler**, nicht „Compiler + Flags“. Flags gehören in `tack.ini`.
+Standard ist **tcc**. Die Auswahl-Priorität ist jetzt: `TACK_CC` → `[project] compiler` → Built-in-Default. Über `TACK_CC` oder `[project] compiler` kannst du z.B. `gcc` oder `clang` nutzen, solange sie „klassische“ C‑Kommandozeilen verstehen. Im Debug-Profil setzt tack die Basis-Flags compilerbewusst: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC. Falls nötig, kann die eingebaute Policy zusätzlich über `[project] compiler_policy = auto|tcc|gcc|clang|generic` festgelegt werden. `tack doctor` zeigt jetzt zusätzlich Quelle und wirksame Compiler-Policy an.  
+**Wichtig:** `TACK_CC` und `[project] compiler` sind **Compilerprogramme**, nicht „Compiler + Flags“. Flags gehören in `tack.ini`.
 
 ### Warum lehnt tack `TACK_CC="clang -std=c89"` ab?
 Weil tack den Compiler als argv[0] startet. Flags würden als Teil des Programnamens verstanden.  
@@ -313,8 +313,8 @@ Marker-Kommentare (`<!-- TACK:BEGIN ... -->`) liefert das eingebaute Layout oder
 
 ## English (FAQ)
 
-### Why does the 0.8 series begin even though no production C code changed yet?
-Because this is a **foundational change to the change process itself**: `docs/` becomes the home for specifications and architecture decisions, and larger 0.8 topics are expected to be described there first. The active implementation baseline intentionally remains **v0.7.25** for now.
+### Why did the 0.8 series start with documentation commits?
+Because the first change was a **foundational change to the change process itself**: `docs/` became the home for specifications and architecture decisions, so larger 0.8 topics would be described there first and then implemented in small code steps. Commit 0003 now lands the first small production-code step.
 
 ### Why is there now a `docs/` directory?
 So larger decisions do not live only implicitly in commits or scattered root documents. `docs/` complements README/FAQ/ROADMAP/RELEASENOTES with traceable specifications and ADRs. Entry point: [docs/README.md](docs/README.md).
@@ -346,14 +346,14 @@ If the files already exist, tack **won't overwrite** them; it only appends a cle
 This is intentionally non-destructive to preserve existing project rules.
 
 ### Does the 0.8 series replace `TACK_CC` with INI?
-No. The 0.8 series mainly sharpens the **terminology and responsibilities**. `TACK_CC` remains the switch for the **compiler program**. Additional project or toolchain policy belongs in `tack.ini`. That split is captured in [SPEC 0003](docs/specs/0003-compiler-selection-and-policy-split.md).
+No. The 0.8 series mainly sharpens the **terminology and responsibilities**. `TACK_CC` remains the **highest-priority** switch for the compiler program. New in this step is repo-local `[project] compiler` for selecting a compiler without relying on the environment. Additional project or toolchain policy still belongs in `tack.ini`, for example via `[project] compiler_policy`. That split is captured in [SPEC 0003](docs/specs/0003-compiler-selection-and-policy-split.md).
 
 ### Why is tack not getting a generic toolchain DSL?
 Because that would dilute the core of the project. `tack` is supposed to stay **small, C89-friendly, fail-fast, and reviewable**. The 0.8 series aims to clarify the existing compiler/INI policy, not to introduce a freely composable meta-build system.
 
 ### Which compilers work?
-Default is **tcc**. You can set `TACK_CC` to `gcc`/`clang` etc. as long as they behave like classic C compilers. In debug builds tack applies compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC.  
-Important: `TACK_CC` is the compiler program, not “compiler + flags”. Put flags into `tack.ini`.
+Default is **tcc**. Selection priority is now `TACK_CC` → `[project] compiler` → built-in default. You can use `TACK_CC` or `[project] compiler` to select `gcc`/`clang` etc. as long as they behave like classic C compilers. In debug builds tack applies compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC. When needed, the built-in policy can additionally be pinned via `[project] compiler_policy = auto|tcc|gcc|clang|generic`. `tack doctor` now also reports the compiler source and active compiler policy.  
+Important: `TACK_CC` and `[project] compiler` are compiler programs, not “compiler + flags”. Put flags into `tack.ini`.
 
 ### Why does tack reject `TACK_CC="clang -std=c89"`?
 Because tack starts the compiler as argv[0]. Flags would be part of the program name.  

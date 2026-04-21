@@ -11,9 +11,9 @@
 
 > **0.8-Entwicklungshinweis / 0.8 development note**
 >
-> DE: Mit diesem Commit beginnt die **0.8-Serie**. Dieser Schritt ändert bewusst noch keinen Produktions-C-Code. Er führt `docs/` als Ort für Spezifikationen und Architekturentscheidungen ein und hält die **v0.7.25-Featurebasis** als aktuelle Implementierungsreferenz fest.
+> DE: Die **0.8-Serie** ist jetzt eröffnet und enthält bereits den ersten kleinen Produktions-Code-Schritt: eine saubere Trennung zwischen Compilerwahl und Compiler-Policy über `TACK_CC`, `[project] compiler` und `[project] compiler_policy`, ohne den tack-Kern zu verwässern.
 >
-> EN: This commit starts the **0.8 series**. This step intentionally changes no production C code. It introduces `docs/` as the home for specifications and architecture decisions and keeps the **v0.7.25 feature baseline** as the current implementation reference.
+> EN: The **0.8 series** is now open and already includes its first small production-code step: a clean split between compiler selection and compiler policy via `TACK_CC`, `[project] compiler`, and `[project] compiler_policy`, without diluting the tack core.
 
 ---
 
@@ -104,7 +104,7 @@ Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/`
 
 ## Ökosystem: Software, die gut mit tack zusammenspielt
 
-- **Compiler/Toolchain:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM (über `TACK_CC`). Das Debug-Profil nutzt compilerbewusste Basis-Flags: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC.
+- **Compiler/Toolchain:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM. Auswahl-Priorität: `TACK_CC` → `[project] compiler` → Built-in-Default `tcc`. Das Debug-Profil nutzt compilerbewusste Basis-Flags: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC; die Built-in-Policy kann jetzt optional über `[project] compiler_policy` präzisiert werden.
 - **Versionsverwaltung:** Git, Fossil (tack `init` legt u. a. `.gitignore` + Fossil-Ignore an).
 - **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (einfach `tack build` / `tack test` aufrufen).
 - **Editor/IDE:** VS Code (Tasks), Vim/Neovim, Emacs, CLion/IntelliJ (External Tools), Visual Studio (External Tools).
@@ -135,8 +135,9 @@ Dieses Repo legt `tack` unter `src/tack.c` ab. Du kannst es aber auch in die Rep
 
 ## 0.8-Leitplanke: Compilerwahl vs. Produktpolitik
 
-- **Compilerwahl**: `TACK_CC` steht weiterhin für das **Compilerprogramm**.
-- **Produktpolitik**: Zusätzliche Projekt- und Toolchain-Politik gehört in `tack.ini`.
+- **Compilerwahl**: `TACK_CC` steht weiterhin für das **Compilerprogramm**; zusätzlich gibt es jetzt repo-lokal `[project] compiler`.
+- **Priorität**: `TACK_CC` übersteuert `[project] compiler`, danach folgen Built-ins.
+- **Produktpolitik**: Zusätzliche Projekt- und Toolchain-Politik gehört in `tack.ini`, z. B. `[project] compiler_policy`.
 - **Built-ins**: Eingebaute tack-Defaults bleiben als dokumentierte Fallbacks zulässig.
 - **Nicht-Ziel**: 0.8 baut `tack` nicht zu einer generischen Toolchain-DSL oder einem Meta-Buildsystem um.
 
@@ -660,7 +661,7 @@ Starting with the 0.8 series, larger direction changes are additionally recorded
 
 ## Ecosystem: software that pairs well with tack
 
-- **Compilers/toolchains:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM (via `TACK_CC`). The debug profile uses compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC.
+- **Compilers/toolchains:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM. Selection priority is `TACK_CC` → `[project] compiler` → built-in default `tcc`. The debug profile uses compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC; the built-in policy can now be pinned via `[project] compiler_policy` when needed.
 - **Version control:** Git, Fossil (tack `init` provisions `.gitignore` and Fossil ignore settings, among other things).
 - **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (just call `tack build` / `tack test`).
 - **Editors/IDEs:** VS Code (Tasks), Vim/Neovim, Emacs, CLion/IntelliJ (External Tools), Visual Studio (External Tools).
@@ -691,8 +692,9 @@ This repo keeps tack at `src/tack.c`. You may also place it in the repo root —
 
 ## 0.8 guardrail: compiler selection vs. product policy
 
-- **Compiler selection**: `TACK_CC` continues to mean the **compiler program**.
-- **Product policy**: Additional project and toolchain policy belongs in `tack.ini`.
+- **Compiler selection**: `TACK_CC` continues to mean the **compiler program**; in addition there is now repo-local `[project] compiler`.
+- **Priority**: `TACK_CC` overrides `[project] compiler`, followed by built-ins.
+- **Product policy**: Additional project and toolchain policy belongs in `tack.ini`, e.g. `[project] compiler_policy`.
 - **Built-ins**: built-in tack defaults remain allowed as documented fallbacks.
 - **Non-goal**: 0.8 does not turn `tack` into a generic toolchain DSL or meta-build system.
 
