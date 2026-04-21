@@ -7711,8 +7711,24 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
 
       tack_snprintf(title, sizeof(title), "tack %s", mdp);
 
-      if (verbose) printf("tack: doc: %s\n", out);
-      rc2 = write_doc_page(out, title, nav2, &hc, mdp);
+      {
+        HtmlCfg hc2;
+        char *css_rel = 0;
+
+        hc2 = hc;
+        if (hc.css_href && hc.css_href[0]) {
+          size_t need = strlen(prefix ? prefix : "") + strlen(hc.css_href) + 1u;
+          css_rel = (char*)xmalloc(need);
+          css_rel[0] = '\0';
+          if (prefix && prefix[0]) strcat(css_rel, prefix);
+          strcat(css_rel, hc.css_href);
+          hc2.css_href = css_rel;
+        }
+
+        if (verbose) printf("tack: doc: %s\n", out);
+        rc2 = write_doc_page(out, title, nav2, &hc2, mdp);
+        if (css_rel) free(css_rel);
+      }
       free(prefix);
       free(nav2);
       free(rel_html);

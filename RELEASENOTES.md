@@ -22,6 +22,7 @@
 - Ergänzt die Root-Dokumente und `docs/README.md` jetzt auch um direkte Verweise auf `docs/specs/0004-ci-mode-and-summary-foundation.md`.
 - Führt `--events-jsonl FILE` für `build`, `run` und `test` als kleine versionierte Maschinenebene (`tack.events.v1`) ein.
 - Führt `--report-junit FILE` für `tack test` als konservativen JUnit-XML-Bericht ein.
+- Behebt relative CSS-Links in `tack doc` für verschachtelte Seiten unter `docs/adr/` und `docs/specs/`, damit die generierten HTML-Seiten wieder die mitgelieferten Styles und den automatischen Hell/Dunkel-Modus übernehmen.
 - Ergänzt die Root-Dokumente und `docs/README.md` jetzt auch um direkte Verweise auf `docs/specs/0005-events-jsonl-foundation.md`.
 - Die Hilfeausgabe wurde bereinigt und bündelt Compilerwahl/Policy jetzt an einer Stelle; die mitgelieferte `tack.ini`, die von `tack init` erzeugte Start-Konfiguration, README, FAQ und ROADMAP wurden entsprechend nachgezogen.
 - Neuer Regressionstest: `tests/compiler_selection_policy_test.c`.
@@ -184,6 +185,7 @@
 - Adds `--ci` as a small, platform-neutral CI mode for `build`, `run`, and `test`.
 - Adds `--events-jsonl FILE` for `build`, `run`, and `test` as a small versioned machine-facing layer (`tack.events.v1`).
 - Adds `--report-junit FILE` for `tack test` as a conservative JUnit XML report.
+- Fixes relative CSS links in `tack doc` for nested pages under `docs/adr/` and `docs/specs/`, so generated HTML pages pick up the shipped styles and automatic light/dark mode again.
 - Adds direct links to `docs/specs/0005-events-jsonl-foundation.md` from the root docs and `docs/README.md`.
 - In that mode, tack emits a stable `TACK_SUMMARY` line and switches stdout/stderr to unbuffered output.
 - The shipped `tack.ini`, the `tack init` starter config, README, FAQ, and ROADMAP were updated accordingly.
