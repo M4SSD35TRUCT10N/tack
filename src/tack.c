@@ -114,7 +114,6 @@ static const char *g_config_path_cli = 0;
 static int g_no_auto_tools_cli = 0;
 static int g_no_cache = 0;
 static int g_allow_unsafe_paths_cli = 0;
-static int g_ci_mode = 0;
 
 static int g_config_loaded = 0;
 static char g_config_path[TACK_MAX_CONFIG_PATH + 1] = {0};
@@ -245,6 +244,79 @@ static void print_ci_summary_test(const char *status, Profile p, const TestRunSt
          status ? status : "failed",
          profile_name(p),
          st->total, st->compiled, st->passed, st->failed, st->skipped, st->not_run, duration_ms);
+}
+
+static void json_write_string(FILE *f, const char *s);
+
+static FILE *g_events_jsonl = 0;
+
+static void events_close(void) {
+  if (g_events_jsonl) { fclose(g_events_jsonl); g_events_jsonl = 0; }
+}
+
+static int events_open(const char *path) {
+  events_close();
+  if (!path || !path[0]) return 0;
+  g_events_jsonl = fopen(path, "wb");
+  if (!g_events_jsonl) {
+    fprintf(stderr, "tack: cannot open events file: %s\n", path);
+    return 1;
+  }
+  return 0;
+}
+
+static void events_write_run_started(const char *mode, Profile p, const char *target) {
+  FILE *f = g_events_jsonl;
+  if (!f) return;
+  fputs("{\"schema\":\"tack.events.v1\",\"event\":\"run_started\",\"mode\":", f);
+  json_write_string(f, mode ? mode : "");
+  fputs(",\"profile\":", f);
+  json_write_string(f, profile_name(p));
+  if (target && target[0]) {
+    fputs(",\"target\":", f);
+    json_write_string(f, target);
+  }
+  fputs("}\n", f);
+}
+
+static void events_write_run_finished(const char *mode, Profile p, const char *status, unsigned long duration_ms) {
+  FILE *f = g_events_jsonl;
+  if (!f) return;
+  fputs("{\"schema\":\"tack.events.v1\",\"event\":\"run_finished\",\"mode\":", f);
+  json_write_string(f, mode ? mode : "");
+  fputs(",\"profile\":", f);
+  json_write_string(f, profile_name(p));
+  fputs(",\"status\":", f);
+  json_write_string(f, status ? status : "failed");
+  fprintf(f, ",\"duration_ms\":%lu}\n", duration_ms);
+}
+
+static void events_write_test_plan(Profile p, int total) {
+  FILE *f = g_events_jsonl;
+  if (!f) return;
+  fputs("{\"schema\":\"tack.events.v1\",\"event\":\"test_plan\",\"profile\":", f);
+  json_write_string(f, profile_name(p));
+  fprintf(f, ",\"total\":%d}\n", total);
+}
+
+static void events_write_test_started(const char *name, const char *file) {
+  FILE *f = g_events_jsonl;
+  if (!f) return;
+  fputs("{\"schema\":\"tack.events.v1\",\"event\":\"test_started\",\"name\":", f);
+  json_write_string(f, name ? name : "");
+  fputs(",\"file\":", f);
+  json_write_string(f, file ? file : "");
+  fputs("}\n", f);
+}
+
+static void events_write_test_finished(const char *name, const char *status, int compiled, unsigned long duration_ms) {
+  FILE *f = g_events_jsonl;
+  if (!f) return;
+  fputs("{\"schema\":\"tack.events.v1\",\"event\":\"test_finished\",\"name\":", f);
+  json_write_string(f, name ? name : "");
+  fputs(",\"status\":", f);
+  json_write_string(f, status ? status : "failed");
+  fprintf(f, ",\"compiled\":%s,\"duration_ms\":%lu}\n", compiled ? "true" : "false", duration_ms);
 }
 
 /* Depfiles */
@@ -4827,6 +4899,7 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict, Te
   scan_dir_recursive_suffix(&tests, g_tests_dir, "_test.c");
   sv_sort_unique(&tests);
   if (stats) stats->total = tests.count;
+  events_write_test_plan(p, tests.count);
   if (tests.count == 0) {
     printf("tack: test: no tests found under %s\n", g_tests_dir);
     sv_free(&tests);
@@ -4850,6 +4923,10 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict, Te
     const char *src = tests.items[i];
     const char *base = path_base(src);
     char out_exe[1024];
+    unsigned long test_start_ms = tack_now_ms();
+    int compiled_now = 0;
+
+    events_write_test_started(base, src);
 
 #ifdef _WIN32
     {
@@ -4876,6 +4953,7 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict, Te
       Argv av;
       int rc;
       if (stats) stats->compiled++;
+      compiled_now = 1;
 
       av_init(&av);
 
@@ -4904,6 +4982,7 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict, Te
 
       if (rc != 0) {
         if (stats) { stats->failed++; stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped); }
+        events_write_test_finished(base, "failed", compiled_now, tack_elapsed_ms(test_start_ms));
         sv_free(&tests);
         return 1;
       }
@@ -4918,10 +4997,12 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict, Te
       run_rc = run_argv_wait(runv, verbose);
       if (run_rc != 0) {
         if (stats) { stats->failed++; stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped); }
+        events_write_test_finished(base, "failed", compiled_now, tack_elapsed_ms(test_start_ms));
         sv_free(&tests);
         return 1;
       }
       if (stats) stats->passed++;
+      events_write_test_finished(base, "passed", compiled_now, tack_elapsed_ms(test_start_ms));
     }
   }
 
@@ -4943,9 +5024,9 @@ static void print_help(void) {
   puts("  tack new <name>");
   puts("  tack list");
   puts("  tack fmt  [--check] [--diff] [--list] [--rule NAME] [--target NAME] [--no-defaults] [-v] [--strict] [-- PATH...]");
-  puts("  tack build [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci]");
-  puts("  tack run   [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [-- <args...>]");
-  puts("  tack test  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci]");
+  puts("  tack build [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE]");
+  puts("  tack run   [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [-- <args...>]");
+  puts("  tack test  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE]");
   puts("  tack clean [--cache] [-v]");
   puts("  tack clobber [-v]");
   puts("  tack bom  [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]");
@@ -4990,6 +5071,7 @@ static void print_help(void) {
   puts("  - --why prints short \"why rebuild\" diagnostics for compile/link decisions");
   puts("  - cache    = stored under .tack-cache/ (deps via mtime/size/hash; depfile via size/hash; use --no-cache to disable)");
   puts("  - --ci     = deterministic CI mode with stable TACK_SUMMARY output and unbuffered stdout/stderr");
+  puts("  - --events-jsonl FILE = write tack.events.v1 JSONL for build/run/test");
 }
 
 static void cmd_version(void) { printf("tack %s\n", TACK_VERSION); }
@@ -8744,6 +8826,7 @@ int main(int argc, char **argv) {
     int strict = 0;
     int no_core = 0;
     int ci = 0;
+    const char *events_jsonl = 0;
 
     Profile p = parse_profile(&argi, argc, argv);
 
@@ -8760,6 +8843,10 @@ int main(int argc, char **argv) {
       else if (streq(argv[argi], "--strict")) strict = 1;
       else if (streq(argv[argi], "--no-core")) no_core = 1;
       else if (streq(argv[argi], "--ci")) ci = 1;
+      else if (streq(argv[argi], "--events-jsonl")) {
+        if (argi + 1 >= argc) { fprintf(stderr, "tack: --events-jsonl needs FILE\n"); tv_free(&tv); config_free(); return 2; }
+        events_jsonl = argv[++argi];
+      }
       else if (streq(argv[argi], "--target")) {
         if (argi + 1 >= argc) { fprintf(stderr, "tack: --target needs NAME\n"); tv_free(&tv); config_free(); return 2; }
         target_name = argv[++argi];
@@ -8783,9 +8870,13 @@ int main(int argc, char **argv) {
       int rc;
       unsigned long start_ms;
       TestRunStats stats;
-      if (ci) { g_ci_mode = 1; ci_enable_streaming(); } else g_ci_mode = 0;
+      if (ci) ci_enable_streaming();
+      if (events_open(events_jsonl) != 0) { tv_free(&tv); config_free(); return 2; }
       start_ms = tack_now_ms();
+      events_write_run_started("test", p, "");
       rc = build_and_run_tests(p, verbose, force, strict, &stats);
+      events_write_run_finished("test", p, (rc == 0) ? "ok" : "failed", tack_elapsed_ms(start_ms));
+      events_close();
       if (ci) {
         print_ci_summary_test((rc == 0) ? "ok" : "failed", p, &stats, tack_elapsed_ms(start_ms));
       }
@@ -8806,9 +8897,13 @@ int main(int argc, char **argv) {
     if (streq(cmd, "build")) {
       int rc;
       unsigned long start_ms;
-      if (ci) { g_ci_mode = 1; ci_enable_streaming(); } else g_ci_mode = 0;
+      if (ci) ci_enable_streaming();
+      if (events_open(events_jsonl) != 0) { tv_free(&tv); config_free(); return 2; }
       start_ms = tack_now_ms();
+      events_write_run_started("build", p, target_name);
       rc = build_one_target(t, p, verbose, why, force, jobs, strict, no_core);
+      events_write_run_finished("build", p, (rc == 0) ? "ok" : "failed", tack_elapsed_ms(start_ms));
+      events_close();
       if (ci) {
         print_ci_summary_build("build", (rc == 0) ? "ok" : "failed", p, target_name, jobs, tack_elapsed_ms(start_ms));
       }
@@ -8821,10 +8916,16 @@ int main(int argc, char **argv) {
     {
       int run_argi = argi;
       char exe[512];
+      unsigned long start_ms;
 
       if (run_argi < argc && streq(argv[run_argi], "--")) run_argi++;
 
-      if (build_one_target(t, p, verbose, why, force, jobs, strict, no_core) != 0) { tv_free(&tv); config_free(); return 1; }
+      if (ci) ci_enable_streaming();
+      if (events_open(events_jsonl) != 0) { tv_free(&tv); config_free(); return 2; }
+      start_ms = tack_now_ms();
+      events_write_run_started("run", p, target_name);
+
+      if (build_one_target(t, p, verbose, why, force, jobs, strict, no_core) != 0) { events_write_run_finished("run", p, "failed", tack_elapsed_ms(start_ms)); events_close(); tv_free(&tv); config_free(); return 1; }
       exe_path(exe, sizeof(exe), t->id, p, t->bin_base);
 
       /* build argv: exe + rest args */
@@ -8839,6 +8940,8 @@ int main(int argc, char **argv) {
         av_terminate(&av);
 
         rc = run_argv_wait(av.a, verbose);
+        events_write_run_finished("run", p, (rc == 0) ? "ok" : "failed", tack_elapsed_ms(start_ms));
+        events_close();
         av_free(&av);
         tv_free(&tv);
         config_free();

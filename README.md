@@ -64,6 +64,7 @@ Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/`
 - [SPEC 0002 – Grundlage für eine INI-first-Toolchain-Politik](docs/specs/0002-ini-first-toolchain-policy-foundation.md)
 - [SPEC 0003 – Trennung von Compilerwahl und Produktpolitik](docs/specs/0003-compiler-selection-and-policy-split.md)
 - [SPEC 0004 – CI-Modus und Summary-Grundlage](docs/specs/0004-ci-mode-and-summary-foundation.md)
+- [SPEC 0005 – Events-JSONL-Grundlage](docs/specs/0005-events-jsonl-foundation.md)
 
 ## Feature-Basis (Implementierungsstand v0.7.25)
 
@@ -107,7 +108,7 @@ Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/`
 
 - **Compiler/Toolchain:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM. Auswahl-Priorität: `TACK_CC` → `[project] compiler` → Built-in-Default `tcc`. Das Debug-Profil nutzt compilerbewusste Basis-Flags: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC; die Built-in-Policy kann jetzt optional über `[project] compiler_policy` präzisiert werden. `tack doctor` zeigt dazu Compilerquelle, wirksame Policy und deren Herkunft an.
 - **Versionsverwaltung:** Git, Fossil (tack `init` legt u. a. `.gitignore` + Fossil-Ignore an).
-- **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (einfach `tack build` / `tack test` aufrufen). Für stabilere Runner-Ausgaben gibt es ab 0.8 zusätzlich `--ci` mit einer festen `TACK_SUMMARY`-Abschlusszeile.
+- **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (einfach `tack build` / `tack test` aufrufen). Für stabilere Runner-Ausgaben gibt es ab 0.8 zusätzlich `--ci` mit einer festen `TACK_SUMMARY`-Abschlusszeile. Darauf baut `--events-jsonl FILE` als kleine, versionierte Maschinenebene auf; siehe [SPEC 0005](docs/specs/0005-events-jsonl-foundation.md).
 - **Editor/IDE:** VS Code (Tasks), Vim/Neovim, Emacs, CLion/IntelliJ (External Tools), Visual Studio (External Tools).
 - **Qualität/Checks:** `clang-format`, `clang-tidy`, `cppcheck`, `include-what-you-use`.
 - **SBOM/BOM-Weiterverarbeitung:** CycloneDX CLI (Validierung/Konvertierung), SPDX Online Tools / `spdx-tools` (Validierung), GitHub `actions/attest-sbom` (SBOM-Attestations), OWASP Dependency-Track (CycloneDX-Ingestion/Analyse).
@@ -626,6 +627,7 @@ Starting with the 0.8 series, larger direction changes are additionally recorded
 - [SPEC 0002 – Foundation for an INI-first toolchain policy](docs/specs/0002-ini-first-toolchain-policy-foundation.md)
 - [SPEC 0003 – Split between compiler selection and product policy](docs/specs/0003-compiler-selection-and-policy-split.md)
 - [SPEC 0004 – CI mode and summary foundation](docs/specs/0004-ci-mode-and-summary-foundation.md)
+- [SPEC 0005 – Events JSONL foundation](docs/specs/0005-events-jsonl-foundation.md)
 
 ## Feature baseline (implementation state: v0.7.25)
 

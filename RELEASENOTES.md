@@ -20,6 +20,8 @@
 - Führt `--ci` als kleinen, plattformneutralen CI-Modus für `build`, `run` und `test` ein.
 - Gibt in diesem Modus eine stabile `TACK_SUMMARY`-Zeile aus und schaltet stdout/stderr auf unbuffered Ausgabe.
 - Ergänzt die Root-Dokumente und `docs/README.md` jetzt auch um direkte Verweise auf `docs/specs/0004-ci-mode-and-summary-foundation.md`.
+- Führt `--events-jsonl FILE` für `build`, `run` und `test` als kleine versionierte Maschinenebene (`tack.events.v1`) ein.
+- Ergänzt die Root-Dokumente und `docs/README.md` jetzt auch um direkte Verweise auf `docs/specs/0005-events-jsonl-foundation.md`.
 - Die Hilfeausgabe wurde bereinigt und bündelt Compilerwahl/Policy jetzt an einer Stelle; die mitgelieferte `tack.ini`, die von `tack init` erzeugte Start-Konfiguration, README, FAQ und ROADMAP wurden entsprechend nachgezogen.
 - Neuer Regressionstest: `tests/compiler_selection_policy_test.c`.
 
@@ -179,6 +181,8 @@
 - Adds optional `[project] compiler_policy = auto|tcc|gcc|clang|generic` so compiler-aware built-in behavior can be pinned explicitly without turning tack into a generic toolchain DSL.
 - `tack doctor` now also reports the **compiler source**, the **effective compiler policy**, and the **source of that policy**.
 - Adds `--ci` as a small, platform-neutral CI mode for `build`, `run`, and `test`.
+- Adds `--events-jsonl FILE` for `build`, `run`, and `test` as a small versioned machine-facing layer (`tack.events.v1`).
+- Adds direct links to `docs/specs/0005-events-jsonl-foundation.md` from the root docs and `docs/README.md`.
 - In that mode, tack emits a stable `TACK_SUMMARY` line and switches stdout/stderr to unbuffered output.
 - The shipped `tack.ini`, the `tack init` starter config, README, FAQ, and ROADMAP were updated accordingly.
 - New regression test: `tests/compiler_selection_policy_test.c`.

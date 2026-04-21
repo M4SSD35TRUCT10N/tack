@@ -138,6 +138,10 @@ int main(void) {
     fprintf(stderr, "FAIL help-ci-note\n");
     failures++;
   }
+  if (!contains_text(buf, "--events-jsonl FILE = write tack.events.v1 JSONL for build/run/test")) {
+    fprintf(stderr, "FAIL help-events-note\n");
+    failures++;
+  }
 
   reset_compiler_cfg();
   g_config_loaded = 1;
