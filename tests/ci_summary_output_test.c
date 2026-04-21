@@ -60,7 +60,7 @@ static int load_text_file(const char *path, char *buf, size_t cap) {
   return 0;
 }
 
-static int capture_run_to_file(const char *cwd, const char *path, char **argv) {
+static int capture_run_to_file(const char *cwd, const char *path, const char * const *argv) {
   FILE *out;
   int saved_fd;
   int out_fd;
@@ -105,7 +105,7 @@ static int capture_run_to_file(const char *cwd, const char *path, char **argv) {
     return 1;
   }
 
-  rc = run_argv_wait(argv, 0);
+  rc = run_argv_wait_const(argv, 0);
   fflush(stdout);
 
   if (CHDIR_FN(saved_cwd) != 0) {
@@ -148,9 +148,9 @@ int main(void) {
   char build_out[4096];
   char test_out[4096];
   char buf[32768];
-  char *build_argv[5];
-  char *test_argv[5];
-  char *cc_argv[8];
+  const char *build_argv[5];
+  const char *test_argv[5];
+  const char *cc_argv[8];
   const char *host_cc;
   int failures = 0;
 
@@ -193,7 +193,7 @@ int main(void) {
   cc_argv[5] = tack_bin;
   cc_argv[6] = "src/tack.c";
   cc_argv[7] = 0;
-  if (run_argv_wait(cc_argv, 0) != 0) {
+  if (run_argv_wait_const(cc_argv, 0) != 0) {
     fprintf(stderr, "FAIL build-tack-ci\n");
     return 1;
   }
