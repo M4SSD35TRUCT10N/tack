@@ -21,7 +21,8 @@ Ziel ist nicht, `README.md`, `FAQ.md`, `ROADMAP.md` oder `RELEASENOTES.md` zu er
 - [SPEC 0002 – Grundlage für eine INI-first-Toolchain-Politik](specs/0002-ini-first-toolchain-policy-foundation.md)
 - [SPEC 0003 – Trennung von Compilerwahl und Produktpolitik](specs/0003-compiler-selection-and-policy-split.md)
 - [SPEC 0004 – CI-Modus und Summary-Grundlage](specs/0004-ci-mode-and-summary-foundation.md)
-- [SPEC 0005 – Events JSONL Foundation](specs/0005-events-jsonl-foundation.md)
+- [SPEC 0005 – Events-JSONL-Grundlage](specs/0005-events-jsonl-foundation.md)
+- [SPEC 0006 – TAP-Report-Grundlage](specs/0006-tap-report-foundation.md)
 
 ---
 
@@ -42,4 +43,5 @@ The goal is not to replace `README.md`, `FAQ.md`, `ROADMAP.md`, or `RELEASENOTES
 - [SPEC 0002 – Foundation for an INI-first toolchain policy](specs/0002-ini-first-toolchain-policy-foundation.md)
 - [SPEC 0003 – Split between compiler selection and product policy](specs/0003-compiler-selection-and-policy-split.md)
 - [SPEC 0004 – CI mode and summary foundation](specs/0004-ci-mode-and-summary-foundation.md)
-- [SPEC 0005 – events JSONL foundation](specs/0005-events-jsonl-foundation.md)
+- [SPEC 0005 – Events JSONL foundation](specs/0005-events-jsonl-foundation.md)
+- [SPEC 0006 – TAP report foundation](specs/0006-tap-report-foundation.md)

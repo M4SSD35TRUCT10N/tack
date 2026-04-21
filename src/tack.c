@@ -249,6 +249,23 @@ static void print_ci_summary_test(const char *status, Profile p, const TestRunSt
 static void json_write_string(FILE *f, const char *s);
 
 static FILE *g_events_jsonl = 0;
+static FILE *g_tap_report = 0;
+
+static void tap_close(void) {
+  if (g_tap_report && g_tap_report != stdout) fclose(g_tap_report);
+  g_tap_report = 0;
+}
+
+static int tap_open(const char *path) {
+  tap_close();
+  if (!path || !path[0]) return 0;
+  g_tap_report = fopen(path, "wb");
+  if (!g_tap_report) {
+    fprintf(stderr, "tack: cannot open TAP report: %s\n", path);
+    return 1;
+  }
+  return 0;
+}
 
 static void events_close(void) {
   if (g_events_jsonl) { fclose(g_events_jsonl); g_events_jsonl = 0; }
@@ -317,6 +334,36 @@ static void events_write_test_finished(const char *name, const char *status, int
   fputs(",\"status\":", f);
   json_write_string(f, status ? status : "failed");
   fprintf(f, ",\"compiled\":%s,\"duration_ms\":%lu}\n", compiled ? "true" : "false", duration_ms);
+}
+
+static void tap_write_plan(int total) {
+  FILE *f = g_tap_report;
+  if (!f) return;
+  if (total <= 0) {
+    fputs("1..0 # SKIP no tests found\n", f);
+    return;
+  }
+  fprintf(f, "1..%d\n", total);
+}
+
+static void tap_write_test_result(int index, const char *name, const char *status, const char *file, int compiled, unsigned long duration_ms) {
+  FILE *f = g_tap_report;
+  if (!f) return;
+  fprintf(f, "%s %d - %s\n",
+          (status && strcmp(status, "passed") == 0) ? "ok" : "not ok",
+          index,
+          name ? name : "");
+  if (file && file[0]) fprintf(f, "# file: %s\n", file);
+  fprintf(f, "# compiled: %s\n", compiled ? "true" : "false");
+  fprintf(f, "# duration_ms: %lu\n", duration_ms);
+}
+
+static void tap_write_bail_out(const char *reason) {
+  FILE *f = g_tap_report;
+  if (!f) return;
+  fputs("Bail out! ", f);
+  fputs(reason ? reason : "tack fail-fast stop", f);
+  fputc('\n', f);
 }
 
 /* Depfiles */
@@ -4900,6 +4947,7 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict, Te
   sv_sort_unique(&tests);
   if (stats) stats->total = tests.count;
   events_write_test_plan(p, tests.count);
+  tap_write_plan(tests.count);
   if (tests.count == 0) {
     printf("tack: test: no tests found under %s\n", g_tests_dir);
     sv_free(&tests);
@@ -4983,6 +5031,8 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict, Te
       if (rc != 0) {
         if (stats) { stats->failed++; stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped); }
         events_write_test_finished(base, "failed", compiled_now, tack_elapsed_ms(test_start_ms));
+        tap_write_test_result(i + 1, base, "failed", src, compiled_now, tack_elapsed_ms(test_start_ms));
+        tap_write_bail_out("tack fail-fast after compile failure");
         sv_free(&tests);
         return 1;
       }
@@ -4998,11 +5048,14 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict, Te
       if (run_rc != 0) {
         if (stats) { stats->failed++; stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped); }
         events_write_test_finished(base, "failed", compiled_now, tack_elapsed_ms(test_start_ms));
+        tap_write_test_result(i + 1, base, "failed", src, compiled_now, tack_elapsed_ms(test_start_ms));
+        tap_write_bail_out("tack fail-fast after test failure");
         sv_free(&tests);
         return 1;
       }
       if (stats) stats->passed++;
       events_write_test_finished(base, "passed", compiled_now, tack_elapsed_ms(test_start_ms));
+      tap_write_test_result(i + 1, base, "passed", src, compiled_now, tack_elapsed_ms(test_start_ms));
     }
   }
 
@@ -5024,9 +5077,9 @@ static void print_help(void) {
   puts("  tack new <name>");
   puts("  tack list");
   puts("  tack fmt  [--check] [--diff] [--list] [--rule NAME] [--target NAME] [--no-defaults] [-v] [--strict] [-- PATH...]");
-  puts("  tack build [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE]");
-  puts("  tack run   [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [-- <args...>]");
-  puts("  tack test  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE]");
+  puts("  tack build [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [--report-tap FILE]");
+  puts("  tack run   [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [--report-tap FILE] [-- <args...>]");
+  puts("  tack test  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [--report-tap FILE]");
   puts("  tack clean [--cache] [-v]");
   puts("  tack clobber [-v]");
   puts("  tack bom  [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]");
@@ -8827,6 +8880,7 @@ int main(int argc, char **argv) {
     int no_core = 0;
     int ci = 0;
     const char *events_jsonl = 0;
+    const char *report_tap = 0;
 
     Profile p = parse_profile(&argi, argc, argv);
 
@@ -8846,6 +8900,10 @@ int main(int argc, char **argv) {
       else if (streq(argv[argi], "--events-jsonl")) {
         if (argi + 1 >= argc) { fprintf(stderr, "tack: --events-jsonl needs FILE\n"); tv_free(&tv); config_free(); return 2; }
         events_jsonl = argv[++argi];
+      }
+      else if (streq(argv[argi], "--report-tap")) {
+        if (argi + 1 >= argc) { fprintf(stderr, "tack: --report-tap needs FILE\n"); tv_free(&tv); config_free(); return 2; }
+        report_tap = argv[++argi];
       }
       else if (streq(argv[argi], "--target")) {
         if (argi + 1 >= argc) { fprintf(stderr, "tack: --target needs NAME\n"); tv_free(&tv); config_free(); return 2; }
@@ -8871,18 +8929,27 @@ int main(int argc, char **argv) {
       unsigned long start_ms;
       TestRunStats stats;
       if (ci) ci_enable_streaming();
-      if (events_open(events_jsonl) != 0) { tv_free(&tv); config_free(); return 2; }
+      if (tap_open(report_tap) != 0) { tv_free(&tv); config_free(); return 2; }
+      if (events_open(events_jsonl) != 0) { tap_close(); tv_free(&tv); config_free(); return 2; }
       start_ms = tack_now_ms();
       events_write_run_started("test", p, "");
       rc = build_and_run_tests(p, verbose, force, strict, &stats);
       events_write_run_finished("test", p, (rc == 0) ? "ok" : "failed", tack_elapsed_ms(start_ms));
       events_close();
+      tap_close();
       if (ci) {
         print_ci_summary_test((rc == 0) ? "ok" : "failed", p, &stats, tack_elapsed_ms(start_ms));
       }
       tv_free(&tv);
       config_free();
       return rc;
+    }
+
+    if (report_tap) {
+      fprintf(stderr, "tack: --report-tap is only supported for test\n");
+      tv_free(&tv);
+      config_free();
+      return 2;
     }
 
     t = find_target(&tv, target_name);

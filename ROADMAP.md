@@ -12,7 +12,7 @@ Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASE
 - Die ersten 0.8-Commits haben die Leitplanken dokumentiert; Commit 0003 bringt jetzt den ersten kleinen Produktions-Code-Schritt.
 - Dieser Schritt setzt bewusst nur die Grundlage für **Compilerwahl vs. INI-Politik vs. Built-ins** um: `[project] compiler` und `[project] compiler_policy`.
 - Die Benutzerführung wird in kleinen Schritten nachgezogen: Hilfeausgabe und `tack doctor` sollen diese Trennung klar und knapp sichtbar machen.
-- 0.8-Baustein jetzt gelegt: `--ci` und ein stabiler `TACK_SUMMARY`-Block als runner-taugliche Basisschicht; die nächste Maschinenebene ist `--events-jsonl`, dokumentiert in [SPEC 0005](docs/specs/0005-events-jsonl-foundation.md).
+- 0.8-Baustein jetzt gelegt: `--ci` und ein stabiler `TACK_SUMMARY`-Block als CI-taugliche Basisschicht. Darauf folgen `--events-jsonl` als Ereignisschicht ([SPEC 0005](docs/specs/0005-events-jsonl-foundation.md)) und `--report-tap` als erster Testbericht-Adapter ([SPEC 0006](docs/specs/0006-tap-report-foundation.md)).
 - 0.8 verfolgt bewusst **keine** generische Toolchain-DSL und kein Meta-Buildsystem als Zielbild.
 
 ### Aktueller Fokus: Real‑World‑Ports & Stabilität
@@ -159,7 +159,7 @@ Das bleibt bewusst offen, bis die Build‑Basis in der Praxis sitzt.
 - The previous implementation baseline remained **v0.7.25**; commit 0003 now lands the first small real 0.8 code step.
 - This first step introduces `[project] compiler` and `[project] compiler_policy` as a small, reviewable foundation without turning tack into a meta-build system.
 - User guidance is being tightened in small steps: help output and `tack doctor` should surface that split clearly and concisely.
-- 0.8 building block now in place: `--ci` and a stable `TACK_SUMMARY` trailer as a runner-friendly base layer; the next machine-facing layer is `--events-jsonl`, documented in [SPEC 0005](docs/specs/0005-events-jsonl-foundation.md).
+- 0.8 building block now in place: `--ci` and a stable `TACK_SUMMARY` trailer as a CI-oriented base layer. On top of that come `--events-jsonl` as the event layer ([SPEC 0005](docs/specs/0005-events-jsonl-foundation.md)) and `--report-tap` as the first test-report adapter ([SPEC 0006](docs/specs/0006-tap-report-foundation.md)).
 - 0.8 explicitly does **not** target a generic toolchain DSL or a meta-build system.
 
 ### Current focus: real-world ports & stability
