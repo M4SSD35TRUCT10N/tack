@@ -63,6 +63,7 @@ Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/`
 - [SPEC 0001 – Bilinguale Dokumentationspolitik](docs/specs/0001-bilingual-documentation-policy.md)
 - [SPEC 0002 – Grundlage für eine INI-first-Toolchain-Politik](docs/specs/0002-ini-first-toolchain-policy-foundation.md)
 - [SPEC 0003 – Trennung von Compilerwahl und Produktpolitik](docs/specs/0003-compiler-selection-and-policy-split.md)
+- [SPEC 0004 – CI-Modus und Summary-Grundlage](docs/specs/0004-ci-mode-and-summary-foundation.md)
 
 ## Feature-Basis (Implementierungsstand v0.7.25)
 
@@ -623,6 +624,8 @@ Starting with the 0.8 series, larger direction changes are additionally recorded
 - [ADR 0001 – Open the 0.8 series](docs/adr/0001-open-v0.8-series.md)
 - [SPEC 0001 – Bilingual documentation policy](docs/specs/0001-bilingual-documentation-policy.md)
 - [SPEC 0002 – Foundation for an INI-first toolchain policy](docs/specs/0002-ini-first-toolchain-policy-foundation.md)
+- [SPEC 0003 – Split between compiler selection and product policy](docs/specs/0003-compiler-selection-and-policy-split.md)
+- [SPEC 0004 – CI mode and summary foundation](docs/specs/0004-ci-mode-and-summary-foundation.md)
 
 ## Feature baseline (implementation state: v0.7.25)
 

@@ -12,7 +12,7 @@ Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASE
 - Die ersten 0.8-Commits haben die Leitplanken dokumentiert; Commit 0003 bringt jetzt den ersten kleinen Produktions-Code-Schritt.
 - Dieser Schritt setzt bewusst nur die Grundlage für **Compilerwahl vs. INI-Politik vs. Built-ins** um: `[project] compiler` und `[project] compiler_policy`.
 - Die Benutzerführung wird in kleinen Schritten nachgezogen: Hilfeausgabe und `tack doctor` sollen diese Trennung klar und knapp sichtbar machen.
-- Nächster 0.8-Baustein: `--ci` und ein stabiler `TACK_SUMMARY`-Block als kleine, runner-taugliche Basisschicht vor JSONL/TAP/JUnit.
+- Nächster 0.8-Baustein: `--ci` und ein stabiler `TACK_SUMMARY`-Block als kleine, runner-taugliche Basisschicht vor JSONL/TAP/JUnit; dokumentiert in [SPEC 0004](docs/specs/0004-ci-mode-and-summary-foundation.md).
 - 0.8 verfolgt bewusst **keine** generische Toolchain-DSL und kein Meta-Buildsystem als Zielbild.
 
 ### Aktueller Fokus: Real‑World‑Ports & Stabilität
@@ -159,7 +159,7 @@ Das bleibt bewusst offen, bis die Build‑Basis in der Praxis sitzt.
 - The previous implementation baseline remained **v0.7.25**; commit 0003 now lands the first small real 0.8 code step.
 - This first step introduces `[project] compiler` and `[project] compiler_policy` as a small, reviewable foundation without turning tack into a meta-build system.
 - User guidance is being tightened in small steps: help output and `tack doctor` should surface that split clearly and concisely.
-- Next 0.8 building block: `--ci` and a stable `TACK_SUMMARY` trailer as a small runner-friendly base layer ahead of JSONL/TAP/JUnit.
+- Next 0.8 building block: `--ci` and a stable `TACK_SUMMARY` trailer as a small runner-friendly base layer ahead of JSONL/TAP/JUnit; documented in [SPEC 0004](docs/specs/0004-ci-mode-and-summary-foundation.md).
 - 0.8 explicitly does **not** target a generic toolchain DSL or a meta-build system.
 
 ### Current focus: real-world ports & stability

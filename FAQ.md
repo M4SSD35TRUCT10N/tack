@@ -10,7 +10,7 @@
 Weil es sich zuerst um eine **Grundsatzänderung im Änderungsprozess** handelte: `docs/` wurde als Ort für Spezifikationen und Architekturentscheidungen eingeführt, damit größere 0.8-Themen erst dort beschrieben und dann in kleinen Code-Schritten umgesetzt werden. Mit Commit 0003 ist nun auch der erste kleine Produktions-Code-Schritt gelandet.
 
 ### Warum gibt es jetzt ein `docs/`-Verzeichnis?
-Damit größere Entscheidungen nicht nur implizit in Commits oder verstreuten Root-Dokumenten leben. `docs/` ergänzt README/FAQ/ROADMAP/RELEASENOTES um nachvollziehbare Spezifikationen und ADRs. Einstieg: [docs/README.md](docs/README.md).
+Damit größere Entscheidungen nicht nur implizit in Commits oder verstreuten Root-Dokumenten leben. `docs/` ergänzt README/FAQ/ROADMAP/RELEASENOTES um nachvollziehbare Spezifikationen und ADRs. Einstieg: [docs/README.md](docs/README.md). Für die aktuelle CI-Grundlage siehe zusätzlich [SPEC 0004](docs/specs/0004-ci-mode-and-summary-foundation.md).
 
 ### Nutzt tack einen Compile-Cache?
 Ja. `tack` kann Kompilergebnisse in `.tack-cache/` ablegen, um wiederholte Builds zu beschleunigen.
@@ -317,7 +317,7 @@ Marker-Kommentare (`<!-- TACK:BEGIN ... -->`) liefert das eingebaute Layout oder
 Because the first change was a **foundational change to the change process itself**: `docs/` became the home for specifications and architecture decisions, so larger 0.8 topics would be described there first and then implemented in small code steps. Commit 0003 now lands the first small production-code step.
 
 ### Why is there now a `docs/` directory?
-So larger decisions do not live only implicitly in commits or scattered root documents. `docs/` complements README/FAQ/ROADMAP/RELEASENOTES with traceable specifications and ADRs. Entry point: [docs/README.md](docs/README.md).
+So larger decisions do not live only implicitly in commits or scattered root documents. `docs/` complements README/FAQ/ROADMAP/RELEASENOTES with traceable specifications and ADRs. Entry point: [docs/README.md](docs/README.md). For the current CI foundation, see also [SPEC 0004](docs/specs/0004-ci-mode-and-summary-foundation.md).
 
 ### Does tack use a compile cache?
 Yes. `tack` can store compile outputs in `.tack-cache/` to speed up repeated builds.

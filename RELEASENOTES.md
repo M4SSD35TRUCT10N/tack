@@ -19,6 +19,7 @@
 - `tack doctor` meldet jetzt zusätzlich **Compilerquelle**, **wirksame Compiler-Policy** und die **Herkunft dieser Policy**.
 - Führt `--ci` als kleinen, plattformneutralen CI-Modus für `build`, `run` und `test` ein.
 - Gibt in diesem Modus eine stabile `TACK_SUMMARY`-Zeile aus und schaltet stdout/stderr auf unbuffered Ausgabe.
+- Ergänzt die Root-Dokumente und `docs/README.md` jetzt auch um direkte Verweise auf `docs/specs/0004-ci-mode-and-summary-foundation.md`.
 - Die Hilfeausgabe wurde bereinigt und bündelt Compilerwahl/Policy jetzt an einer Stelle; die mitgelieferte `tack.ini`, die von `tack init` erzeugte Start-Konfiguration, README, FAQ und ROADMAP wurden entsprechend nachgezogen.
 - Neuer Regressionstest: `tests/compiler_selection_policy_test.c`.
 
