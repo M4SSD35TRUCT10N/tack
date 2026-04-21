@@ -10,7 +10,7 @@
 Weil es sich zuerst um eine **Grundsatzänderung im Änderungsprozess** handelte: `docs/` wurde als Ort für Spezifikationen und Architekturentscheidungen eingeführt, damit größere 0.8-Themen erst dort beschrieben und dann in kleinen Code-Schritten umgesetzt werden. Mit Commit 0003 ist nun auch der erste kleine Produktions-Code-Schritt gelandet.
 
 ### Warum gibt es jetzt ein `docs/`-Verzeichnis?
-Damit größere Entscheidungen nicht nur implizit in Commits oder verstreuten Root-Dokumenten leben. `docs/` ergänzt README/FAQ/ROADMAP/RELEASENOTES um nachvollziehbare Spezifikationen und ADRs. Einstieg: [docs/README.md](docs/README.md). Für die aktuelle CI-Grundlage siehe zusätzlich [SPEC 0004](docs/specs/0004-ci-mode-and-summary-foundation.md), für die Ereignisschicht [SPEC 0005](docs/specs/0005-events-jsonl-foundation.md) und für den ersten Testbericht-Adapter [SPEC 0006](docs/specs/0006-tap-report-foundation.md).
+Damit größere Entscheidungen nicht nur implizit in Commits oder verstreuten Root-Dokumenten leben. `docs/` ergänzt README/FAQ/ROADMAP/RELEASENOTES um nachvollziehbare Spezifikationen und ADRs. Einstieg: [docs/README.md](docs/README.md). Für die aktuelle CI-Grundlage siehe zusätzlich [SPEC 0004](docs/specs/0004-ci-mode-and-summary-foundation.md), für die Ereignisschicht [SPEC 0005](docs/specs/0005-events-jsonl-foundation.md) sowie [SPEC 0006](docs/specs/0006-tap-report-foundation.md) für den ersten Testbericht-Adapter und [SPEC 0007](docs/specs/0007-junit-xml-foundation.md) für den JUnit-XML-Adapter.
 
 ### Nutzt tack einen Compile-Cache?
 Ja. `tack` kann Kompilergebnisse in `.tack-cache/` ablegen, um wiederholte Builds zu beschleunigen.

@@ -247,9 +247,66 @@ static void print_ci_summary_test(const char *status, Profile p, const TestRunSt
 }
 
 static void json_write_string(FILE *f, const char *s);
+static void xml_write_string(FILE *f, const char *s);
+static char *xstrdup(const char *s);
 
 static FILE *g_events_jsonl = 0;
 static FILE *g_tap_report = 0;
+static FILE *g_junit_report = 0;
+
+typedef struct {
+  char *name;
+  char *file;
+  char *status;
+  char *message;
+  int compiled;
+  unsigned long duration_ms;
+} JUnitCase;
+
+typedef struct {
+  JUnitCase *items;
+  int count;
+  int cap;
+} JUnitCaseVec;
+
+static JUnitCaseVec g_junit_cases = {0,0,0};
+
+static void junit_cases_reset(void) {
+  int i;
+  for (i = 0; i < g_junit_cases.count; i++) {
+    free(g_junit_cases.items[i].name);
+    free(g_junit_cases.items[i].file);
+    free(g_junit_cases.items[i].status);
+    free(g_junit_cases.items[i].message);
+  }
+  free(g_junit_cases.items);
+  g_junit_cases.items = 0;
+  g_junit_cases.count = 0;
+  g_junit_cases.cap = 0;
+}
+
+static int junit_cases_push(const char *name, const char *file, const char *status,
+                            const char *message, int compiled, unsigned long duration_ms) {
+  JUnitCase *it;
+  if (g_junit_cases.count == g_junit_cases.cap) {
+    int ncap = g_junit_cases.cap ? g_junit_cases.cap * 2 : 8;
+    JUnitCase *nv = (JUnitCase*)realloc(g_junit_cases.items, (size_t)ncap * sizeof(JUnitCase));
+    if (!nv) {
+      fprintf(stderr, "tack: out of memory\n");
+      return 1;
+    }
+    g_junit_cases.items = nv;
+    g_junit_cases.cap = ncap;
+  }
+  it = &g_junit_cases.items[g_junit_cases.count++];
+  it->name = xstrdup(name ? name : "");
+  it->file = xstrdup(file ? file : "");
+  it->status = xstrdup(status ? status : "failed");
+  it->message = xstrdup(message ? message : "");
+  it->compiled = compiled;
+  it->duration_ms = duration_ms;
+  return 0;
+}
 
 static void tap_close(void) {
   if (g_tap_report && g_tap_report != stdout) fclose(g_tap_report);
@@ -265,6 +322,65 @@ static int tap_open(const char *path) {
     return 1;
   }
   return 0;
+}
+
+static void junit_close(void) {
+  if (g_junit_report && g_junit_report != stdout) fclose(g_junit_report);
+  g_junit_report = 0;
+  junit_cases_reset();
+}
+
+static int junit_open(const char *path) {
+  junit_close();
+  if (!path || !path[0]) return 0;
+  g_junit_report = fopen(path, "wb");
+  if (!g_junit_report) {
+    fprintf(stderr, "tack: cannot open JUnit report: %s\n", path);
+    return 1;
+  }
+  return 0;
+}
+
+static void junit_write_report(Profile p, const TestRunStats *stats, unsigned long duration_ms) {
+  FILE *f = g_junit_report;
+  int i;
+  const TestRunStats zero = {0,0,0,0,0,0};
+  const TestRunStats *st = stats ? stats : &zero;
+  if (!f) return;
+  fputs("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n", f);
+  fprintf(f, "<testsuites tests=\"%d\" failures=\"%d\" errors=\"0\" skipped=\"%d\" time=\"%lu.%03lu\">\n",
+          st->total, st->failed, st->skipped, duration_ms / 1000ul, duration_ms % 1000ul);
+  fprintf(f, "  <testsuite name=\"tack.test.%s\" tests=\"%d\" failures=\"%d\" errors=\"0\" skipped=\"%d\" time=\"%lu.%03lu\">\n",
+          profile_name(p), st->total, st->failed, st->skipped, duration_ms / 1000ul, duration_ms % 1000ul);
+  for (i = 0; i < g_junit_cases.count; i++) {
+    JUnitCase *it = &g_junit_cases.items[i];
+    fputs("    <testcase classname=\"tack.tests\" name=\"", f);
+    xml_write_string(f, it->name);
+    fputs("\" time=\"", f);
+    fprintf(f, "%lu.%03lu", it->duration_ms / 1000ul, it->duration_ms % 1000ul);
+    if (it->file && it->file[0]) {
+      fputs("\" file=\"", f);
+      xml_write_string(f, it->file);
+    }
+    fputs("\">\n", f);
+    if (strcmp(it->status, "passed") != 0) {
+      fputs("      <failure message=\"", f);
+      xml_write_string(f, (it->message && it->message[0]) ? it->message : "test failed");
+      fputs("\">", f);
+      xml_write_string(f, (it->message && it->message[0]) ? it->message : "test failed");
+      fputs("</failure>\n", f);
+    }
+    fputs("      <system-out>", f);
+    xml_write_string(f, it->compiled ? "compiled: true" : "compiled: false");
+    if (it->file && it->file[0]) {
+      xml_write_string(f, "\nfile: ");
+      xml_write_string(f, it->file);
+    }
+    fputs("</system-out>\n", f);
+    fputs("    </testcase>\n", f);
+  }
+  fputs("  </testsuite>\n", f);
+  fputs("</testsuites>\n", f);
 }
 
 static void events_close(void) {
@@ -5032,6 +5148,10 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict, Te
         if (stats) { stats->failed++; stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped); }
         events_write_test_finished(base, "failed", compiled_now, tack_elapsed_ms(test_start_ms));
         tap_write_test_result(i + 1, base, "failed", src, compiled_now, tack_elapsed_ms(test_start_ms));
+        if (junit_cases_push(base, src, "failed", "compile failed", compiled_now, tack_elapsed_ms(test_start_ms)) != 0) {
+          sv_free(&tests);
+          return 1;
+        }
         tap_write_bail_out("tack fail-fast after compile failure");
         sv_free(&tests);
         return 1;
@@ -5049,6 +5169,10 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict, Te
         if (stats) { stats->failed++; stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped); }
         events_write_test_finished(base, "failed", compiled_now, tack_elapsed_ms(test_start_ms));
         tap_write_test_result(i + 1, base, "failed", src, compiled_now, tack_elapsed_ms(test_start_ms));
+        if (junit_cases_push(base, src, "failed", "test failed", compiled_now, tack_elapsed_ms(test_start_ms)) != 0) {
+          sv_free(&tests);
+          return 1;
+        }
         tap_write_bail_out("tack fail-fast after test failure");
         sv_free(&tests);
         return 1;
@@ -5056,6 +5180,10 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict, Te
       if (stats) stats->passed++;
       events_write_test_finished(base, "passed", compiled_now, tack_elapsed_ms(test_start_ms));
       tap_write_test_result(i + 1, base, "passed", src, compiled_now, tack_elapsed_ms(test_start_ms));
+      if (junit_cases_push(base, src, "passed", "", compiled_now, tack_elapsed_ms(test_start_ms)) != 0) {
+        sv_free(&tests);
+        return 1;
+      }
     }
   }
 
@@ -5077,9 +5205,9 @@ static void print_help(void) {
   puts("  tack new <name>");
   puts("  tack list");
   puts("  tack fmt  [--check] [--diff] [--list] [--rule NAME] [--target NAME] [--no-defaults] [-v] [--strict] [-- PATH...]");
-  puts("  tack build [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [--report-tap FILE]");
-  puts("  tack run   [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [--report-tap FILE] [-- <args...>]");
-  puts("  tack test  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [--report-tap FILE]");
+  puts("  tack build [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE]");
+  puts("  tack run   [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [-- <args...>]");
+  puts("  tack test  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [--report-tap FILE] [--report-junit FILE]");
   puts("  tack clean [--cache] [-v]");
   puts("  tack clobber [-v]");
   puts("  tack bom  [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]");
@@ -5783,6 +5911,19 @@ static void json_write_string(FILE *f, const char *s) {
     }
   }
   fputc('"', f);
+}
+
+static void xml_write_string(FILE *f, const char *s) {
+  const unsigned char *p = (const unsigned char*)(s ? s : "");
+  while (*p) {
+    unsigned char c = *p++;
+    if (c == '&') fputs("&amp;", f);
+    else if (c == '<') fputs("&lt;", f);
+    else if (c == '>') fputs("&gt;", f);
+    else if (c == '"') fputs("&quot;", f);
+    else if (c == '\'') fputs("&apos;", f);
+    else fputc((int)c, f);
+  }
 }
 
 static void json_write_bool(FILE *f, int v) {
@@ -8881,6 +9022,7 @@ int main(int argc, char **argv) {
     int ci = 0;
     const char *events_jsonl = 0;
     const char *report_tap = 0;
+    const char *report_junit = 0;
 
     Profile p = parse_profile(&argi, argc, argv);
 
@@ -8905,6 +9047,10 @@ int main(int argc, char **argv) {
         if (argi + 1 >= argc) { fprintf(stderr, "tack: --report-tap needs FILE\n"); tv_free(&tv); config_free(); return 2; }
         report_tap = argv[++argi];
       }
+      else if (streq(argv[argi], "--report-junit")) {
+        if (argi + 1 >= argc) { fprintf(stderr, "tack: --report-junit needs FILE\n"); tv_free(&tv); config_free(); return 2; }
+        report_junit = argv[++argi];
+      }
       else if (streq(argv[argi], "--target")) {
         if (argi + 1 >= argc) { fprintf(stderr, "tack: --target needs NAME\n"); tv_free(&tv); config_free(); return 2; }
         target_name = argv[++argi];
@@ -8927,18 +9073,23 @@ int main(int argc, char **argv) {
     if (streq(cmd, "test")) {
       int rc;
       unsigned long start_ms;
+      unsigned long duration_ms;
       TestRunStats stats;
       if (ci) ci_enable_streaming();
       if (tap_open(report_tap) != 0) { tv_free(&tv); config_free(); return 2; }
-      if (events_open(events_jsonl) != 0) { tap_close(); tv_free(&tv); config_free(); return 2; }
+      if (junit_open(report_junit) != 0) { tap_close(); tv_free(&tv); config_free(); return 2; }
+      if (events_open(events_jsonl) != 0) { junit_close(); tap_close(); tv_free(&tv); config_free(); return 2; }
       start_ms = tack_now_ms();
       events_write_run_started("test", p, "");
       rc = build_and_run_tests(p, verbose, force, strict, &stats);
-      events_write_run_finished("test", p, (rc == 0) ? "ok" : "failed", tack_elapsed_ms(start_ms));
+      duration_ms = tack_elapsed_ms(start_ms);
+      events_write_run_finished("test", p, (rc == 0) ? "ok" : "failed", duration_ms);
+      junit_write_report(p, &stats, duration_ms);
       events_close();
+      junit_close();
       tap_close();
       if (ci) {
-        print_ci_summary_test((rc == 0) ? "ok" : "failed", p, &stats, tack_elapsed_ms(start_ms));
+        print_ci_summary_test((rc == 0) ? "ok" : "failed", p, &stats, duration_ms);
       }
       tv_free(&tv);
       config_free();
@@ -8947,6 +9098,12 @@ int main(int argc, char **argv) {
 
     if (report_tap) {
       fprintf(stderr, "tack: --report-tap is only supported for test\n");
+      tv_free(&tv);
+      config_free();
+      return 2;
+    }
+    if (report_junit) {
+      fprintf(stderr, "tack: --report-junit is only supported for test\n");
       tv_free(&tv);
       config_free();
       return 2;
