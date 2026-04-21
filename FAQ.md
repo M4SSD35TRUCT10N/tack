@@ -38,6 +38,12 @@ Ja: `tack init` legt, falls nicht vorhanden, eine sinnvolle `.gitignore` sowie `
 Ab **v0.7.24** bleibt auch das erzeugte Standard-`src/main.c` bewusst versionsneutral (`Hello from tack!`) statt eine feste Versionsnummer zu tragen.
 Das ist bewusst „non-destructive“, damit bestehende Projektregeln erhalten bleiben.
 
+### Ersetzt die 0.8-Serie `TACK_CC` durch INI?
+Nein. Die 0.8-Serie schärft vor allem die **Begriffe und Zuständigkeiten**. `TACK_CC` bleibt der Schalter für das **Compilerprogramm**. Zusätzliche Projekt- oder Toolchain-Politik gehört in `tack.ini`. Genau diese Trennung wird in [SPEC 0003](docs/specs/0003-compiler-selection-and-policy-split.md) festgehalten.
+
+### Warum bekommt tack keine generische Toolchain-DSL?
+Weil das den Kern des Projekts verwässern würde. `tack` soll **klein, C89-tauglich, fail-fast und nachvollziehbar** bleiben. Die 0.8-Serie will die vorhandene Compiler-/INI-Politik klarer machen, aber kein frei zusammensetzbares Meta-Buildsystem einführen.
+
 ### Welche Compiler funktionieren?
 Standard ist **tcc**. Über `TACK_CC` kannst du z.B. `gcc` oder `clang` nutzen, solange sie „klassische“ C‑Kommandozeilen verstehen. Im Debug-Profil setzt tack die Basis-Flags compilerbewusst: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC. `tack doctor` zeigt zusätzlich, ob der aktuell gewählte Compiler im `PATH` gefunden wird.  
 **Wichtig:** `TACK_CC` ist der **Compiler**, nicht „Compiler + Flags“. Flags gehören in `tack.ini`.
@@ -338,6 +344,12 @@ For many projects, yes: tack replaces custom build scripts by using conventions 
 Yes: `tack init` will provision a sensible `.gitignore` and `.fossil-settings/ignore-glob` if they don't exist. It also creates `templates/` non-destructively, including default CSS/template files and a starter `tack.ini`.
 If the files already exist, tack **won't overwrite** them; it only appends a clearly marked `tack` block if missing. As of **v0.7.24**, the generated default `src/main.c` also stays deliberately version-neutral (`Hello from tack!`).
 This is intentionally non-destructive to preserve existing project rules.
+
+### Does the 0.8 series replace `TACK_CC` with INI?
+No. The 0.8 series mainly sharpens the **terminology and responsibilities**. `TACK_CC` remains the switch for the **compiler program**. Additional project or toolchain policy belongs in `tack.ini`. That split is captured in [SPEC 0003](docs/specs/0003-compiler-selection-and-policy-split.md).
+
+### Why is tack not getting a generic toolchain DSL?
+Because that would dilute the core of the project. `tack` is supposed to stay **small, C89-friendly, fail-fast, and reviewable**. The 0.8 series aims to clarify the existing compiler/INI policy, not to introduce a freely composable meta-build system.
 
 ### Which compilers work?
 Default is **tcc**. You can set `TACK_CC` to `gcc`/`clang` etc. as long as they behave like classic C compilers. In debug builds tack applies compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC.  

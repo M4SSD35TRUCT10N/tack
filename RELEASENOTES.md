@@ -13,6 +13,8 @@
 - Eröffnet die **0.8-Serie** als neue Entwicklungslinie für Grundsatzthemen.
 - Führt `docs/README.md`, `docs/adr/0001-open-v0.8-series.md`, `docs/specs/0001-bilingual-documentation-policy.md` und `docs/specs/0002-ini-first-toolchain-policy-foundation.md` ein.
 - Ergänzt README/FAQ/ROADMAP/RELEASENOTES um Verweise auf `docs/` und dokumentiert die **v0.7.25-Featurebasis** als aktuelle Implementierungsreferenz.
+- Präzisiert mit `docs/specs/0003-compiler-selection-and-policy-split.md`, dass `TACK_CC` weiterhin das Compilerprogramm benennt, während zusätzliche Projekt-/Toolchain-Politik in `tack.ini` beschrieben wird.
+- Schärft README/FAQ/ROADMAP sprachlich nach, damit die 0.8-Serie bewusst **keine** generische Toolchain-DSL und **kein** Meta-Buildsystem anstrebt.
 - Produktions-C-Code und Tests bleiben in diesem Commit absichtlich unverändert.
 
 ### v0.7.25
@@ -166,6 +168,8 @@
 - Opens the **0.8 series** as the new development line for foundational topics.
 - Introduces `docs/README.md`, `docs/adr/0001-open-v0.8-series.md`, `docs/specs/0001-bilingual-documentation-policy.md`, and `docs/specs/0002-ini-first-toolchain-policy-foundation.md`.
 - Adds `docs/` references to README/FAQ/ROADMAP/RELEASENOTES and documents the **v0.7.25 feature baseline** as the current implementation reference.
+- Sharpens the split in `docs/specs/0003-compiler-selection-and-policy-split.md`: `TACK_CC` continues to name the compiler program, while additional project/toolchain policy belongs in `tack.ini`.
+- Tightens the wording in README/FAQ/ROADMAP so the 0.8 series explicitly does **not** target a generic toolchain DSL or a meta-build system.
 - Production C code and tests are intentionally unchanged in this commit.
 
 ### v0.7.25

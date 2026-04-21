@@ -62,6 +62,7 @@ Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/`
 - [ADR 0001 – Eröffnung der 0.8-Serie](docs/adr/0001-open-v0.8-series.md)
 - [SPEC 0001 – Bilinguale Dokumentationspolitik](docs/specs/0001-bilingual-documentation-policy.md)
 - [SPEC 0002 – Grundlage für eine INI-first-Toolchain-Politik](docs/specs/0002-ini-first-toolchain-policy-foundation.md)
+- [SPEC 0003 – Trennung von Compilerwahl und Produktpolitik](docs/specs/0003-compiler-selection-and-policy-split.md)
 
 ## Feature-Basis (Implementierungsstand v0.7.25)
 
@@ -131,6 +132,15 @@ Dieses Repo legt `tack` unter `src/tack.c` ab. Du kannst es aber auch in die Rep
   - `tools/<name>/` → Target `tool:<name>` (1 Ebene tief; Quellen darunter rekursiv)
 - **Tests**
   - `tests/**/*_test.c` → wird gebaut und ausgeführt
+
+## 0.8-Leitplanke: Compilerwahl vs. Produktpolitik
+
+- **Compilerwahl**: `TACK_CC` steht weiterhin für das **Compilerprogramm**.
+- **Produktpolitik**: Zusätzliche Projekt- und Toolchain-Politik gehört in `tack.ini`.
+- **Built-ins**: Eingebaute tack-Defaults bleiben als dokumentierte Fallbacks zulässig.
+- **Nicht-Ziel**: 0.8 baut `tack` nicht zu einer generischen Toolchain-DSL oder einem Meta-Buildsystem um.
+
+Siehe dazu insbesondere [SPEC 0003](docs/specs/0003-compiler-selection-and-policy-split.md).
 
 ## Compilerbewusste Profil-Flags (ab v0.7.15)
 
@@ -678,6 +688,15 @@ This repo keeps tack at `src/tack.c`. You may also place it in the repo root —
   - `tools/<name>/` → target `tool:<name>` (one level deep; sources below scanned recursively)
 - **Tests**
   - `tests/**/*_test.c` (built and executed)
+
+## 0.8 guardrail: compiler selection vs. product policy
+
+- **Compiler selection**: `TACK_CC` continues to mean the **compiler program**.
+- **Product policy**: Additional project and toolchain policy belongs in `tack.ini`.
+- **Built-ins**: built-in tack defaults remain allowed as documented fallbacks.
+- **Non-goal**: 0.8 does not turn `tack` into a generic toolchain DSL or meta-build system.
+
+See especially [SPEC 0003](docs/specs/0003-compiler-selection-and-policy-split.md).
 
 ## Compiler-aware profile flags (since v0.7.15)
 

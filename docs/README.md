@@ -19,6 +19,7 @@ Ziel ist nicht, `README.md`, `FAQ.md`, `ROADMAP.md` oder `RELEASENOTES.md` zu er
 - [ADR 0001 – Eröffnung der 0.8-Serie](adr/0001-open-v0.8-series.md)
 - [SPEC 0001 – Bilinguale Dokumentationspolitik](specs/0001-bilingual-documentation-policy.md)
 - [SPEC 0002 – Grundlage für eine INI-first-Toolchain-Politik](specs/0002-ini-first-toolchain-policy-foundation.md)
+- [SPEC 0003 – Trennung von Compilerwahl und Produktpolitik](specs/0003-compiler-selection-and-policy-split.md)
 
 ---
 
@@ -37,3 +38,4 @@ The goal is not to replace `README.md`, `FAQ.md`, `ROADMAP.md`, or `RELEASENOTES
 - [ADR 0001 – Open the 0.8 series](adr/0001-open-v0.8-series.md)
 - [SPEC 0001 – Bilingual documentation policy](specs/0001-bilingual-documentation-policy.md)
 - [SPEC 0002 – Foundation for an INI-first toolchain policy](specs/0002-ini-first-toolchain-policy-foundation.md)
+- [SPEC 0003 – Split between compiler selection and product policy](specs/0003-compiler-selection-and-policy-split.md)

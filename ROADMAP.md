@@ -10,6 +10,8 @@ Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASE
 - `docs/` ist jetzt der feste Ort für Spezifikationen und Architekturentscheidungen.
 - Vor größeren 0.8-Codeänderungen sollen erst die Leitplanken in `docs/specs/` bzw. `docs/adr/` dokumentiert werden.
 - Die aktuelle Implementierungsbasis bleibt zunächst **v0.7.25**, bis der erste echte 0.8-Code-Commit folgt.
+- Als nächster kleiner Themenblock wird die Sprache rund um **Compilerwahl vs. INI-Politik vs. Built-ins** präzisiert, bevor Produktionscode geändert wird.
+- 0.8 verfolgt bewusst **keine** generische Toolchain-DSL und kein Meta-Buildsystem als Zielbild.
 
 ### Aktueller Fokus: Real‑World‑Ports & Stabilität
 Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht eine echte Praxisprüfung an:
@@ -153,6 +155,8 @@ Das bleibt bewusst offen, bis die Build‑Basis in der Praxis sitzt.
 - `docs/` is now the fixed home for specifications and architecture decisions.
 - Before larger 0.8 code changes, the guardrails should first be documented in `docs/specs/` and `docs/adr/`.
 - The current implementation baseline remains **v0.7.25** until the first real 0.8 code commit lands.
+- The next small topic block is to sharpen the language around **compiler selection vs. INI policy vs. built-ins** before production code changes.
+- 0.8 explicitly does **not** target a generic toolchain DSL or a meta-build system.
 
 ### Current focus: real-world ports & stability
 Before “big” releases and announcements, tack should be validated against real projects:
