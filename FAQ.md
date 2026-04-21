@@ -1,10 +1,16 @@
-# tack FAQ / FQA (DE/EN) — v0.7.25
+# tack FAQ / FQA (DE/EN) — v0.8.0-dev
 
-**Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
+**Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md) • [Docs](docs/README.md)
 
 ---
 
 ## Deutsch (FAQ)
+
+### Warum beginnt die 0.8-Serie schon, obwohl noch kein Produktions-C-Code geändert wurde?
+Weil es sich um eine **Grundsatzänderung im Änderungsprozess** handelt: `docs/` wird als Ort für Spezifikationen und Architekturentscheidungen eingeführt, und künftige größere 0.8-Themen sollen erst dort beschrieben werden. Die aktuelle Implementierungsbasis bleibt dabei bewusst **v0.7.25**.
+
+### Warum gibt es jetzt ein `docs/`-Verzeichnis?
+Damit größere Entscheidungen nicht nur implizit in Commits oder verstreuten Root-Dokumenten leben. `docs/` ergänzt README/FAQ/ROADMAP/RELEASENOTES um nachvollziehbare Spezifikationen und ADRs. Einstieg: [docs/README.md](docs/README.md).
 
 ### Nutzt tack einen Compile-Cache?
 Ja. `tack` kann Kompilergebnisse in `.tack-cache/` ablegen, um wiederholte Builds zu beschleunigen.
@@ -301,6 +307,11 @@ Marker-Kommentare (`<!-- TACK:BEGIN ... -->`) liefert das eingebaute Layout oder
 
 ## English (FAQ)
 
+### Why does the 0.8 series begin even though no production C code changed yet?
+Because this is a **foundational change to the change process itself**: `docs/` becomes the home for specifications and architecture decisions, and larger 0.8 topics are expected to be described there first. The active implementation baseline intentionally remains **v0.7.25** for now.
+
+### Why is there now a `docs/` directory?
+So larger decisions do not live only implicitly in commits or scattered root documents. `docs/` complements README/FAQ/ROADMAP/RELEASENOTES with traceable specifications and ADRs. Entry point: [docs/README.md](docs/README.md).
 
 ### Does tack use a compile cache?
 Yes. `tack` can store compile outputs in `.tack-cache/` to speed up repeated builds.

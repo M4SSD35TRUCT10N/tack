@@ -1,6 +1,6 @@
 # tack Release Notes / Changelog (DE/EN)
 
-**Backlinks:** [README](README.md) • [FAQ](FAQ.md) • [Roadmap](ROADMAP.md)
+**Backlinks:** [README](README.md) • [FAQ](FAQ.md) • [Roadmap](ROADMAP.md) • [Docs](docs/README.md)
 
 ---
 
@@ -8,6 +8,12 @@
 
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
+
+### v0.8.0-dev
+- Eröffnet die **0.8-Serie** als neue Entwicklungslinie für Grundsatzthemen.
+- Führt `docs/README.md`, `docs/adr/0001-open-v0.8-series.md`, `docs/specs/0001-bilingual-documentation-policy.md` und `docs/specs/0002-ini-first-toolchain-policy-foundation.md` ein.
+- Ergänzt README/FAQ/ROADMAP/RELEASENOTES um Verweise auf `docs/` und dokumentiert die **v0.7.25-Featurebasis** als aktuelle Implementierungsreferenz.
+- Produktions-C-Code und Tests bleiben in diesem Commit absichtlich unverändert.
 
 ### v0.7.25
 - P0-Fix für Incremental-Linking: tack erzwingt den Link-Schritt jetzt, wenn in diesem Lauf ein Objekt neu kompiliert oder aus dem Cache restauriert wurde. Zusätzlich wird pro Binary eine kleine `.linkmeta`-Datei geschrieben und geprüft, damit stille stale Binaries auch über mehrere Läufe hinweg erkannt werden.
@@ -155,6 +161,12 @@
 
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
+
+### v0.8.0-dev
+- Opens the **0.8 series** as the new development line for foundational topics.
+- Introduces `docs/README.md`, `docs/adr/0001-open-v0.8-series.md`, `docs/specs/0001-bilingual-documentation-policy.md`, and `docs/specs/0002-ini-first-toolchain-policy-foundation.md`.
+- Adds `docs/` references to README/FAQ/ROADMAP/RELEASENOTES and documents the **v0.7.25 feature baseline** as the current implementation reference.
+- Production C code and tests are intentionally unchanged in this commit.
 
 ### v0.7.25
 - P0 fix for incremental linking: tack now forces the link step when an object was rebuilt or restored from cache in the current run. In addition, each binary now gets a small `.linkmeta` file so silent stale binaries are detected across later runs as well.

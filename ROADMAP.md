@@ -1,10 +1,15 @@
-# tack ROADMAP (DE/EN) — v0.7.25
+# tack ROADMAP (DE/EN) — v0.8.0-dev
 
-Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
+Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)** · **[Docs](docs/README.md)**
 
 ---
 
 ## Deutsch (Roadmap)
+
+### 0.8-Serie eröffnet
+- `docs/` ist jetzt der feste Ort für Spezifikationen und Architekturentscheidungen.
+- Vor größeren 0.8-Codeänderungen sollen erst die Leitplanken in `docs/specs/` bzw. `docs/adr/` dokumentiert werden.
+- Die aktuelle Implementierungsbasis bleibt zunächst **v0.7.25**, bis der erste echte 0.8-Code-Commit folgt.
 
 ### Aktueller Fokus: Real‑World‑Ports & Stabilität
 Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht eine echte Praxisprüfung an:
@@ -143,6 +148,11 @@ Das bleibt bewusst offen, bis die Build‑Basis in der Praxis sitzt.
 ---
 
 ## English (Roadmap)
+
+### 0.8 series opened
+- `docs/` is now the fixed home for specifications and architecture decisions.
+- Before larger 0.8 code changes, the guardrails should first be documented in `docs/specs/` and `docs/adr/`.
+- The current implementation baseline remains **v0.7.25** until the first real 0.8 code commit lands.
 
 ### Current focus: real-world ports & stability
 Before “big” releases and announcements, tack should be validated against real projects:

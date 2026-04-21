@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.7.25)
+# tack — Tiny ANSI-C Kit (v0.8.0-dev)
 
 ---
 
@@ -7,7 +7,13 @@
 > DE: Ein schlanker **Build‑Driver** für C (C89/ANSI‑C), inspiriert von Cargo‑Workflows: `new`, `init`, `list`, `build`, `run`, `test` — ohne Make/CMake/Ninja‑Stack.  
 > EN: A tiny **build driver** for C (C89/ANSI‑C), inspired by Cargo workflows: `new`, `init`, `list`, `build`, `run`, `test` — without a Make/CMake/Ninja stack.
 
-**Backlinks:** [FAQ](FAQ.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
+**Backlinks:** [FAQ](FAQ.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md) • [Docs](docs/README.md)
+
+> **0.8-Entwicklungshinweis / 0.8 development note**
+>
+> DE: Mit diesem Commit beginnt die **0.8-Serie**. Dieser Schritt ändert bewusst noch keinen Produktions-C-Code. Er führt `docs/` als Ort für Spezifikationen und Architekturentscheidungen ein und hält die **v0.7.25-Featurebasis** als aktuelle Implementierungsreferenz fest.
+>
+> EN: This commit starts the **0.8 series**. This step intentionally changes no production C code. It introduces `docs/` as the home for specifications and architecture decisions and keeps the **v0.7.25 feature baseline** as the current implementation reference.
 
 ---
 
@@ -48,7 +54,16 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
-## Features (v0.7.25)
+## Spezifikationen und Architekturentscheidungen
+
+Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/` festgehalten:
+
+- [docs/README.md](docs/README.md)
+- [ADR 0001 – Eröffnung der 0.8-Serie](docs/adr/0001-open-v0.8-series.md)
+- [SPEC 0001 – Bilinguale Dokumentationspolitik](docs/specs/0001-bilingual-documentation-policy.md)
+- [SPEC 0002 – Grundlage für eine INI-first-Toolchain-Politik](docs/specs/0002-ini-first-toolchain-policy-foundation.md)
+
+## Feature-Basis (Implementierungsstand v0.7.25)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -589,7 +604,16 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 - **not** a package manager (no resolver/registry/lockfile),
 - **not** an IDE project generator like CMake (intentionally).
 
-## Features (v0.7.25)
+## Specifications and architecture decisions
+
+Starting with the 0.8 series, larger direction changes are additionally recorded under `docs/`:
+
+- [docs/README.md](docs/README.md)
+- [ADR 0001 – Open the 0.8 series](docs/adr/0001-open-v0.8-series.md)
+- [SPEC 0001 – Bilingual documentation policy](docs/specs/0001-bilingual-documentation-policy.md)
+- [SPEC 0002 – Foundation for an INI-first toolchain policy](docs/specs/0002-ini-first-toolchain-policy-foundation.md)
+
+## Feature baseline (implementation state: v0.7.25)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
