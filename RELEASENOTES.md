@@ -12,6 +12,7 @@
 ### v0.8.0-dev
 - Eröffnet die **0.8-Serie** als neue Entwicklungslinie für Grundsatzthemen.
 - Führt `docs/README.md`, `docs/adr/0001-open-v0.8-series.md`, `docs/specs/0001-bilingual-documentation-policy.md` und `docs/specs/0002-ini-first-toolchain-policy-foundation.md` ein.
+- Hebt die interne Tool-Version jetzt ebenfalls auf `v0.8.0-dev` an, damit `tack version`, `tack init`, BOM/SBOM und weitere versionierte Ausgaben nicht mehr hinter der 0.8-Dokumentation zurückbleiben.
 - Ergänzt README/FAQ/ROADMAP/RELEASENOTES um Verweise auf `docs/`.
 - Präzisiert mit `docs/specs/0003-compiler-selection-and-policy-split.md`, dass Compilerwahl, Built-ins und zusätzliche Projektpolitik getrennt betrachtet werden.
 - Landet den ersten kleinen 0.8-Produktions-Code-Schritt: Auswahl-Priorität ist jetzt `TACK_CC` → `[project] compiler` → Built-in-Default `tcc`.
@@ -177,6 +178,7 @@
 ### v0.8.0-dev
 - Opens the **0.8 series** as the new development line for foundational topics.
 - Introduces `docs/README.md`, `docs/adr/0001-open-v0.8-series.md`, `docs/specs/0001-bilingual-documentation-policy.md`, and `docs/specs/0002-ini-first-toolchain-policy-foundation.md`.
+- Bumps the internal tool version to `v0.8.0-dev` as well, so `tack version`, `tack init`, BOM/SBOM, and other versioned outputs no longer lag behind the 0.8 documentation.
 - Adds backlinks from README/FAQ/ROADMAP/RELEASENOTES into `docs/`.
 - Sharpens `docs/specs/0003-compiler-selection-and-policy-split.md` so compiler selection, built-ins, and additional project policy are treated as separate layers.
 - Lands the first small 0.8 production-code step: selection priority is now `TACK_CC` → `[project] compiler` → built-in default `tcc`.
