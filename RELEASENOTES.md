@@ -17,6 +17,8 @@
 - Landet den ersten kleinen 0.8-Produktions-Code-Schritt: Auswahl-Priorität ist jetzt `TACK_CC` → `[project] compiler` → Built-in-Default `tcc`.
 - Führt optional `[project] compiler_policy = auto|tcc|gcc|clang|generic` ein, damit compilerbewusste Built-in-Logik explizit fixiert werden kann, ohne tack zu einer generischen Toolchain-DSL umzubauen.
 - `tack doctor` meldet jetzt zusätzlich **Compilerquelle**, **wirksame Compiler-Policy** und die **Herkunft dieser Policy**.
+- Führt `--ci` als kleinen, plattformneutralen CI-Modus für `build`, `run` und `test` ein.
+- Gibt in diesem Modus eine stabile `TACK_SUMMARY`-Zeile aus und schaltet stdout/stderr auf unbuffered Ausgabe.
 - Die Hilfeausgabe wurde bereinigt und bündelt Compilerwahl/Policy jetzt an einer Stelle; die mitgelieferte `tack.ini`, die von `tack init` erzeugte Start-Konfiguration, README, FAQ und ROADMAP wurden entsprechend nachgezogen.
 - Neuer Regressionstest: `tests/compiler_selection_policy_test.c`.
 
@@ -175,6 +177,8 @@
 - Lands the first small 0.8 production-code step: selection priority is now `TACK_CC` → `[project] compiler` → built-in default `tcc`.
 - Adds optional `[project] compiler_policy = auto|tcc|gcc|clang|generic` so compiler-aware built-in behavior can be pinned explicitly without turning tack into a generic toolchain DSL.
 - `tack doctor` now also reports the **compiler source**, the **effective compiler policy**, and the **source of that policy**.
+- Adds `--ci` as a small, platform-neutral CI mode for `build`, `run`, and `test`.
+- In that mode, tack emits a stable `TACK_SUMMARY` line and switches stdout/stderr to unbuffered output.
 - The shipped `tack.ini`, the `tack init` starter config, README, FAQ, and ROADMAP were updated accordingly.
 - New regression test: `tests/compiler_selection_policy_test.c`.
 

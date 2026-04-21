@@ -46,6 +46,9 @@
 #include <limits.h>
 #include <time.h>
 #include <sys/stat.h>
+#ifndef _WIN32
+  #include <sys/time.h>
+#endif
 
 #ifdef _WIN32
   #include <windows.h>
@@ -100,6 +103,7 @@ static const char *g_config_path_cli = 0;
 static int g_no_auto_tools_cli = 0;
 static int g_no_cache = 0;
 static int g_allow_unsafe_paths_cli = 0;
+static int g_ci_mode = 0;
 
 static int g_config_loaded = 0;
 static char g_config_path[TACK_MAX_CONFIG_PATH + 1] = {0};
@@ -181,6 +185,56 @@ static const char *g_warn_flags_tcc_strict[] = { "-Wunsupported", 0 };
 /* Profiles */
 typedef enum { PROF_DEBUG = 0, PROF_RELEASE = 1 } Profile;
 static const char *profile_name(Profile p) { return (p == PROF_RELEASE) ? "release" : "debug"; }
+
+typedef struct {
+  int total;
+  int compiled;
+  int passed;
+  int failed;
+  int skipped;
+  int not_run;
+} TestRunStats;
+
+static unsigned long tack_now_ms(void) {
+#ifdef _WIN32
+  return (unsigned long)GetTickCount();
+#else
+  struct timeval tv;
+  if (gettimeofday(&tv, 0) != 0) return (unsigned long)time(0) * 1000ul;
+  return (unsigned long)tv.tv_sec * 1000ul + (unsigned long)(tv.tv_usec / 1000ul);
+#endif
+}
+
+static unsigned long tack_elapsed_ms(unsigned long start_ms) {
+  unsigned long now_ms = tack_now_ms();
+  if (now_ms >= start_ms) return now_ms - start_ms;
+  return 0ul;
+}
+
+static void ci_enable_streaming(void) {
+  setvbuf(stdout, 0, _IONBF, 0);
+  setvbuf(stderr, 0, _IONBF, 0);
+}
+
+static void print_ci_summary_build(const char *mode, const char *status, Profile p,
+                                   const char *target_name, int jobs, unsigned long duration_ms) {
+  printf("TACK_SUMMARY version=1 mode=%s status=%s profile=%s target=%s jobs=%d duration_ms=%lu\n",
+         mode ? mode : "build",
+         status ? status : "failed",
+         profile_name(p),
+         target_name ? target_name : "",
+         jobs,
+         duration_ms);
+}
+
+static void print_ci_summary_test(const char *status, Profile p, const TestRunStats *stats, unsigned long duration_ms) {
+  const TestRunStats zero = {0,0,0,0,0,0};
+  const TestRunStats *st = stats ? stats : &zero;
+  printf("TACK_SUMMARY version=1 mode=test status=%s profile=%s total=%d compiled=%d passed=%d failed=%d skipped=%d not_run=%d duration_ms=%lu\n",
+         status ? status : "failed",
+         profile_name(p),
+         st->total, st->compiled, st->passed, st->failed, st->skipped, st->not_run, duration_ms);
+}
 
 /* Depfiles */
 #define USE_DEPFILES 1
@@ -4744,7 +4798,7 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
 
 /* --------------------------- tests --------------------------- */
 
-static int build_and_run_tests(Profile p, int verbose, int force, int strict) {
+static int build_and_run_tests(Profile p, int verbose, int force, int strict, TestRunStats *stats) {
   StrVec tests;
   int i;
   const char *cc;
@@ -4754,10 +4808,14 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict) {
 
   const char *inc_common[4];
 
+  if (stats) memset(stats, 0, sizeof(*stats));
+
   cc = get_cc();
 
   sv_init(&tests);
   scan_dir_recursive_suffix(&tests, g_tests_dir, "_test.c");
+  sv_sort_unique(&tests);
+  if (stats) stats->total = tests.count;
   if (tests.count == 0) {
     printf("tack: test: no tests found under %s\n", g_tests_dir);
     sv_free(&tests);
@@ -4806,6 +4864,7 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict) {
     if (force || !file_exists(out_exe) || file_mtime(src) > file_mtime(out_exe)) {
       Argv av;
       int rc;
+      if (stats) stats->compiled++;
 
       av_init(&av);
 
@@ -4832,18 +4891,30 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict) {
       rc = run_argv_wait(av.a, verbose);
       av_free(&av);
 
-      if (rc != 0) { sv_free(&tests); return 1; }
+      if (rc != 0) {
+        if (stats) { stats->failed++; stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped); }
+        sv_free(&tests);
+        return 1;
+      }
     }
 
     /* run test */
     {
       char *runv[2];
+      int run_rc;
       runv[0] = out_exe;
       runv[1] = 0;
-      if (run_argv_wait(runv, verbose) != 0) { sv_free(&tests); return 1; }
+      run_rc = run_argv_wait(runv, verbose);
+      if (run_rc != 0) {
+        if (stats) { stats->failed++; stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped); }
+        sv_free(&tests);
+        return 1;
+      }
+      if (stats) stats->passed++;
     }
   }
 
+  if (stats) stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped);
   sv_free(&tests);
   return 0;
 }
@@ -4861,9 +4932,9 @@ static void print_help(void) {
   puts("  tack new <name>");
   puts("  tack list");
   puts("  tack fmt  [--check] [--diff] [--list] [--rule NAME] [--target NAME] [--no-defaults] [-v] [--strict] [-- PATH...]");
-  puts("  tack build [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core]");
-  puts("  tack run   [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]");
-  puts("  tack test  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core]");
+  puts("  tack build [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci]");
+  puts("  tack run   [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [-- <args...>]");
+  puts("  tack test  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci]");
   puts("  tack clean [--cache] [-v]");
   puts("  tack clobber [-v]");
   puts("  tack bom  [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]");
@@ -4907,6 +4978,7 @@ static void print_help(void) {
   puts("  - target src must stay repo-relative by default");
   puts("  - --why prints short \"why rebuild\" diagnostics for compile/link decisions");
   puts("  - cache    = stored under .tack-cache/ (deps via mtime/size/hash; depfile via size/hash; use --no-cache to disable)");
+  puts("  - --ci     = deterministic CI mode with stable TACK_SUMMARY output and unbuffered stdout/stderr");
 }
 
 static void cmd_version(void) { printf("tack %s\n", TACK_VERSION); }
@@ -8660,6 +8732,7 @@ int main(int argc, char **argv) {
     int jobs = 1;
     int strict = 0;
     int no_core = 0;
+    int ci = 0;
 
     Profile p = parse_profile(&argi, argc, argv);
 
@@ -8675,6 +8748,7 @@ int main(int argc, char **argv) {
       else if (streq(argv[argi], "--rebuild")) force = 1;
       else if (streq(argv[argi], "--strict")) strict = 1;
       else if (streq(argv[argi], "--no-core")) no_core = 1;
+      else if (streq(argv[argi], "--ci")) ci = 1;
       else if (streq(argv[argi], "--target")) {
         if (argi + 1 >= argc) { fprintf(stderr, "tack: --target needs NAME\n"); tv_free(&tv); config_free(); return 2; }
         target_name = argv[++argi];
@@ -8695,7 +8769,15 @@ int main(int argc, char **argv) {
     }
 
     if (streq(cmd, "test")) {
-      int rc = build_and_run_tests(p, verbose, force, strict);
+      int rc;
+      unsigned long start_ms;
+      TestRunStats stats;
+      if (ci) { g_ci_mode = 1; ci_enable_streaming(); } else g_ci_mode = 0;
+      start_ms = tack_now_ms();
+      rc = build_and_run_tests(p, verbose, force, strict, &stats);
+      if (ci) {
+        print_ci_summary_test((rc == 0) ? "ok" : "failed", p, &stats, tack_elapsed_ms(start_ms));
+      }
       tv_free(&tv);
       config_free();
       return rc;
@@ -8711,7 +8793,14 @@ int main(int argc, char **argv) {
     }
 
     if (streq(cmd, "build")) {
-      int rc = build_one_target(t, p, verbose, why, force, jobs, strict, no_core);
+      int rc;
+      unsigned long start_ms;
+      if (ci) { g_ci_mode = 1; ci_enable_streaming(); } else g_ci_mode = 0;
+      start_ms = tack_now_ms();
+      rc = build_one_target(t, p, verbose, why, force, jobs, strict, no_core);
+      if (ci) {
+        print_ci_summary_build("build", (rc == 0) ? "ok" : "failed", p, target_name, jobs, tack_elapsed_ms(start_ms));
+      }
       tv_free(&tv);
       config_free();
       return rc;

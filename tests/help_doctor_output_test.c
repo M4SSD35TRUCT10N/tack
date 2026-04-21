@@ -134,6 +134,10 @@ int main(void) {
     fprintf(stderr, "FAIL help-doctor-note\n");
     failures++;
   }
+  if (!contains_text(buf, "--ci     = deterministic CI mode with stable TACK_SUMMARY output")) {
+    fprintf(stderr, "FAIL help-ci-note\n");
+    failures++;
+  }
 
   reset_compiler_cfg();
   g_config_loaded = 1;

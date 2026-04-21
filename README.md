@@ -106,7 +106,7 @@ Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/`
 
 - **Compiler/Toolchain:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM. Auswahl-Priorität: `TACK_CC` → `[project] compiler` → Built-in-Default `tcc`. Das Debug-Profil nutzt compilerbewusste Basis-Flags: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC; die Built-in-Policy kann jetzt optional über `[project] compiler_policy` präzisiert werden. `tack doctor` zeigt dazu Compilerquelle, wirksame Policy und deren Herkunft an.
 - **Versionsverwaltung:** Git, Fossil (tack `init` legt u. a. `.gitignore` + Fossil-Ignore an).
-- **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (einfach `tack build` / `tack test` aufrufen).
+- **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (einfach `tack build` / `tack test` aufrufen). Für stabilere Runner-Ausgaben gibt es ab 0.8 zusätzlich `--ci` mit einer festen `TACK_SUMMARY`-Abschlusszeile.
 - **Editor/IDE:** VS Code (Tasks), Vim/Neovim, Emacs, CLion/IntelliJ (External Tools), Visual Studio (External Tools).
 - **Qualität/Checks:** `clang-format`, `clang-tidy`, `cppcheck`, `include-what-you-use`.
 - **SBOM/BOM-Weiterverarbeitung:** CycloneDX CLI (Validierung/Konvertierung), SPDX Online Tools / `spdx-tools` (Validierung), GitHub `actions/attest-sbom` (SBOM-Attestations), OWASP Dependency-Track (CycloneDX-Ingestion/Analyse).
@@ -663,7 +663,7 @@ Starting with the 0.8 series, larger direction changes are additionally recorded
 
 - **Compilers/toolchains:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM. Selection priority is `TACK_CC` → `[project] compiler` → built-in default `tcc`. The debug profile uses compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC; the built-in policy can now be pinned via `[project] compiler_policy` when needed. `tack doctor` also shows the compiler source, active policy, and policy source.
 - **Version control:** Git, Fossil (tack `init` provisions `.gitignore` and Fossil ignore settings, among other things).
-- **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (just call `tack build` / `tack test`).
+- **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (just call `tack build` / `tack test`). Starting with 0.8, `--ci` additionally enables a stable trailing `TACK_SUMMARY` line for runner-friendly output.
 - **Editors/IDEs:** VS Code (Tasks), Vim/Neovim, Emacs, CLion/IntelliJ (External Tools), Visual Studio (External Tools).
 - **Quality checks:** `clang-format`, `clang-tidy`, `cppcheck`, `include-what-you-use`.
 - **SBOM/BOM post-processing:** CycloneDX CLI (validation/conversion), SPDX Online Tools / `spdx-tools` (validation), GitHub `actions/attest-sbom` (SBOM attestations), OWASP Dependency-Track (CycloneDX ingestion/analysis).
