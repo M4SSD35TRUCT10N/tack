@@ -44,7 +44,18 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#if defined(_WIN32) && !defined(inline)
+  /* Some MinGW/TDM-GCC time headers still expose C99-style inline helpers.
+   * Map inline for strict C89 builds before including <time.h>.
+   */
+  #define inline __inline
+  #define TACK_UNDEF_INLINE_AFTER_TIME_H 1
+#endif
 #include <time.h>
+#if defined(TACK_UNDEF_INLINE_AFTER_TIME_H)
+  #undef inline
+  #undef TACK_UNDEF_INLINE_AFTER_TIME_H
+#endif
 #include <sys/stat.h>
 #ifndef _WIN32
   #include <sys/time.h>
