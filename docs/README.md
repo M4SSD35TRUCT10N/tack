@@ -20,10 +20,10 @@ Ziel ist nicht, `README.md`, `FAQ.md`, `ROADMAP.md` oder `RELEASENOTES.md` zu er
 - [SPEC 0001 – Bilinguale Dokumentationspolitik](specs/0001-bilingual-documentation-policy.md)
 - [SPEC 0002 – Grundlage für eine INI-first-Toolchain-Politik](specs/0002-ini-first-toolchain-policy-foundation.md)
 - [SPEC 0003 – Trennung von Compilerwahl und Produktpolitik](specs/0003-compiler-selection-and-policy-split.md)
-- [SPEC 0004 – CI-Modus und Summary-Grundlage](specs/0004-ci-mode-and-summary-foundation.md)
-- [SPEC 0005 – Events-JSONL-Grundlage](specs/0005-events-jsonl-foundation.md)
-- [SPEC 0006 – TAP-Report-Grundlage](specs/0006-tap-report-foundation.md)
-- [SPEC 0007 – JUnit-XML-Grundlage](specs/0007-junit-xml-foundation.md)
+- [SPEC 0004 – CI-Modus und Summary-Grundlage](specs/0004-ci-mode-and-summary-foundation.md) *(angenommen / accepted)*
+- [SPEC 0005 – Events-JSONL-Grundlage](specs/0005-events-jsonl-foundation.md) *(angenommen / accepted)*
+- [SPEC 0006 – TAP-Report-Grundlage](specs/0006-tap-report-foundation.md) *(angenommen / accepted)*
+- [SPEC 0007 – JUnit-XML-Grundlage](specs/0007-junit-xml-foundation.md) *(angenommen / accepted)*
 
 ---
 
@@ -43,7 +43,13 @@ The goal is not to replace `README.md`, `FAQ.md`, `ROADMAP.md`, or `RELEASENOTES
 - [SPEC 0001 – Bilingual documentation policy](specs/0001-bilingual-documentation-policy.md)
 - [SPEC 0002 – Foundation for an INI-first toolchain policy](specs/0002-ini-first-toolchain-policy-foundation.md)
 - [SPEC 0003 – Split between compiler selection and product policy](specs/0003-compiler-selection-and-policy-split.md)
-- [SPEC 0004 – CI mode and summary foundation](specs/0004-ci-mode-and-summary-foundation.md)
-- [SPEC 0005 – Events JSONL foundation](specs/0005-events-jsonl-foundation.md)
-- [SPEC 0006 – TAP report foundation](specs/0006-tap-report-foundation.md)
-- [SPEC 0007 – JUnit XML foundation](specs/0007-junit-xml-foundation.md)
+- [SPEC 0004 – CI mode and summary foundation](specs/0004-ci-mode-and-summary-foundation.md) *(accepted)*
+- [SPEC 0005 – Events JSONL foundation](specs/0005-events-jsonl-foundation.md) *(accepted)*
+- [SPEC 0006 – TAP report foundation](specs/0006-tap-report-foundation.md) *(accepted)*
+- [SPEC 0007 – JUnit XML foundation](specs/0007-junit-xml-foundation.md) *(accepted)*
+
+## CI-Grundlagenblock / CI foundation block
+
+DE: Die Spezifikationen 0004 bis 0007 sind als **angenommene Grundlagen** markiert, weil `--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap` und `--report-junit` im aktuellen Stand umgesetzt sind.
+
+EN: Specifications 0004 through 0007 are marked as **accepted foundations** because `--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap`, and `--report-junit` are implemented in the current state.

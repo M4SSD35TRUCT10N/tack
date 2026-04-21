@@ -1,10 +1,16 @@
 # SPEC 0007 — JUnit-XML-Grundlage / JUnit XML foundation
 
-Stand / Status: 2026-04-21, draft
+**Status:** angenommen / accepted  
+**Serie / series:** v0.8.0-dev
 
 ## Deutsch
 
 ### Ziel
+
+**Umsetzungsstand / implementation status:**
+
+`--report-junit FILE` ist für `tack test` umgesetzt. Die hier definierte kleine JUnit-Teilmenge gilt damit als angenommene CI-Ausgabegrundlage für Systeme, die JUnit XML erwarten.
+
 
 `--report-junit FILE` ergänzt `tack test` um einen konservativen JUnit-XML-Bericht.
 Die Funktion baut auf `--ci`, `TACK_SUMMARY`, `tack.events.v1` und dem TAP-Adapter auf.
@@ -47,6 +53,11 @@ Mit SPEC 0007 ist `tack` für lokale Runner und klassische CI-Systeme deutlich a
 ---
 
 ## English
+
+**Implementation status:**
+
+`--report-junit FILE` is implemented for `tack test`. The small JUnit subset defined here is therefore accepted as the CI output foundation for systems that expect JUnit XML.
+
 
 ### Goal
 

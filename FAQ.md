@@ -6,6 +6,13 @@
 
 ## Deutsch (FAQ)
 
+
+### Müssen Specs von `draft` auf `angenommen` wechseln?
+Ja. Eine Spezifikation sollte nicht unnötig im Entwurfsstatus bleiben, wenn der definierte Umfang bereits umgesetzt und geprüft ist. Für tack heißt das: 0004 bis 0007 sind jetzt **angenommen**, weil die jeweilige Grundlage im Produkt vorhanden ist. Entwurf bleibt nur dort sinnvoll, wo der definierte Umfang noch nicht eingelöst ist oder bewusst offen bleibt.
+
+### Do specs need to move from `draft` to `accepted`?
+Yes. A specification should not remain in draft unnecessarily once the defined scope has been implemented and validated. For tack, this means 0004 through 0007 are now **accepted** because each foundation exists in the product. Draft remains appropriate only where the defined scope is not yet fulfilled or is intentionally left open.
+
 ### Warum hat die 0.8-Serie mit Doku-Commits begonnen?
 Weil es sich zuerst um eine **Grundsatzänderung im Änderungsprozess** handelte: `docs/` wurde als Ort für Spezifikationen und Architekturentscheidungen eingeführt, damit größere 0.8-Themen erst dort beschrieben und dann in kleinen Code-Schritten umgesetzt werden. Mit Commit 0003 ist nun auch der erste kleine Produktions-Code-Schritt gelandet.
 

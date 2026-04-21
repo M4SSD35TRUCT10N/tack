@@ -1,6 +1,6 @@
-# SPEC 0004 – CI mode and stable summary foundation / CI-Modus und stabile Summary-Grundlage
+# SPEC 0004 — CI-Modus und stabile Summary-Grundlage / CI mode and stable summary foundation
 
-**Status:** draft / in Umsetzung  
+**Status:** angenommen / accepted  
 **Serie:** v0.8.0-dev  
 **Typ:** normative Spezifikation / normative specification
 
@@ -18,6 +18,11 @@ Dieser erste Schritt führt deshalb nur zwei Dinge ein:
 2. einen stabilen `TACK_SUMMARY`-Abschlussblock für `build`, `run` und `test`
 
 ## Anforderungen
+
+**Umsetzungsstand / implementation status:**
+
+Die in dieser Spezifikation definierte Grundlage ist mit `--ci` und `TACK_SUMMARY` im Produkt umgesetzt und dient jetzt als angenommene Basis für weitere CI-Adapter.
+
 
 1. **Default-Ausgabe bleibt menschlich.**  
    Ohne `--ci` verhält sich `tack` weiter wie bisher.
@@ -54,6 +59,11 @@ This first step therefore introduces only two things:
 2. a stable `TACK_SUMMARY` trailer line for `build`, `run`, and `test`
 
 ## Requirements
+
+**Implementation status:**
+
+The foundation defined in this specification is implemented in the product via `--ci` and `TACK_SUMMARY` and now serves as an accepted base for further CI adapters.
+
 
 1. **Default output remains human-oriented.**  
    Without `--ci`, `tack` continues to behave as before.

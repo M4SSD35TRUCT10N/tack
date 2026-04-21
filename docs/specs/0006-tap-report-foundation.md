@@ -1,7 +1,7 @@
 # SPEC 0006 — TAP-Report-Grundlage / TAP report foundation
 
-Status: draft  
-Series: v0.8.0-dev
+**Status:** angenommen / accepted  
+**Serie / series:** v0.8.0-dev
 
 ---
 
@@ -14,6 +14,11 @@ Series: v0.8.0-dev
 - Ziel: eine einfache, breit verständliche Testbericht-Datei ohne XML- oder Framework-Zwang
 
 Diese Erweiterung baut bewusst auf den bereits vorhandenen 0.8-Bausteinen auf:
+
+**Umsetzungsstand / implementation status:**
+
+`--report-tap FILE` ist für `tack test` umgesetzt. TAP bleibt damit ein optionaler Adapter auf angenommener CI-Grundlage, nicht die Primärschnittstelle von `tack`.
+
 
 - menschenlesbare Standardausgabe bleibt erhalten
 - `--ci` bleibt für stabile CI-Ausgaben zuständig
@@ -67,6 +72,11 @@ Bail out! tack fail-fast after test failure
 ---
 
 ## English
+
+**Implementation status:**
+
+`--report-tap FILE` is implemented for `tack test`. TAP therefore remains an optional adapter on top of the accepted CI foundation, not the primary interface of `tack`.
+
 
 `tack` adds a small optional TAP adapter to `tack test`:
 

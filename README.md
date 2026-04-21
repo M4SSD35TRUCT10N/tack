@@ -633,6 +633,12 @@ Starting with the 0.8 series, larger direction changes are additionally recorded
 - [SPEC 0006 – TAP report foundation](docs/specs/0006-tap-report-foundation.md)
 - [SPEC 0007 – JUnit XML foundation](docs/specs/0007-junit-xml-foundation.md)
 
+> **CI-Grundlagenblock / CI foundation block**
+>
+> DE: Die Spezifikationen 0004 bis 0007 sind inzwischen **angenommene Grundlagen**, weil `--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap` und `--report-junit` im aktuellen Stand umgesetzt sind.
+>
+> EN: Specifications 0004 through 0007 are now **accepted foundations** because `--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap`, and `--report-junit` are implemented in the current state.
+
 ## Feature baseline (implementation state: v0.7.25)
 
 - single‑file build driver (C89)
