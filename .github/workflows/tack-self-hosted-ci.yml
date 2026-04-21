@@ -1,0 +1,140 @@
+name: tack-self-hosted-ci
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+  # Enable this only when the repository and contribution model are trusted
+  # for self-hosted runners. For public repositories, review the GitHub
+  # guidance first and gate this carefully.
+  # pull_request:
+  #   branches:
+  #     - main
+  #     - master
+
+permissions:
+  contents: read
+
+jobs:
+  linux-arm64:
+    name: Linux ARM64 (pi4)
+    runs-on: [self-hosted, linux, ARM64, pi4]
+    env:
+      TACK_CC: gcc
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Prepare output directories
+        shell: bash
+        run: |
+          set -eu
+          mkdir -p out/ci out/artifacts
+
+      - name: Build tack host binary
+        shell: bash
+        run: |
+          set -eu
+          gcc -std=c89 -pedantic -Werror -o tack src/tack.c
+
+      - name: Run tack test with CI reports
+        shell: bash
+        run: |
+          set -eu
+          ./tack --config ./tack.ini test \
+            --ci \
+            --events-jsonl ./out/ci/test-events.jsonl \
+            --report-tap ./out/ci/test.tap \
+            --report-junit ./out/ci/test-junit.xml
+
+      - name: Generate BOM, SBOM and DOC
+        shell: bash
+        run: |
+          set -eu
+          ./tack --config ./tack.ini bom debug
+          ./tack --config ./tack.ini sbom debug
+          ./tack --config ./tack.ini doc debug
+
+      - name: Collect generated artifacts
+        shell: bash
+        run: |
+          set -eu
+          cp -f build/bom.md out/artifacts/ || true
+          cp -f build/bom.html out/artifacts/ || true
+          cp -f build/sbom.json out/artifacts/ || true
+          if [ -d build/doc ]; then
+            rm -rf out/artifacts/doc
+            cp -R build/doc out/artifacts/doc
+          fi
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: tack-ci-linux-arm64
+          path: |
+            out/ci/test-events.jsonl
+            out/ci/test.tap
+            out/ci/test-junit.xml
+            out/artifacts
+          if-no-files-found: error
+
+  windows-x64:
+    name: Windows x64 (dev-laptop)
+    runs-on: [self-hosted, windows, x64, dev-laptop]
+    env:
+      TACK_CC: gcc
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Prepare output directories
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path out\ci | Out-Null
+          New-Item -ItemType Directory -Force -Path out\artifacts | Out-Null
+
+      - name: Build tack host binary
+        shell: pwsh
+        run: |
+          gcc -std=c89 -pedantic -Werror -o tack.exe src\tack.c
+
+      - name: Run tack test with CI reports
+        shell: pwsh
+        run: |
+          .\tack.exe --config .\tack.ini test `
+            --ci `
+            --events-jsonl .\out\ci\test-events.jsonl `
+            --report-tap .\out\ci\test.tap `
+            --report-junit .\out\ci\test-junit.xml
+
+      - name: Generate BOM, SBOM and DOC
+        shell: pwsh
+        run: |
+          .\tack.exe --config .\tack.ini bom debug
+          .\tack.exe --config .\tack.ini sbom debug
+          .\tack.exe --config .\tack.ini doc debug
+
+      - name: Collect generated artifacts
+        shell: pwsh
+        run: |
+          if (Test-Path build\bom.md) { Copy-Item build\bom.md out\artifacts\ -Force }
+          if (Test-Path build\bom.html) { Copy-Item build\bom.html out\artifacts\ -Force }
+          if (Test-Path build\sbom.json) { Copy-Item build\sbom.json out\artifacts\ -Force }
+          if (Test-Path build\doc) {
+            if (Test-Path out\artifacts\doc) { Remove-Item out\artifacts\doc -Recurse -Force }
+            Copy-Item build\doc out\artifacts\doc -Recurse -Force
+          }
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: tack-ci-windows-x64
+          path: |
+            out/ci/test-events.jsonl
+            out/ci/test.tap
+            out/ci/test-junit.xml
+            out/artifacts
+          if-no-files-found: error
