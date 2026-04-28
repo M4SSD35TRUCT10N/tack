@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.8.0-dev
+# tack ROADMAP (DE/EN) — v0.8.1-dev
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)** · **[Docs](docs/README.md)**
 
@@ -6,14 +6,20 @@ Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASE
 
 ## Deutsch (Roadmap)
 
-### 0.8-Serie eröffnet
-- `docs/` ist jetzt der feste Ort für Spezifikationen und Architekturentscheidungen.
-- Vor größeren 0.8-Codeänderungen sollen erst die Leitplanken in `docs/specs/` bzw. `docs/adr/` dokumentiert werden.
-- Die ersten 0.8-Commits haben die Leitplanken dokumentiert; Commit 0003 bringt jetzt den ersten kleinen Produktions-Code-Schritt.
-- Dieser Schritt setzt bewusst nur die Grundlage für **Compilerwahl vs. INI-Politik vs. Built-ins** um: `[project] compiler` und `[project] compiler_policy`.
-- Die Benutzerführung wird in kleinen Schritten nachgezogen: Hilfeausgabe und `tack doctor` sollen diese Trennung klar und knapp sichtbar machen.
-- Der erste 0.8-CI-Grundlagenblock ist jetzt abgeschlossen: `--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap` und `--report-junit` stehen als kleine, dokumentierte und angenommene Bausteine für lokale Runner bereit.
+### Aktueller Stand: v0.8.1-dev
+- `docs/` ist jetzt der feste Ort für Spezifikationen, Architekturentscheidungen und ergänzende Leitfäden.
 - 0.8 verfolgt bewusst **keine** generische Toolchain-DSL und kein Meta-Buildsystem als Zielbild.
+
+### Erledigt in v0.8.0-dev
+- Die Leitplanken für 0.8 wurden in `docs/adr/` und `docs/specs/` verankert.
+- Die Trennung zwischen **Compilerwahl**, **Compiler-Policy** und **Built-ins** wurde umgesetzt: `TACK_CC` → `[project] compiler` → Built-in-Default sowie `[project] compiler_policy`.
+- Die Benutzerführung wurde nachgezogen: Hilfeausgabe und `tack doctor` zeigen Compilerquelle, wirksame Policy und deren Herkunft.
+- Der erste CI-Grundlagenblock ist abgeschlossen: `--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap` und `--report-junit` stehen als kleine, dokumentierte und angenommene Bausteine für lokale Runner bereit.
+
+### Aktuell in v0.8.1-dev
+- `tack doc` wird als kleine, strukturiertere und deutlich besser lesbare Offline-Doku weiterentwickelt.
+- Dazu gehören derzeit: strukturiertere Markdown-lite-Ausgabe, bessere Typografie/CSS, seitenbezogene ToC, Current-Page-Markierung und gruppierte Navigation für Unterverzeichnisse unter `docs/`.
+- Unterverzeichnisse unterhalb von `docs/` sind damit nicht nur Ablage, sondern Teil der Dokumentorganisation in Navigation und Index.
 
 ### Aktueller Fokus: Real‑World‑Ports & Stabilität
 Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht eine echte Praxisprüfung an:
@@ -153,14 +159,20 @@ Das bleibt bewusst offen, bis die Build‑Basis in der Praxis sitzt.
 
 ## English (Roadmap)
 
-### 0.8 series opened
-- `docs/` is now the fixed home for specifications and architecture decisions.
-- Before larger 0.8 code changes, the guardrails should first be documented in `docs/specs/` and `docs/adr/`.
-- The previous implementation baseline remained **v0.7.25**; commit 0003 now lands the first small real 0.8 code step.
-- This first step introduces `[project] compiler` and `[project] compiler_policy` as a small, reviewable foundation without turning tack into a meta-build system.
-- User guidance is being tightened in small steps: help output and `tack doctor` should surface that split clearly and concisely.
-- The first 0.8 CI foundation block is now complete: `--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap`, and `--report-junit` are in place as small, documented, and accepted building blocks for local runners.
+### Current state: v0.8.1-dev
+- `docs/` is now the fixed home for specifications, architecture decisions, and supporting guides.
 - 0.8 explicitly does **not** target a generic toolchain DSL or a meta-build system.
+
+### Completed in v0.8.0-dev
+- The 0.8 guardrails were established under `docs/adr/` and `docs/specs/`.
+- The split between **compiler selection**, **compiler policy**, and **built-ins** was implemented: `TACK_CC` → `[project] compiler` → built-in default plus `[project] compiler_policy`.
+- User-facing guidance was tightened: help output and `tack doctor` now show compiler source, active policy, and policy source.
+- The first CI foundation block is complete: `--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap`, and `--report-junit` are in place as small, documented, and accepted building blocks for local runners.
+
+### Current work in v0.8.1-dev
+- `tack doc` is being advanced as a small, more structured, and significantly better readable offline documentation output.
+- The current scope includes structured Markdown-lite output, improved typography/CSS, page-local ToC, current-page marking, and grouped navigation for subdirectories below `docs/`.
+- Subdirectories below `docs/` are therefore not just storage, but part of the generated documentation organization in navigation and index.
 
 ### Current focus: real-world ports & stability
 Before “big” releases and announcements, tack should be validated against real projects:

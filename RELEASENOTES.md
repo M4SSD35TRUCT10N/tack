@@ -9,13 +9,17 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.8.1-dev
+- `tack doc` rendert jetzt eine kleine, strukturierte Markdown-Ansicht statt eines reinen Plain-Text-Wrappers: Überschriften, Absätze, Listen, fenced code blocks, Inline-Code, Markdown-Links und einfache Auto-Links verbessern die Lesbarkeit, ohne tack in eine vollständige Markdown-Engine zu verwandeln.
+- `tack doc` baut jetzt eine seitenbezogene ToC aus erkannten Überschriften auf, markiert die aktuelle Seite in der linken Navigation und bringt ein überarbeitetes Doc-CSS für bessere Typografie, Zeilenumbruch, Abstände und Dark-Mode-Verhalten mit.
+- `tack doc` behandelt Unterverzeichnisse unter `docs/` jetzt als eigene Gruppen in Navigation und Index; `docs/README.md` bleibt unter `Docs`, während Verzeichnisse wie `docs/adr/` und `docs/specs/` als kürzere Gruppen wie `ADR` und `SPEC` dargestellt werden.
+- Behebt relative CSS-Links in `tack doc` für verschachtelte Seiten unter `docs/adr/` und `docs/specs/`, damit die generierten HTML-Seiten wieder die mitgelieferten Styles und den automatischen Hell/Dunkel-Modus übernehmen.
+- Hebt die interne Tool-Version auf `v0.8.1-dev` an, damit `tack version`, `tack init`, BOM/SBOM, DOC und weitere versionierte Ausgaben wieder denselben Stand wie die aktuelle Doku-Linie zeigen.
+
 ### v0.8.0-dev
-- `tack doc` renders a small structure-aware Markdown view instead of a plain-text-only wrapper: headings, paragraphs, lists, fenced code blocks, inline code, Markdown links, and simple auto-links improve readability without turning `tack` into a full Markdown engine.
-- `tack doc` now builds a page-local ToC from detected headings, marks the current page in the left navigation, and ships a refreshed doc CSS for better typography, wrapping, spacing, and dark-mode behaviour.
-- `tack doc` groups subdirectories below `docs/` as their own navigation and index sections; `docs/README.md` stays under `Docs`, while directories such as `docs/adr/` and `docs/specs/` are rendered as shorter grouped areas like `ADR` and `SPEC`.
 - Eröffnet die **0.8-Serie** als neue Entwicklungslinie für Grundsatzthemen.
 - Führt `docs/README.md`, `docs/adr/0001-open-v0.8-series.md`, `docs/specs/0001-bilingual-documentation-policy.md` und `docs/specs/0002-ini-first-toolchain-policy-foundation.md` ein.
-- Hebt die interne Tool-Version jetzt ebenfalls auf `v0.8.0-dev` an, damit `tack version`, `tack init`, BOM/SBOM und weitere versionierte Ausgaben nicht mehr hinter der 0.8-Dokumentation zurückbleiben.
+- Hebt die interne Tool-Version damals auf `v0.8.0-dev` an, damit `tack version`, `tack init`, BOM/SBOM und weitere versionierte Ausgaben nicht mehr hinter der 0.8-Dokumentation zurückbleiben.
 - Ergänzt README/FAQ/ROADMAP/RELEASENOTES um Verweise auf `docs/`.
 - Präzisiert mit `docs/specs/0003-compiler-selection-and-policy-split.md`, dass Compilerwahl, Built-ins und zusätzliche Projektpolitik getrennt betrachtet werden.
 - Landet den ersten kleinen 0.8-Produktions-Code-Schritt: Auswahl-Priorität ist jetzt `TACK_CC` → `[project] compiler` → Built-in-Default `tcc`.
@@ -23,11 +27,11 @@
 - `tack doctor` meldet jetzt zusätzlich **Compilerquelle**, **wirksame Compiler-Policy** und die **Herkunft dieser Policy**.
 - Führt `--ci` als kleinen, plattformneutralen CI-Modus für `build`, `run` und `test` ein.
 - Gibt in diesem Modus eine stabile `TACK_SUMMARY`-Zeile aus und schaltet stdout/stderr auf unbuffered Ausgabe.
-- Ergänzt die Root-Dokumente und `docs/README.md` jetzt auch um direkte Verweise auf `docs/specs/0004-ci-mode-and-summary-foundation.md`.
+- Ergänzt die Root-Dokumente und `docs/README.md` um direkte Verweise auf `docs/specs/0004-ci-mode-and-summary-foundation.md`.
 - Führt `--events-jsonl FILE` für `build`, `run` und `test` als kleine versionierte Maschinenebene (`tack.events.v1`) ein.
+- Führt `--report-tap FILE` für `tack test` als kleinen TAP-v13-Bericht ein.
 - Führt `--report-junit FILE` für `tack test` als konservativen JUnit-XML-Bericht ein.
-- Behebt relative CSS-Links in `tack doc` für verschachtelte Seiten unter `docs/adr/` und `docs/specs/`, damit die generierten HTML-Seiten wieder die mitgelieferten Styles und den automatischen Hell/Dunkel-Modus übernehmen.
-- Ergänzt die Root-Dokumente und `docs/README.md` jetzt auch um direkte Verweise auf `docs/specs/0005-events-jsonl-foundation.md`.
+- Ergänzt die Root-Dokumente und `docs/README.md` um direkte Verweise auf `docs/specs/0005-events-jsonl-foundation.md`, `docs/specs/0006-tap-report-foundation.md` und `docs/specs/0007-junit-xml-foundation.md`.
 - Die Hilfeausgabe wurde bereinigt und bündelt Compilerwahl/Policy jetzt an einer Stelle; die mitgelieferte `tack.ini`, die von `tack init` erzeugte Start-Konfiguration, README, FAQ und ROADMAP wurden entsprechend nachgezogen.
 - Neuer Regressionstest: `tests/compiler_selection_policy_test.c`.
 
@@ -178,25 +182,30 @@
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
 
-### v0.8.0-dev
-- `tack doc` renders a small structure-aware Markdown view instead of a plain-text-only wrapper: headings, paragraphs, lists, fenced code blocks, inline code, Markdown links, and simple auto-links improve readability without turning `tack` into a full Markdown engine.
+### v0.8.1-dev
+- `tack doc` now renders a small structured Markdown view instead of a plain-text-only wrapper: headings, paragraphs, lists, fenced code blocks, inline code, Markdown links, and simple auto-links improve readability without turning tack into a full Markdown engine.
 - `tack doc` now builds a page-local ToC from detected headings, marks the current page in the left navigation, and ships a refreshed doc CSS for better typography, wrapping, spacing, and dark-mode behaviour.
-- `tack doc` groups subdirectories below `docs/` as their own navigation and index sections; `docs/README.md` stays under `Docs`, while directories such as `docs/adr/` and `docs/specs/` are rendered as shorter grouped areas like `ADR` and `SPEC`.
-- Opens the **0.8 series** as the new development line for foundational topics.
+- `tack doc` now treats subdirectories below `docs/` as their own groups in navigation and index; `docs/README.md` stays under `Docs`, while directories such as `docs/adr/` and `docs/specs/` are rendered as shorter groups like `ADR` and `SPEC`.
+- Fixes relative CSS links in `tack doc` for nested pages under `docs/adr/` and `docs/specs/`, so generated HTML pages once again pick up the shipped styles and the automatic light/dark mode.
+- Bumps the internal tool version to `v0.8.1-dev`, so `tack version`, `tack init`, BOM/SBOM, DOC, and other versioned outputs are back in sync with the current documentation line.
+
+### v0.8.0-dev
+- Opens the **0.8 series** as a new development line for foundational work.
 - Introduces `docs/README.md`, `docs/adr/0001-open-v0.8-series.md`, `docs/specs/0001-bilingual-documentation-policy.md`, and `docs/specs/0002-ini-first-toolchain-policy-foundation.md`.
-- Bumps the internal tool version to `v0.8.0-dev` as well, so `tack version`, `tack init`, BOM/SBOM, and other versioned outputs no longer lag behind the 0.8 documentation.
-- Adds backlinks from README/FAQ/ROADMAP/RELEASENOTES into `docs/`.
-- Sharpens `docs/specs/0003-compiler-selection-and-policy-split.md` so compiler selection, built-ins, and additional project policy are treated as separate layers.
-- Lands the first small 0.8 production-code step: selection priority is now `TACK_CC` → `[project] compiler` → built-in default `tcc`.
-- Adds optional `[project] compiler_policy = auto|tcc|gcc|clang|generic` so compiler-aware built-in behavior can be pinned explicitly without turning tack into a generic toolchain DSL.
-- `tack doctor` now also reports the **compiler source**, the **effective compiler policy**, and the **source of that policy**.
-- Adds `--ci` as a small, platform-neutral CI mode for `build`, `run`, and `test`.
-- Adds `--events-jsonl FILE` for `build`, `run`, and `test` as a small versioned machine-facing layer (`tack.events.v1`).
-- Adds `--report-junit FILE` for `tack test` as a conservative JUnit XML report.
-- Fixes relative CSS links in `tack doc` for nested pages under `docs/adr/` and `docs/specs/`, so generated HTML pages pick up the shipped styles and automatic light/dark mode again.
-- Adds direct links to `docs/specs/0005-events-jsonl-foundation.md` from the root docs and `docs/README.md`.
-- In that mode, tack emits a stable `TACK_SUMMARY` line and switches stdout/stderr to unbuffered output.
-- The shipped `tack.ini`, the `tack init` starter config, README, FAQ, and ROADMAP were updated accordingly.
+- Bumped the internal tool version at that time to `v0.8.0-dev`, so `tack version`, `tack init`, BOM/SBOM, and other versioned outputs no longer lagged behind the 0.8 documentation.
+- Added references to `docs/` from README/FAQ/ROADMAP/RELEASENOTES.
+- Clarified via `docs/specs/0003-compiler-selection-and-policy-split.md` that compiler selection, built-ins, and additional project policy are separate concerns.
+- Landed the first small 0.8 production-code step: selection priority is now `TACK_CC` → `[project] compiler` → built-in default `tcc`.
+- Added optional `[project] compiler_policy = auto|tcc|gcc|clang|generic` so compiler-aware built-in logic can be pinned explicitly without turning tack into a generic toolchain DSL.
+- `tack doctor` now also reports the **compiler source**, **active compiler policy**, and the **source of that policy**.
+- Added `--ci` as a small, platform-neutral CI mode for `build`, `run`, and `test`.
+- Emits a stable `TACK_SUMMARY` line in that mode and switches stdout/stderr to unbuffered output.
+- Added direct links from the root docs and `docs/README.md` to `docs/specs/0004-ci-mode-and-summary-foundation.md`.
+- Added `--events-jsonl FILE` for `build`, `run`, and `test` as a small versioned machine-facing layer (`tack.events.v1`).
+- Added `--report-tap FILE` for `tack test` as a small TAP v13 report.
+- Added `--report-junit FILE` for `tack test` as a conservative JUnit XML report.
+- Added direct links from the root docs and `docs/README.md` to `docs/specs/0005-events-jsonl-foundation.md`, `docs/specs/0006-tap-report-foundation.md`, and `docs/specs/0007-junit-xml-foundation.md`.
+- Cleaned up help output so compiler selection/policy is presented in one place; the shipped `tack.ini`, the `tack init` starter config, README, FAQ, and ROADMAP were updated accordingly.
 - New regression test: `tests/compiler_selection_policy_test.c`.
 
 ### v0.7.25

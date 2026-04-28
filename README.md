@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.8.0-dev)
+# tack — Tiny ANSI-C Kit (v0.8.1-dev)
 
 ---
 
@@ -11,9 +11,9 @@
 
 > **0.8-Entwicklungshinweis / 0.8 development note**
 >
-> DE: Die **0.8-Serie** ist jetzt eröffnet und enthält bereits den ersten kleinen Produktions-Code-Schritt: eine saubere Trennung zwischen Compilerwahl und Compiler-Policy über `TACK_CC`, `[project] compiler` und `[project] compiler_policy`, ohne den tack-Kern zu verwässern.
+> DE: **0.8.0-dev** hat die CI-Grundlagen (`--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap`, `--report-junit`) sowie die Trennung zwischen Compilerwahl und Compiler-Policy geliefert. **0.8.1-dev** erweitert jetzt gezielt `tack doc`: strukturiertere Ausgabe, bessere Typografie/CSS und gruppierte Navigation für Unterverzeichnisse unter `docs/`, ohne tack in eine Web-App oder einen vollständigen Markdown-Konverter zu verwandeln.
 >
-> EN: The **0.8 series** is now open and already includes its first small production-code step: a clean split between compiler selection and compiler policy via `TACK_CC`, `[project] compiler`, and `[project] compiler_policy`, without diluting the tack core.
+> EN: **0.8.0-dev** delivered the CI foundations (`--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap`, `--report-junit`) plus the split between compiler selection and compiler policy. **0.8.1-dev** now extends `tack doc` in a focused way: more structured output, better typography/CSS, and grouped navigation for subdirectories under `docs/`, without turning tack into a web app or a full Markdown converter.
 
 ---
 
@@ -67,6 +67,7 @@ Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/`
 - [SPEC 0005 – Events-JSONL-Grundlage](docs/specs/0005-events-jsonl-foundation.md)
 - [SPEC 0006 – TAP-Report-Grundlage](docs/specs/0006-tap-report-foundation.md)
 - [SPEC 0007 – JUnit-XML-Grundlage](docs/specs/0007-junit-xml-foundation.md)
+- [SPEC 0008 – tack-doc-UX-Grundlage](docs/specs/0008-doc-ux-foundation.md)
 
 ## Feature-Basis (Implementierungsstand v0.7.25)
 

@@ -1,6 +1,7 @@
 # SPEC 0008 — tack doc UX foundation
 
 Status: accepted
+Serie / series: v0.8.1-dev
 
 ## Deutsch
 
