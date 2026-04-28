@@ -276,8 +276,8 @@ Ja, weitgehend.
 
 ### Gibt es eine Volltextsuche in der HTML-Doku?
 
-Nicht standardmäßig. Die HTML-Ausgabe ist so entworfen, dass sie ohne JavaScript funktioniert.  
-Ohne JS gilt: Index-Seite + Browser-Suche (Strg+F). Eine optionale, kleine JS-Suche (Progressive Enhancement) ist denkbar.
+Standardmäßig nicht. Die HTML-Ausgabe bleibt so entworfen, dass sie ohne JavaScript funktioniert.  
+Ohne JS gilt weiterhin: Index-Seite + Browser-Suche (Strg+F). Optional kann `tack doc` jetzt aber eine kleine JS-Suche als Progressive Enhancement erzeugen; aktiviert wird sie über `[doc] allow_js_search = yes` in `tack.ini`.
 
 ### Ergänzen oder überschreiben Werte in `tack.ini` die Flags aus Built-ins / tackfile?
 
@@ -566,8 +566,8 @@ Yes, mostly.
 
 ### Is there full-text search in the generated docs?
 
-Not by default. The HTML output is designed to work without JavaScript.  
-Without JS, use the index page + browser search (Ctrl+F). An optional minimal JS search (progressive enhancement) may be added later.
+Not by default. The HTML output remains designed to work without JavaScript.  
+Without JS, use the index page + browser search (Ctrl+F). Optionally, `tack doc` can now generate a small JS search as progressive enhancement; enable it via `[doc] allow_js_search = yes` in `tack.ini`.
 
 ### Do values in `tack.ini` extend or replace flags from built-ins / tackfile?
 

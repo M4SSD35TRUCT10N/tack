@@ -189,8 +189,8 @@ tack kann drei Arten von „Dokumentation“ ausgeben, die oft verwechselt werde
 
 ### Suche / „cargo-like UI“
 Die erzeugten HTML-Seiten sind bewusst **CSS-first** und funktionieren offline.  
-Eine echte Volltextsuche ist ohne JavaScript nur sehr eingeschränkt möglich; ohne JS gilt: Index + Browser-Suche (Strg+F).  
-Eine optionale, kleine JS-Suche (Progressive Enhancement) ist denkbar, bleibt aber optional.
+Ohne JavaScript gilt weiterhin: Index + Browser-Suche (Strg+F).  
+Optional kann `tack doc` jetzt aber eine kleine zuschaltbare JS-Suche als Progressive Enhancement erzeugen. Sie bleibt standardmäßig aus und wird über `[doc] allow_js_search = yes` aktiviert.
 
 ## Quickstart
 
@@ -320,7 +320,7 @@ Wenn `tack.ini` vorhanden ist (oder per `--config PATH` gesetzt wird), lädt tac
 **Sektionen**
 - `[project]`
 - `[target "NAME"]` (oder ohne Quotes: `[target tool:foo]`)
-- `[doc]` (optional: HTML-Template/CSS für `tack doc`)
+- `[doc]` (optional: HTML-Template/CSS und optionale JS-Suche für `tack doc`)
 - `[bom]` (optional: HTML-Template/CSS für `tack bom`)
 - `[sbom]` (Format/Output für `tack sbom`)
 
@@ -448,6 +448,7 @@ Beispiel:
 [doc]
 template = templates/tack_template_min.html
 css      = templates/tack_doc.css
+allow_js_search = no
 
 [bom]
 ; optional: wenn nicht gesetzt, greift der Fallback auf [doc]
@@ -758,8 +759,8 @@ tack can output three kinds of “documentation” that are often mixed up:
 
 ### Search / “cargo-like UI”
 The generated HTML is intentionally **CSS-first** and works offline.  
-Full-text search without JavaScript is very limited; without JS use the index page + browser search (Ctrl+F).  
-An optional minimal JS search (progressive enhancement) is possible, but remains optional.
+Without JavaScript, use the index page + browser search (Ctrl+F).  
+Optionally, `tack doc` can now generate a small JS search as progressive enhancement. It stays disabled by default and is enabled via `[doc] allow_js_search = yes`.
 
 ## Quickstart
 
@@ -887,7 +888,7 @@ If `tack.ini` is present (or specified via `--config PATH`), tack loads it autom
 **Sections**
 - `[project]`
 - `[target "NAME"]` (or without quotes: `[target tool:foo]`)
-- `[doc]` (optional: HTML template/CSS for `tack doc`)
+- `[doc]` (optional: HTML template/CSS and optional JS search for `tack doc`)
 - `[bom]` (optional: HTML template/CSS for `tack bom`)
 - `[sbom]` (format/output for `tack sbom`)
 
@@ -962,6 +963,9 @@ Example `tack.ini`:
 default_target = app
 disable_auto_tools = no
 allow_unsafe_paths = no
+
+[doc]
+allow_js_search = no
 
 [target "app"]
 core = yes

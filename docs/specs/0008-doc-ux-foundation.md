@@ -62,3 +62,10 @@ Serie / series: v0.8.1-dev
 
 ### Guardrail
 `tack doc` remains **CSS-first**, **offline-friendly**, and **small**. Structure is recognized only where it provides the biggest benefit for readability and navigation. Subdirectories below `docs/` are therefore treated as part of the generated documentation organization, not just as storage.
+
+
+## Ergänzung / Addendum
+
+DE: Eine optionale kleine JS-Suche als Progressive Enhancement wird in **SPEC 0009** getrennt beschrieben, damit die no-JS-Grundlinie von `tack doc` in dieser Spezifikation klar bleibt.
+
+EN: An optional small JS search as progressive enhancement is described separately in **SPEC 0009**, so that the no-JS baseline of `tack doc` stays clear in this specification.

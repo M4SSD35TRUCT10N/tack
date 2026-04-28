@@ -124,6 +124,7 @@ static char *g_config_compiler = 0;        /* owned; [project] compiler */
 static char *g_config_compiler_policy = 0; /* owned; [project] compiler_policy */
 static char *g_config_doc_template = 0; /* owned */
 static char *g_config_doc_css = 0;      /* owned */
+static int g_config_doc_allow_js_search = 0;
 static char *g_config_bom_template = 0; /* owned */
 static char *g_config_bom_css = 0;      /* owned */
 static char *g_config_sbom_format = 0;       /* owned */
@@ -3757,6 +3758,10 @@ static int ini_load_file(const char *path) {
       if (sec == SEC_DOC) {
         if (strieq(key, "template")) { free(g_config_doc_template); g_config_doc_template = xstrdup(val); }
         else if (strieq(key, "css")) { free(g_config_doc_css); g_config_doc_css = xstrdup(val); }
+        else if (strieq(key, "allow_js_search")) {
+          int b;
+          if (parse_bool(val, &b)) g_config_doc_allow_js_search = b;
+        }
         continue;
       }
 
@@ -4235,6 +4240,7 @@ static void config_reset(void) {
   free(g_config_compiler_policy); g_config_compiler_policy = 0;
   free(g_config_doc_template); g_config_doc_template = 0;
   free(g_config_doc_css); g_config_doc_css = 0;
+  g_config_doc_allow_js_search = 0;
   free(g_config_bom_template); g_config_bom_template = 0;
   free(g_config_bom_css); g_config_bom_css = 0;
   free(g_config_sbom_format); g_config_sbom_format = 0;
@@ -4243,6 +4249,7 @@ static void config_reset(void) {
 
   free(g_config_doc_template); g_config_doc_template = 0;
   free(g_config_doc_css);      g_config_doc_css = 0;
+  g_config_doc_allow_js_search = 0;
   free(g_config_bom_template); g_config_bom_template = 0;
   free(g_config_bom_css);      g_config_bom_css = 0;
 
@@ -4323,6 +4330,7 @@ static void config_free(void) {
   
   free(g_config_doc_template); g_config_doc_template = 0;
   free(g_config_doc_css); g_config_doc_css = 0;
+  g_config_doc_allow_js_search = 0;
   free(g_config_bom_template); g_config_bom_template = 0;
   free(g_config_bom_css); g_config_bom_css = 0;
   free(g_config_sbom_format); g_config_sbom_format = 0;
@@ -5557,6 +5565,22 @@ static const char * const TACK_INIT_TEMPLATES_CSS_LINES[] = {
   "  background:var(--codebg);\n",
   "  font-weight:700;\n",
   "}\n",
+  ".doc-search{margin:0 0 .85rem 0}\n",
+  ".doc-search input{\n",
+  "  width:100%;\n",
+  "  padding:.55rem .7rem;\n",
+  "  border:1px solid var(--border);\n",
+  "  border-radius:10px;\n",
+  "  background:var(--bg);\n",
+  "  color:var(--fg);\n",
+  "}\n",
+  ".search-results{margin-top:.55rem;padding-top:.55rem;border-top:1px solid var(--border)}\n",
+  ".search-results-list{list-style:none;margin:0;padding:0}\n",
+  ".search-results-list li + li{margin-top:.45rem}\n",
+  ".search-results-list a{display:block;padding:0;overflow-wrap:anywhere}\n",
+  ".search-meta{display:block;color:var(--muted);font-size:.82rem;margin-top:.08rem}\n",
+  ".search-empty{margin:0;color:var(--muted)}\n",
+  ".sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}\n",
   "article{\n",
   "  border:1px solid var(--border);\n",
   "  background:var(--bg);\n",
@@ -5660,6 +5684,69 @@ static const char * const TACK_INIT_TEMPLATES_CSS_LINES[] = {
   0
 };
 
+static const char * const TACK_DOC_SEARCH_JS_LINES[] = {
+  "(function(){\n",
+  "  var DATA = __TACK_SEARCH_DATA__;\n",
+  "  function lc(s){ return String(s || '').toLowerCase(); }\n",
+  "  function clearNode(n){ while (n.firstChild) n.removeChild(n.firstChild); }\n",
+  "  function match(item, term){\n",
+  "    return lc(item.title).indexOf(term) >= 0 || lc(item.group).indexOf(term) >= 0 || lc(item.text).indexOf(term) >= 0;\n",
+  "  }\n",
+  "  function render(results, items, prefix, term){\n",
+  "    var i, li, a, small, ul, p;\n",
+  "    clearNode(results);\n",
+  "    if (!term) { results.hidden = true; return; }\n",
+  "    results.hidden = false;\n",
+  "    if (!items.length) {\n",
+  "      p = document.createElement('p');\n",
+  "      p.className = 'search-empty';\n",
+  "      p.appendChild(document.createTextNode('No matches.'));\n",
+  "      results.appendChild(p);\n",
+  "      return;\n",
+  "    }\n",
+  "    ul = document.createElement('ul');\n",
+  "    ul.className = 'search-results-list';\n",
+  "    for (i = 0; i < items.length; i++) {\n",
+  "      li = document.createElement('li');\n",
+  "      a = document.createElement('a');\n",
+  "      a.href = prefix + items[i].href;\n",
+  "      a.appendChild(document.createTextNode(items[i].title));\n",
+  "      li.appendChild(a);\n",
+  "      small = document.createElement('small');\n",
+  "      small.className = 'search-meta';\n",
+  "      small.appendChild(document.createTextNode(items[i].group));\n",
+  "      li.appendChild(small);\n",
+  "      ul.appendChild(li);\n",
+  "    }\n",
+  "    results.appendChild(ul);\n",
+  "  }\n",
+  "  function ready(fn){\n",
+  "    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);\n",
+  "    else fn();\n",
+  "  }\n",
+  "  ready(function(){\n",
+  "    var root = document.getElementById('tack-search');\n",
+  "    var input, results, prefix;\n",
+  "    if (!root) return;\n",
+  "    input = document.getElementById('tack-search-input');\n",
+  "    results = document.getElementById('tack-search-results');\n",
+  "    prefix = root.getAttribute('data-doc-prefix') || '';\n",
+  "    if (!input || !results) return;\n",
+  "    input.addEventListener('input', function(){\n",
+  "      var term = lc((input.value || '').replace(/^\\s+|\\s+$/g, ''));\n",
+  "      var out = [];\n",
+  "      var i;\n",
+  "      if (!term) { render(results, out, prefix, ''); return; }\n",
+  "      for (i = 0; i < DATA.length && out.length < 20; i++) {\n",
+  "        if (match(DATA[i], term)) out.push(DATA[i]);\n",
+  "      }\n",
+  "      render(results, out, prefix, term);\n",
+  "    });\n",
+  "  });\n",
+  "})();\n",
+  0
+};
+
 static const char * const TACK_INIT_TEMPLATE_MIN_HTML_LINES[] = {
   "<!doctype html>\n",
   "<html lang=\"en\">\n",
@@ -5728,6 +5815,7 @@ static const char * const TACK_INIT_DEFAULT_TACK_INI_LINES[] = {
   "[doc]\n",
   "template = templates/tack_template_min.html\n",
   "css      = templates/tack_doc.css\n",
+  "; allow_js_search = no\n",
   "\n",
   "[bom]\n",
   "template = templates/tack_template_min.html\n",
@@ -6260,40 +6348,56 @@ static const char *choose_css(const char *kind) {
   return 0;
 }
 
-static char *make_head_assets(const char *css_href) {
-  /* css_href is a relative href for the generated page (may be NULL). */
-  const char *pre = "";
-  const char *post = "";
-  const char *link_pre = "<link rel=\"stylesheet\" href=\"";
-  const char *link_post = "\">\n";
-  size_t n = strlen(pre) + strlen(post);
+static char *make_head_assets(const char *css_href, const char *js_href) {
+  const char *css_pre = "<link rel=\"stylesheet\" href=\"";
+  const char *css_post = "\">\n";
+  const char *js_pre = "<script defer src=\"";
+  const char *js_post = "\"></script>\n";
+  size_t n = 0u;
   char *out;
 
-  if (css_href && css_href[0]) {
-    n += strlen(link_pre) + strlen(css_href) + strlen(link_post);
-  }
-  out = (char*)xmalloc(n + 1);
+  if (css_href && css_href[0]) n += strlen(css_pre) + strlen(css_href) + strlen(css_post);
+  if (js_href && js_href[0]) n += strlen(js_pre) + strlen(js_href) + strlen(js_post);
+  out = (char*)xmalloc(n + 1u);
   out[0] = '\0';
-  strcat(out, pre);
   if (css_href && css_href[0]) {
-    strcat(out, link_pre);
+    strcat(out, css_pre);
     strcat(out, css_href);
-    strcat(out, link_post);
+    strcat(out, css_post);
   }
-  strcat(out, post);
+  if (js_href && js_href[0]) {
+    strcat(out, js_pre);
+    strcat(out, js_href);
+    strcat(out, js_post);
+  }
   return out;
 }
 
-static char *make_nav_block(const char *inner_links_html) {
+static char *make_doc_search_block(const char *doc_prefix) {
+  const char *prefix = doc_prefix ? doc_prefix : "";
+  const char *pre = "<div class=\"doc-search\" id=\"tack-search\" data-doc-prefix=\"";
+  const char *mid = "\"><label class=\"sr-only\" for=\"tack-search-input\">Search docs</label><input id=\"tack-search-input\" type=\"search\" placeholder=\"Search docs...\" autocomplete=\"off\"><div id=\"tack-search-results\" class=\"search-results\" hidden></div></div>\n";
+  size_t n = strlen(pre) + strlen(prefix) + strlen(mid);
+  char *out = (char*)xmalloc(n + 1u);
+  out[0] = '\0';
+  strcat(out, pre);
+  strcat(out, prefix);
+  strcat(out, mid);
+  return out;
+}
+
+static char *make_nav_block(const char *inner_links_html, const char *search_html) {
   const char *pre = "<nav id=\"tack-nav\">";
   const char *post = "</nav>\n";
   size_t n = strlen(pre) + strlen(post);
   char *out;
 
+  if (search_html) n += strlen(search_html);
   if (inner_links_html) n += strlen(inner_links_html);
   out = (char*)xmalloc(n + 1);
   out[0] = '\0';
   strcat(out, pre);
+  if (search_html) strcat(out, search_html);
   if (inner_links_html) strcat(out, inner_links_html);
   strcat(out, post);
   return out;
@@ -6439,6 +6543,8 @@ typedef struct {
   const char *kind;          /* "doc" or "bom" */
   const char *project_title; /* optional; escaped in template */
   const char *css_href;      /* relative href for generated page (copied to outdir) */
+  const char *js_href;       /* optional relative js href for generated page */
+  const char *search_prefix; /* optional prefix for search result links */
   const char *nav_inner;     /* inner links (HTML fragment) */
 } HtmlCfg;
 
@@ -6616,54 +6722,264 @@ static void md_append_slug(MemBuf *b, const char *text, int ordinal) {
   mb_append(b, num);
 }
 
-static void md_emit_inline(MemBuf *out, const char *text) {
-  const char *p = text ? text : "";
+static char *doc_md_to_html_rel_alloc(const char *md_rel);
+
+typedef struct {
+  const char *current_md_rel;
+  const char *current_html_rel;
+} MdRenderCtx;
+
+static void md_normalize_slashes_inplace(char *s) {
+  char *p = s;
+  if (!s) return;
   while (*p) {
-    if (*p == '`') {
-      const char *q = strchr(p + 1, '`');
-      if (q) {
-        mb_append(out, "<code>");
-        mb_append_html_escaped_n(out, p + 1, (size_t)(q - (p + 1)));
-        mb_append(out, "</code>");
-        p = q + 1;
-        continue;
-      }
-    }
-    if (*p == '[') {
-      const char *mid = strchr(p + 1, ']');
-      if (mid && mid[1] == '(') {
-        const char *end = strchr(mid + 2, ')');
-        if (end) {
-          mb_append(out, "<a href=\"");
-          mb_append_html_escaped_n(out, mid + 2, (size_t)(end - (mid + 2)));
-          mb_append(out, "\">");
-          mb_append_html_escaped_n(out, p + 1, (size_t)(mid - (p + 1)));
-          mb_append(out, "</a>");
-          p = end + 1;
-          continue;
-        }
-      }
-    }
-    if (md_is_url_start(p)) {
-      const char *q = p;
-      while (*q && !isspace((unsigned char)*q) && *q != '<' && *q != '>' && *q != '"') q++;
-      mb_append(out, "<a href=\"");
-      mb_append_html_escaped_n(out, p, (size_t)(q - p));
-      mb_append(out, "\">");
-      mb_append_html_escaped_n(out, p, (size_t)(q - p));
-      mb_append(out, "</a>");
-      p = q;
-      continue;
-    }
-    mb_append_html_escaped_n(out, p, 1u);
+    if (*p == '\\') *p = '/';
     p++;
   }
 }
 
-static void md_flush_paragraph(MemBuf *html, MemBuf *para) {
+static int md_href_is_special(const char *href) {
+  if (!href || !href[0]) return 1;
+  if (href[0] == '#') return 1;
+  if (href[0] == '/') return 1;
+  if (strstr(href, "://") != 0) return 1;
+  if (strncmp(href, "mailto:", 7) == 0) return 1;
+  if (strncmp(href, "tel:", 4) == 0) return 1;
+  if (strncmp(href, "data:", 5) == 0) return 1;
+  if (strncmp(href, "javascript:", 11) == 0) return 1;
+  return 0;
+}
+
+static int md_href_has_md_ext(const char *href) {
+  const char *hash;
+  size_t n;
+  if (!href) return 0;
+  hash = strchr(href, '#');
+  n = hash ? (size_t)(hash - href) : strlen(href);
+  if (n < 3u) return 0;
+  return (href[n - 3u] == '.' &&
+          tolower((unsigned char)href[n - 2u]) == 'm' &&
+          tolower((unsigned char)href[n - 1u]) == 'd');
+}
+
+static char *md_collapse_rel_path_alloc(const char *path) {
+  char *tmp;
+  char **parts;
+  int cap = 0;
+  int top = 0;
+  char *q;
+  char *out;
+  size_t i;
+  size_t n = 0u;
+  if (!path || !path[0]) return xstrdup(".");
+  tmp = xstrdup(path);
+  md_normalize_slashes_inplace(tmp);
+  for (q = tmp; *q; q++) if (*q == '/') cap++;
+  cap += 2;
+  parts = (char**)xmalloc((size_t)cap * sizeof(char*));
+  q = tmp;
+  while (*q) {
+    char *seg = q;
+    char *slash = strchr(q, '/');
+    if (slash) {
+      *slash = '\0';
+      q = slash + 1;
+    } else {
+      q += strlen(q);
+    }
+    if (seg[0] == '\0' || streq(seg, ".")) {
+      continue;
+    } else if (streq(seg, "..")) {
+      if (top > 0 && !streq(parts[top - 1], "..")) top--;
+      else parts[top++] = seg;
+    } else {
+      parts[top++] = seg;
+    }
+  }
+  if (top == 0) {
+    free(parts);
+    free(tmp);
+    return xstrdup(".");
+  }
+  for (i = 0; i < (size_t)top; i++) n += strlen(parts[i]) + 1u;
+  out = (char*)xmalloc(n + 1u);
+  out[0] = '\0';
+  for (i = 0; i < (size_t)top; i++) {
+    if (i) strcat(out, "/");
+    strcat(out, parts[i]);
+  }
+  free(parts);
+  free(tmp);
+  return out;
+}
+
+static char *md_join_rel_paths_alloc(const char *base_dir, const char *href) {
+  char *tmp;
+  char *out;
+  size_t need;
+  const char *base = (base_dir && !streq(base_dir, ".")) ? base_dir : "";
+  if (!href) return xstrdup("");
+  need = strlen(base) + (base[0] ? 1u : 0u) + strlen(href) + 1u;
+  tmp = (char*)xmalloc(need);
+  tmp[0] = '\0';
+  if (base[0]) {
+    strcat(tmp, base);
+    strcat(tmp, "/");
+  }
+  strcat(tmp, href);
+  out = md_collapse_rel_path_alloc(tmp);
+  free(tmp);
+  return out;
+}
+
+static char *md_rel_link_alloc(const char *from_dir, const char *to_path) {
+  char *from_norm;
+  char *to_norm;
+  char **from_parts;
+  char **to_parts;
+  int from_cap = 0, to_cap = 0;
+  int from_n = 0, to_n = 0;
+  int i, common = 0;
+  char *q;
+  char *out;
+  size_t need = 1u;
+  from_norm = md_collapse_rel_path_alloc((from_dir && from_dir[0]) ? from_dir : ".");
+  to_norm = md_collapse_rel_path_alloc((to_path && to_path[0]) ? to_path : ".");
+  for (q = from_norm; *q; q++) if (*q == '/') from_cap++;
+  for (q = to_norm; *q; q++) if (*q == '/') to_cap++;
+  from_cap += 2; to_cap += 2;
+  from_parts = (char**)xmalloc((size_t)from_cap * sizeof(char*));
+  to_parts = (char**)xmalloc((size_t)to_cap * sizeof(char*));
+  if (!streq(from_norm, ".")) {
+    q = from_norm;
+    while (*q) {
+      from_parts[from_n++] = q;
+      q = strchr(q, '/');
+      if (!q) break;
+      *q++ = '\0';
+    }
+  }
+  if (!streq(to_norm, ".")) {
+    q = to_norm;
+    while (*q) {
+      to_parts[to_n++] = q;
+      q = strchr(q, '/');
+      if (!q) break;
+      *q++ = '\0';
+    }
+  }
+  while (common < from_n && common < to_n && streq(from_parts[common], to_parts[common])) common++;
+  for (i = common; i < from_n; i++) need += 3u;
+  for (i = common; i < to_n; i++) need += strlen(to_parts[i]) + 1u;
+  out = (char*)xmalloc(need);
+  out[0] = '\0';
+  for (i = common; i < from_n; i++) strcat(out, "../");
+  for (i = common; i < to_n; i++) {
+    if (out[0] && out[strlen(out) - 1u] != '/') strcat(out, "/");
+    strcat(out, to_parts[i]);
+  }
+  if (out[0] == '\0') strcat(out, ".");
+  free(from_parts);
+  free(to_parts);
+  free(from_norm);
+  free(to_norm);
+  return out;
+}
+
+static char *md_rewrite_doc_href_alloc(const char *href, const MdRenderCtx *ctx) {
+  char *path_part;
+  const char *hash;
+  char *resolved_md;
+  char *target_html;
+  char *from_dir;
+  char *rel;
+  char *out;
+  char *cur_md_dir;
+  size_t need;
+  if (!href || !href[0] || !ctx || !ctx->current_md_rel || !ctx->current_html_rel) return xstrdup(href ? href : "");
+  if (md_href_is_special(href) || !md_href_has_md_ext(href)) return xstrdup(href);
+  hash = strchr(href, '#');
+  if (hash) {
+    path_part = (char*)xmalloc((size_t)(hash - href) + 1u);
+    memcpy(path_part, href, (size_t)(hash - href));
+    path_part[hash - href] = '\0';
+  } else {
+    path_part = xstrdup(href);
+  }
+  cur_md_dir = path_dirname_alloc(ctx->current_md_rel);
+  resolved_md = md_join_rel_paths_alloc(cur_md_dir, path_part);
+  free(cur_md_dir);
+  free(path_part);
+  target_html = doc_md_to_html_rel_alloc(resolved_md);
+  free(resolved_md);
+  from_dir = path_dirname_alloc(ctx->current_html_rel);
+  rel = md_rel_link_alloc(from_dir, target_html);
+  free(from_dir);
+  free(target_html);
+  need = strlen(rel) + (hash ? strlen(hash) : 0u) + 1u;
+  out = (char*)xmalloc(need);
+  out[0] = '\0';
+  strcat(out, rel);
+  if (hash) strcat(out, hash);
+  free(rel);
+  return out;
+}
+
+static void md_emit_inline(MemBuf *out, const char *text, const MdRenderCtx *ctx) {
+  const char *r = text ? text : "";
+  while (*r) {
+    if (*r == '`') {
+      const char *q = strchr(r + 1, '`');
+      if (q) {
+        mb_append(out, "<code>");
+        mb_append_html_escaped_n(out, r + 1, (size_t)(q - (r + 1)));
+        mb_append(out, "</code>");
+        r = q + 1;
+        continue;
+      }
+    }
+    if (*r == '[') {
+      const char *mid = strchr(r + 1, ']');
+      if (mid && mid[1] == '(') {
+        const char *end = strchr(mid + 2, ')');
+        if (end) {
+          char *raw = (char*)xmalloc((size_t)(end - (mid + 2)) + 1u);
+          char *href;
+          memcpy(raw, mid + 2, (size_t)(end - (mid + 2)));
+          raw[end - (mid + 2)] = '\0';
+          href = (ctx ? md_rewrite_doc_href_alloc(raw, ctx) : xstrdup(raw));
+          free(raw);
+          mb_append(out, "<a href=\"");
+          mb_append_html_escaped(out, href ? href : "");
+          mb_append(out, "\">");
+          mb_append_html_escaped_n(out, r + 1, (size_t)(mid - (r + 1)));
+          mb_append(out, "</a>");
+          free(href);
+          r = end + 1;
+          continue;
+        }
+      }
+    }
+    if (md_is_url_start(r)) {
+      const char *q = r;
+      while (*q && !isspace((unsigned char)*q) && *q != '<' && *q != '>' && *q != '"') q++;
+      mb_append(out, "<a href=\"");
+      mb_append_html_escaped_n(out, r, (size_t)(q - r));
+      mb_append(out, "\">");
+      mb_append_html_escaped_n(out, r, (size_t)(q - r));
+      mb_append(out, "</a>");
+      r = q;
+      continue;
+    }
+    mb_append_html_escaped_n(out, r, 1u);
+    r++;
+  }
+}
+
+static void md_flush_paragraph(MemBuf *html, MemBuf *para, const MdRenderCtx *ctx) {
   if (!para || para->len == 0u) return;
   mb_append(html, "<p>");
-  md_emit_inline(html, para->buf);
+  md_emit_inline(html, para->buf, ctx);
   mb_append(html, "</p>\n");
   para->len = 0u;
   if (para->buf) para->buf[0] = '\0';
@@ -6848,7 +7164,7 @@ static void emit_html_fragment(FILE *out, void *ctx) {
   if (m && m->html) fputs(m->html, out);
 }
 
-static int render_markdown_lite(const char *md, char **html_out, char **toc_out) {
+static int render_markdown_lite(const char *md, char **html_out, char **toc_out, const MdRenderCtx *ctx) {
   MemBuf html;
   MemBuf toc_items;
   MemBuf para;
@@ -6891,7 +7207,7 @@ static int render_markdown_lite(const char *md, char **html_out, char **toc_out)
     }
 
     if (md_is_blank(trimmed)) {
-      md_flush_paragraph(&html, &para);
+      md_flush_paragraph(&html, &para, ctx);
       md_close_list(&html, &list_type);
       free(trimmed);
       free(line);
@@ -6899,7 +7215,7 @@ static int render_markdown_lite(const char *md, char **html_out, char **toc_out)
     }
 
     if (md_is_fence(trimmed)) {
-      md_flush_paragraph(&html, &para);
+      md_flush_paragraph(&html, &para, ctx);
       md_close_list(&html, &list_type);
       mb_append(&html, "<pre><code>");
       in_code = 1;
@@ -6913,7 +7229,7 @@ static int render_markdown_lite(const char *md, char **html_out, char **toc_out)
       const char *text = 0;
       if (md_parse_heading(trimmed, &level, &text)) {
         MemBuf slug;
-        md_flush_paragraph(&html, &para);
+        md_flush_paragraph(&html, &para, ctx);
         md_close_list(&html, &list_type);
         mb_init(&slug);
         heading_ord++;
@@ -6923,7 +7239,7 @@ static int render_markdown_lite(const char *md, char **html_out, char **toc_out)
         mb_append(&html, " id=\"");
         mb_append_html_escaped(&html, slug.buf ? slug.buf : "section");
         mb_append(&html, "\">");
-        md_emit_inline(&html, text);
+        md_emit_inline(&html, text, ctx);
         mb_append(&html, "</h");
         mb_append_ch(&html, '0' + level);
         mb_append(&html, ">\n");
@@ -6936,7 +7252,7 @@ static int render_markdown_lite(const char *md, char **html_out, char **toc_out)
           mb_append(&toc_items, "\"><a href=\"#");
           mb_append_html_escaped(&toc_items, slug.buf ? slug.buf : "section");
           mb_append(&toc_items, "\">");
-          md_emit_inline(&toc_items, text);
+          md_emit_inline(&toc_items, text, ctx);
           mb_append(&toc_items, "</a></li>\n");
         }
         mb_free(&slug);
@@ -6949,28 +7265,28 @@ static int render_markdown_lite(const char *md, char **html_out, char **toc_out)
     {
       const char *item = 0;
       if (md_parse_ul_item(trimmed, &item)) {
-        md_flush_paragraph(&html, &para);
+        md_flush_paragraph(&html, &para, ctx);
         if (list_type != 1) {
           md_close_list(&html, &list_type);
           mb_append(&html, "<ul>\n");
           list_type = 1;
         }
         mb_append(&html, "<li>");
-        md_emit_inline(&html, item);
+        md_emit_inline(&html, item, ctx);
         mb_append(&html, "</li>\n");
         free(trimmed);
         free(line);
         continue;
       }
       if (md_parse_ol_item(trimmed, &item)) {
-        md_flush_paragraph(&html, &para);
+        md_flush_paragraph(&html, &para, ctx);
         if (list_type != 2) {
           md_close_list(&html, &list_type);
           mb_append(&html, "<ol>\n");
           list_type = 2;
         }
         mb_append(&html, "<li>");
-        md_emit_inline(&html, item);
+        md_emit_inline(&html, item, ctx);
         mb_append(&html, "</li>\n");
         free(trimmed);
         free(line);
@@ -6986,7 +7302,7 @@ static int render_markdown_lite(const char *md, char **html_out, char **toc_out)
   }
 
   if (in_code) mb_append(&html, "</code></pre>\n");
-  md_flush_paragraph(&html, &para);
+  md_flush_paragraph(&html, &para, ctx);
   md_close_list(&html, &list_type);
 
   if (toc_items.len > 0u) {
@@ -7005,6 +7321,125 @@ static int render_markdown_lite(const char *md, char **html_out, char **toc_out)
   return 0;
 }
 
+static void doc_search_normalize_inplace(char *s) {
+  char *r;
+  char *w;
+  int prev_space = 1;
+  if (!s) return;
+  r = s;
+  w = s;
+  while (*r) {
+    unsigned char c = (unsigned char)*r++;
+    if (c == '\r' || c == '\n' || c == '\t' || c == ' ') {
+      if (!prev_space) { *w++ = ' '; prev_space = 1; }
+    } else {
+      *w++ = (char)c;
+      prev_space = 0;
+    }
+  }
+  if (w > s && w[-1] == ' ') w--;
+  *w = '\0';
+}
+
+static char *doc_extract_first_heading_alloc(const char *md_path) {
+  long n = 0;
+  char *md = read_entire_file(md_path, &n);
+  char *p;
+  if (!md) return 0;
+  p = md;
+  while (*p) {
+    char *line = p;
+    char *nl = strchr(p, '\n');
+    int level = 0;
+    const char *text = 0;
+    if (nl) *nl = '\0';
+    if (md_parse_heading(line, &level, &text) && text && text[0]) {
+      char *out = xstrdup(text);
+      md_trim_inplace(out);
+      free(md);
+      return out;
+    }
+    if (!nl) break;
+    p = nl + 1;
+  }
+  free(md);
+  return 0;
+}
+
+static char *doc_search_text_alloc(const char *md_path) {
+  long n = 0;
+  char *md = read_entire_file(md_path, &n);
+  if (!md) return xstrdup("");
+  doc_search_normalize_inplace(md);
+  return md;
+}
+
+static int write_doc_search_js(const char *out_path, StrVec *root_md, StrVec *root_html, StrVec *docs_md, StrVec *docs_html) {
+  FILE *f;
+  int i;
+  f = fopen(out_path, "wb");
+  if (!f) return 1;
+  fputs("(function(){\nvar DATA = [\n", f);
+  {
+    int first = 1;
+    int cnt = (root_md && root_html) ? (root_md->count < root_html->count ? root_md->count : root_html->count) : 0;
+    for (i = 0; i < cnt; i++) {
+      char *title = doc_extract_first_heading_alloc(root_md->items[i]);
+      char *fallback = 0;
+      char *text = 0;
+      if (!title) { fallback = doc_root_label_alloc(root_md->items[i]); title = fallback ? fallback : xstrdup(root_md->items[i]); }
+      text = doc_search_text_alloc(root_md->items[i]);
+      if (!first) fputs(",\n", f);
+      first = 0;
+      fputs("  {\"title\":", f); json_write_string(f, title);
+      fputs(",\"href\":", f); json_write_string(f, root_html->items[i]);
+      fputs(",\"group\":", f); json_write_string(f, "Docs");
+      fputs(",\"text\":", f); json_write_string(f, text ? text : "");
+      fputs("}", f);
+      free(title);
+      free(text);
+    }
+  }
+  if (docs_md && docs_html) {
+    int cnt = docs_md->count < docs_html->count ? docs_md->count : docs_html->count;
+    for (i = 0; i < cnt; i++) {
+      char *title = doc_extract_first_heading_alloc(docs_md->items[i]);
+      char *fallback = 0;
+      char *group_key = 0;
+      char *group_title = 0;
+      char *text = 0;
+      if (!title) { fallback = doc_entry_label_from_rel_alloc(docs_html->items[i]); title = fallback ? fallback : xstrdup(docs_html->items[i]); }
+      group_key = doc_group_key_alloc(docs_html->items[i]);
+      group_title = doc_group_title_alloc(group_key);
+      text = doc_search_text_alloc(docs_md->items[i]);
+      fputs(",\n  {\"title\":", f); json_write_string(f, title);
+      fputs(",\"href\":", f); json_write_string(f, docs_html->items[i]);
+      fputs(",\"group\":", f); json_write_string(f, group_title ? group_title : "Docs");
+      fputs(",\"text\":", f); json_write_string(f, text ? text : "");
+      fputs("}", f);
+      free(title);
+      free(group_key);
+      free(group_title);
+      free(text);
+    }
+  }
+  fputs("\n];\n", f);
+  for (i = 0; TACK_DOC_SEARCH_JS_LINES[i]; i++) {
+    const char *line = TACK_DOC_SEARCH_JS_LINES[i];
+    const char *needle = "__TACK_SEARCH_DATA__";
+    const char *p = strstr(line, needle);
+    if (p) {
+      fwrite(line, 1u, (size_t)(p - line), f);
+      fputs("DATA", f);
+      fputs(p + strlen(needle), f);
+    } else {
+      fputs(line, f);
+    }
+  }
+  fclose(f);
+  return 0;
+}
+
 static int write_doc_page(const char *out_path, const char *title, const char *nav_inner,
                           const HtmlCfg *hc, const char *md_path) {
   HtmlPage pg;
@@ -7015,19 +7450,29 @@ static int write_doc_page(const char *out_path, const char *title, const char *n
   char *head_assets = 0;
   char *nav = 0;
   char *toc = 0;
+  char *html_rel = 0;
+  MdRenderCtx mctx;
   int rc;
 
   md = read_entire_file(md_path, &n);
   (void)n;
   if (!md) md = xstrdup("");
-  render_markdown_lite(md, &html, &toc);
+  html_rel = doc_md_to_html_rel_alloc(md_path);
+  memset(&mctx, 0, sizeof(mctx));
+  mctx.current_md_rel = md_path;
+  mctx.current_html_rel = html_rel;
+  render_markdown_lite(md, &html, &toc, &mctx);
 
   memset(&pg, 0, sizeof(pg));
   memset(&hctx, 0, sizeof(hctx));
   hctx.html = html;
 
-  head_assets = make_head_assets(hc ? hc->css_href : 0);
-  nav = make_nav_block(nav_inner);
+  {
+    char *search_html = ((hc && hc->js_href && hc->js_href[0]) ? make_doc_search_block(hc->search_prefix ? hc->search_prefix : "") : 0);
+    head_assets = make_head_assets(hc ? hc->css_href : 0, hc ? hc->js_href : 0);
+    nav = make_nav_block(nav_inner, search_html);
+    free(search_html);
+  }
 
   pg.page_title = title;
   pg.project_title = (hc && hc->project_title) ? hc->project_title : "tack";
@@ -7044,6 +7489,7 @@ static int write_doc_page(const char *out_path, const char *title, const char *n
   free(head_assets);
   free(nav);
   free(toc);
+  free(html_rel);
   free(html);
   free(md);
 
@@ -8245,6 +8691,7 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
     memset(&hc, 0, sizeof(hc));
     hc.kind = "doc";
     hc.project_title = "tack";
+    hc.search_prefix = "";
 
     css_href[0] = '\0';
     css_path = choose_css("doc");
@@ -8267,6 +8714,14 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
       hc.css_href = css_href;
     }
 
+    if (g_config_doc_allow_js_search) {
+      tack_copy(css_dst, sizeof(css_dst), docdir);
+      path_join(css_dst, sizeof(css_dst), docdir, "tack_doc_search.js");
+      hc.js_href = "tack_doc_search.js";
+      hc.search_prefix = "";
+      /* js is written after markdown discovery, once we know the document set */
+    }
+
     /* discover docs/ (recursive markdown, optional) */
     if (file_exists("docs") && is_dir_path("docs")) {
       scan_dir_recursive_suffix(&docs_md, "docs", ".md");
@@ -8286,6 +8741,15 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
     for (i = 0; i < root_md.count; i++) {
       char *h = doc_root_html_alloc(root_md.items[i]);
       if (h) sv_push_own(&root_html, h);
+    }
+
+    if (g_config_doc_allow_js_search) {
+      path_join(css_dst, sizeof(css_dst), docdir, "tack_doc_search.js");
+      if (write_doc_search_js(css_dst, &root_md, &root_html, has_docs ? &docs_md : 0, has_docs ? &docs_html : 0) != 0) {
+        fprintf(stderr, "tack: doc: cannot write search script %s\n", css_dst);
+        sv_free(&docs_md); sv_free(&docs_html); sv_free(&root_md); sv_free(&root_html);
+        return 1;
+      }
     }
 
     nav_inner = doc_nav_inner_alloc_dyn("", &root_md, &root_html, has_docs ? &docs_html : 0, 0);
@@ -8344,7 +8808,9 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
         HtmlCfg hc2;
         char *css_rel = 0;
 
+        char *js_rel = 0;
         hc2 = hc;
+        hc2.search_prefix = prefix ? prefix : "";
         if (hc.css_href && hc.css_href[0]) {
           size_t need = strlen(prefix ? prefix : "") + strlen(hc.css_href) + 1u;
           css_rel = (char*)xmalloc(need);
@@ -8353,10 +8819,19 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
           strcat(css_rel, hc.css_href);
           hc2.css_href = css_rel;
         }
+        if (hc.js_href && hc.js_href[0]) {
+          size_t need2 = strlen(prefix ? prefix : "") + strlen(hc.js_href) + 1u;
+          js_rel = (char*)xmalloc(need2);
+          js_rel[0] = '\0';
+          if (prefix && prefix[0]) strcat(js_rel, prefix);
+          strcat(js_rel, hc.js_href);
+          hc2.js_href = js_rel;
+        }
 
         if (verbose) printf("tack: doc: %s\n", out);
         rc2 = write_doc_page(out, title, nav2, &hc2, mdp);
         if (css_rel) free(css_rel);
+        if (js_rel) free(js_rel);
       }
       free(prefix);
       free(nav2);
@@ -8380,9 +8855,12 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
 
       {
         char *nav_inner_index = 0;
-        head_assets = make_head_assets(hc.css_href);
+        char *search_html = 0;
+        head_assets = make_head_assets(hc.css_href, hc.js_href);
         nav_inner_index = doc_nav_inner_alloc_dyn("", &root_md, &root_html, has_docs ? &docs_html : 0, "index.html");
-        nav = make_nav_block(nav_inner_index);
+        search_html = (hc.js_href && hc.js_href[0]) ? make_doc_search_block("") : 0;
+        nav = make_nav_block(nav_inner_index, search_html);
+        free(search_html);
         free(nav_inner_index);
       }
       toc = make_empty_toc_block();

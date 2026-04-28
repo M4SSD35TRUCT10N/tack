@@ -18,7 +18,7 @@ Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASE
 
 ### Aktuell in v0.8.1-dev
 - `tack doc` wird als kleine, strukturiertere und deutlich besser lesbare Offline-Doku weiterentwickelt.
-- Dazu gehören derzeit: strukturiertere Markdown-lite-Ausgabe, bessere Typografie/CSS, seitenbezogene ToC, Current-Page-Markierung und gruppierte Navigation für Unterverzeichnisse unter `docs/`.
+- Dazu gehören derzeit: strukturiertere Markdown-lite-Ausgabe, bessere Typografie/CSS, seitenbezogene ToC, Current-Page-Markierung, gruppierte Navigation für Unterverzeichnisse unter `docs/` und optional eine kleine zuschaltbare JS-Suche über `[doc] allow_js_search = yes`.
 - Unterverzeichnisse unterhalb von `docs/` sind damit nicht nur Ablage, sondern Teil der Dokumentorganisation in Navigation und Index.
 
 ### Aktueller Fokus: Real‑World‑Ports & Stabilität
@@ -171,7 +171,7 @@ Das bleibt bewusst offen, bis die Build‑Basis in der Praxis sitzt.
 
 ### Current work in v0.8.1-dev
 - `tack doc` is being advanced as a small, more structured, and significantly better readable offline documentation output.
-- The current scope includes structured Markdown-lite output, improved typography/CSS, page-local ToC, current-page marking, and grouped navigation for subdirectories below `docs/`.
+- The current scope includes structured Markdown-lite output, improved typography/CSS, page-local ToC, current-page marking, grouped navigation for subdirectories below `docs/`, and an optional small JS search via `[doc] allow_js_search = yes`.
 - Subdirectories below `docs/` are therefore not just storage, but part of the generated documentation organization in navigation and index.
 
 ### Current focus: real-world ports & stability

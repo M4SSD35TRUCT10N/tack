@@ -12,6 +12,7 @@
 - [SPEC 0006 – TAP report foundation / TAP-Report-Grundlage](specs/0006-tap-report-foundation.md)
 - [SPEC 0007 – JUnit XML foundation / JUnit-XML-Grundlage](specs/0007-junit-xml-foundation.md)
 - [SPEC 0008 – tack doc UX foundation / tack-doc-UX-Grundlage](specs/0008-doc-ux-foundation.md)
+- [SPEC 0009 – Optional JS search foundation / Optionale JS-Such-Grundlage](specs/0009-optional-js-search-foundation.md)
 
 ## Guides / Leitfäden
 - [GitHub self-hosted runners – workflow starter / Workflow-Starter](guides/github-self-hosted-runners.md)

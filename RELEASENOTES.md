@@ -15,6 +15,8 @@
 - `tack doc` behandelt Unterverzeichnisse unter `docs/` jetzt als eigene Gruppen in Navigation und Index; `docs/README.md` bleibt unter `Docs`, während Verzeichnisse wie `docs/adr/` und `docs/specs/` als kürzere Gruppen wie `ADR` und `SPEC` dargestellt werden.
 - Behebt relative CSS-Links in `tack doc` für verschachtelte Seiten unter `docs/adr/` und `docs/specs/`, damit die generierten HTML-Seiten wieder die mitgelieferten Styles und den automatischen Hell/Dunkel-Modus übernehmen.
 - Hebt die interne Tool-Version auf `v0.8.1-dev` an, damit `tack version`, `tack init`, BOM/SBOM, DOC und weitere versionierte Ausgaben wieder denselben Stand wie die aktuelle Doku-Linie zeigen.
+- `tack doc` kann jetzt optional eine kleine JS-Suche als Progressive Enhancement erzeugen. Standardmäßig bleibt die Ausgabe no-JS/offline-freundlich; aktiviert wird die Suche über `[doc] allow_js_search = yes` in `tack.ini`.
+- `tack doc` schreibt Markdown-Links zwischen Root-Dokumenten sowie zwischen `docs/README.md`, `docs/adr/`, `docs/specs/` und `docs/guides/` jetzt als korrekte relative HTML-Ziele um, sodass Inline-Links im generierten Inhalt wieder genauso verlässlich funktionieren wie die linke Navigation.
 
 ### v0.8.0-dev
 - Eröffnet die **0.8-Serie** als neue Entwicklungslinie für Grundsatzthemen.
@@ -186,6 +188,7 @@
 - `tack doc` now renders a small structured Markdown view instead of a plain-text-only wrapper: headings, paragraphs, lists, fenced code blocks, inline code, Markdown links, and simple auto-links improve readability without turning tack into a full Markdown engine.
 - `tack doc` now builds a page-local ToC from detected headings, marks the current page in the left navigation, and ships a refreshed doc CSS for better typography, wrapping, spacing, and dark-mode behaviour.
 - `tack doc` now treats subdirectories below `docs/` as their own groups in navigation and index; `docs/README.md` stays under `Docs`, while directories such as `docs/adr/` and `docs/specs/` are rendered as shorter groups like `ADR` and `SPEC`.
+- `tack doc` now rewrites Markdown links between root documents and between `docs/README.md`, `docs/adr/`, `docs/specs/`, and `docs/guides/` to the correct relative HTML targets, so inline links inside generated content are as reliable again as the left navigation.
 - Fixes relative CSS links in `tack doc` for nested pages under `docs/adr/` and `docs/specs/`, so generated HTML pages once again pick up the shipped styles and the automatic light/dark mode.
 - Bumps the internal tool version to `v0.8.1-dev`, so `tack version`, `tack init`, BOM/SBOM, DOC, and other versioned outputs are back in sync with the current documentation line.
 
