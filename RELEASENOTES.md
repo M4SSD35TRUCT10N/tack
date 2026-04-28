@@ -10,6 +10,8 @@
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
 ### v0.8.1-dev
+- Abschluss: `v0.8.1-dev` ist als Doc-UX-/Search-/Polishing-Schritt abgeschlossen; Programmstand, Doku, INI, Templates und SPEC-Status sind für diesen Stand synchronisiert.
+- Prüfung: vollständige lokale Testsuite grün (`TACK_SUMMARY ... status=ok ... total=22 ... failed=0`) sowie C89/Pedantic/Werror-Builds mit GCC und Clang erfolgreich.
 - `tack doc`: Optionales JS-Suchfeld in die Kopfzeile verlegt statt in die linke Navigation.
 - `tack doc`: Generiertes Suchskript korrigiert; die Seitensuche durchsucht jetzt wieder den vollständigen statischen Dokumentindex.
 - `tack doc` rendert jetzt eine kleine, strukturierte Markdown-Ansicht statt eines reinen Plain-Text-Wrappers: Überschriften, Absätze, Listen, fenced code blocks, Inline-Code, Markdown-Links und einfache Auto-Links verbessern die Lesbarkeit, ohne tack in eine vollständige Markdown-Engine zu verwandeln.
@@ -21,6 +23,7 @@
 - `tack doc` schreibt Markdown-Links zwischen Root-Dokumenten sowie zwischen `docs/README.md`, `docs/adr/`, `docs/specs/` und `docs/guides/` jetzt als korrekte relative HTML-Ziele um, sodass Inline-Links im generierten Inhalt wieder genauso verlässlich funktionieren wie die linke Navigation.
 
 ### v0.8.0-dev
+- Abschluss: `v0.8.0-dev` ist als kleiner, erfolgreich geprüfter CI-Grundlagenblock abgeschlossen.
 - Eröffnet die **0.8-Serie** als neue Entwicklungslinie für Grundsatzthemen.
 - Führt `docs/README.md`, `docs/adr/0001-open-v0.8-series.md`, `docs/specs/0001-bilingual-documentation-policy.md` und `docs/specs/0002-ini-first-toolchain-policy-foundation.md` ein.
 - Hebt die interne Tool-Version damals auf `v0.8.0-dev` an, damit `tack version`, `tack init`, BOM/SBOM und weitere versionierte Ausgaben nicht mehr hinter der 0.8-Dokumentation zurückbleiben.
@@ -187,6 +190,8 @@
 > Until then, this file tracks versions/milestones.
 
 ### v0.8.1-dev
+- Closure: `v0.8.1-dev` is complete as the doc UX/search/polish step; implementation state, documentation, INI, templates, and SPEC status are synchronized for this state.
+- Verification: full local test suite passed (`TACK_SUMMARY ... status=ok ... total=22 ... failed=0`) and GCC/Clang C89/pedantic/Werror builds succeeded.
 - `tack doc`: moved the optional JS search box into the header instead of the left navigation.
 - `tack doc`: fixed the generated search script; document search now works again against the full static document index.
 - `tack doc` now renders a small structured Markdown view instead of a plain-text-only wrapper: headings, paragraphs, lists, fenced code blocks, inline code, Markdown links, and simple auto-links improve readability without turning tack into a full Markdown engine.
@@ -197,6 +202,7 @@
 - Bumps the internal tool version to `v0.8.1-dev`, so `tack version`, `tack init`, BOM/SBOM, DOC, and other versioned outputs are back in sync with the current documentation line.
 
 ### v0.8.0-dev
+- Closure: `v0.8.0-dev` is complete as a small, successfully validated CI foundation block.
 - Opens the **0.8 series** as a new development line for foundational work.
 - Introduces `docs/README.md`, `docs/adr/0001-open-v0.8-series.md`, `docs/specs/0001-bilingual-documentation-policy.md`, and `docs/specs/0002-ini-first-toolchain-policy-foundation.md`.
 - Bumped the internal tool version at that time to `v0.8.0-dev`, so `tack version`, `tack init`, BOM/SBOM, and other versioned outputs no longer lagged behind the 0.8 documentation.

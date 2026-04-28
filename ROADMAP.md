@@ -6,7 +6,7 @@ Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASE
 
 ## Deutsch (Roadmap)
 
-### Aktueller Stand: v0.8.1-dev
+### Abgeschlossener Stand: v0.8.1-dev
 - `docs/` ist jetzt der feste Ort für Spezifikationen, Architekturentscheidungen und ergänzende Leitfäden.
 - 0.8 verfolgt bewusst **keine** generische Toolchain-DSL und kein Meta-Buildsystem als Zielbild.
 
@@ -16,10 +16,11 @@ Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASE
 - Die Benutzerführung wurde nachgezogen: Hilfeausgabe und `tack doctor` zeigen Compilerquelle, wirksame Policy und deren Herkunft.
 - Der erste CI-Grundlagenblock ist abgeschlossen: `--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap` und `--report-junit` stehen als kleine, dokumentierte und angenommene Bausteine für lokale Runner bereit.
 
-### Aktuell in v0.8.1-dev
-- `tack doc` wird als kleine, strukturiertere und deutlich besser lesbare Offline-Doku weiterentwickelt.
-- Dazu gehören derzeit: strukturiertere Markdown-lite-Ausgabe, bessere Typografie/CSS, seitenbezogene ToC, Current-Page-Markierung, gruppierte Navigation für Unterverzeichnisse unter `docs/` und optional eine kleine zuschaltbare JS-Suche in der Kopfzeile über `[doc] allow_js_search = yes`.
+### Erledigt in v0.8.1-dev
+- `tack doc` wurde als kleine, strukturiertere und deutlich besser lesbare Offline-Doku weiterentwickelt.
+- Umgesetzt sind: strukturiertere Markdown-lite-Ausgabe, bessere Typografie/CSS, seitenbezogene ToC, Current-Page-Markierung, gruppierte Navigation für Unterverzeichnisse unter `docs/` und optional eine kleine zuschaltbare JS-Suche in der Kopfzeile über `[doc] allow_js_search = yes`.
 - Unterverzeichnisse unterhalb von `docs/` sind damit nicht nur Ablage, sondern Teil der Dokumentorganisation in Navigation und Index.
+- Der Polishing-Durchlauf hat Doku, Programmstand, `tack.ini`, Templates und SPEC-Status für 0.8.1-dev synchronisiert.
 
 ### Aktueller Fokus: Real‑World‑Ports & Stabilität
 Bevor „große“ Releases und Social‑Media‑Ankündigungen kommen, steht eine echte Praxisprüfung an:
@@ -159,7 +160,7 @@ Das bleibt bewusst offen, bis die Build‑Basis in der Praxis sitzt.
 
 ## English (Roadmap)
 
-### Current state: v0.8.1-dev
+### Completed state: v0.8.1-dev
 - `docs/` is now the fixed home for specifications, architecture decisions, and supporting guides.
 - 0.8 explicitly does **not** target a generic toolchain DSL or a meta-build system.
 
@@ -169,10 +170,11 @@ Das bleibt bewusst offen, bis die Build‑Basis in der Praxis sitzt.
 - User-facing guidance was tightened: help output and `tack doctor` now show compiler source, active policy, and policy source.
 - The first CI foundation block is complete: `--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap`, and `--report-junit` are in place as small, documented, and accepted building blocks for local runners.
 
-### Current work in v0.8.1-dev
-- `tack doc` is being advanced as a small, more structured, and significantly better readable offline documentation output.
-- The current scope includes structured Markdown-lite output, improved typography/CSS, page-local ToC, current-page marking, grouped navigation for subdirectories below `docs/`, and an optional small header search via `[doc] allow_js_search = yes`.
+### Completed in v0.8.1-dev
+- `tack doc` was advanced as a small, more structured, and significantly better readable offline documentation output.
+- Implemented scope: structured Markdown-lite output, improved typography/CSS, page-local ToC, current-page marking, grouped navigation for subdirectories below `docs/`, and an optional small header search via `[doc] allow_js_search = yes`.
 - Subdirectories below `docs/` are therefore not just storage, but part of the generated documentation organization in navigation and index.
+- The polishing pass synchronized documentation, implementation state, `tack.ini`, templates, and SPEC status for 0.8.1-dev.
 
 ### Current focus: real-world ports & stability
 Before “big” releases and announcements, tack should be validated against real projects:
@@ -291,12 +293,12 @@ Before “big” releases and announcements, tack should be validated against re
 - `tests/init_scaffold_version_test.c` now covers both the generated `tack.ini` and the default `src/main.c` scaffold so scaffold drift does not slip through again.
 - Internal legacy comment cleaned up: `tackfile.c auto-config (v0.6.0)` was rewritten in version-neutral form to avoid unnecessary drift noise in re-evaluations.
 
-### Erledigt in v0.7.25
-- P0-Fix für die Link-Correctness: Wenn in einem Lauf ein Objekt neu kompiliert oder aus dem Cache restauriert wurde, wird der Link-Schritt jetzt zuverlässig ausgeführt.
-- Zusätzliche `.linkmeta`-Metadatei pro Binary eingeführt, damit stale Binaries auch dann erkannt werden, wenn Zeitstempel ungünstig zusammenfallen oder aus früheren Läufen stammen.
-- Regressionstest `incremental_link_test.c` ergänzt, der die Header-only-Änderung mit absichtlich gleichgezogenen Output-Timestamps nachstellt.
-- Striktes C89/C90 nachgezogen: eingebettete Init-Templates als String-Listen, neuer Regressionstest `strict_c89_compile_test.c` für `-std=c89 -pedantic -Werror`.
-- `tack doctor` zeigt jetzt zusätzlich den Compiler-Fundstatus; verbose DOC-Logging wieder mit sauberen Zeilenumbrüchen.
+### Done in v0.7.25
+- P0 fix for link correctness: when an object is newly compiled or restored from cache in a run, the link step now executes reliably.
+- Added an extra `.linkmeta` metadata file per binary so stale binaries are detected even when timestamps are unfavourable or come from earlier runs.
+- Added regression test `incremental_link_test.c`, covering the header-only change case with intentionally aligned output timestamps.
+- Tightened strict C89/C90 compatibility: embedded init templates are now string lists, with `strict_c89_compile_test.c` covering `-std=c89 -pedantic -Werror`.
+- `tack doctor` now also shows whether the compiler can be found; verbose DOC logging has clean line breaks again.
 
 ### Next sensible steps (v0.7.x ideas)
 - More example repos + “Schema‑F” walkthroughs

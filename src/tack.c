@@ -4321,13 +4321,13 @@ static void config_free(void) {
   ini_overrides_free();
   ini_profile_overrides_free();
   fmt_cfg_free();
-  
+
   free(g_config_default_target);
   g_config_default_target = 0;
   g_config_allow_unsafe_paths = 0;
   free(g_config_compiler); g_config_compiler = 0;
   free(g_config_compiler_policy); g_config_compiler_policy = 0;
-  
+
   free(g_config_doc_template); g_config_doc_template = 0;
   free(g_config_doc_css); g_config_doc_css = 0;
   g_config_doc_allow_js_search = 0;
@@ -5207,15 +5207,15 @@ static void print_help(void) {
 
   puts("Usage:");
   puts("  tack help");
-  puts("  tack version");
+  puts("  tack version | tack --version");
   puts("  tack doctor");
   puts("  tack init");
   puts("  tack new <name>");
   puts("  tack list");
   puts("  tack fmt  [--check] [--diff] [--list] [--rule NAME] [--target NAME] [--no-defaults] [-v] [--strict] [-- PATH...]");
-  puts("  tack build [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE]");
-  puts("  tack run   [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [-- <args...>]");
-  puts("  tack test  [debug|release] [--target NAME] [-v] [--why] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [--report-tap FILE] [--report-junit FILE]");
+  puts("  tack build [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE]");
+  puts("  tack run   [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [-- <args...>]");
+  puts("  tack test  [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [--report-tap FILE] [--report-junit FILE]");
   puts("  tack clean [--cache] [-v]");
   puts("  tack clobber [-v]");
   puts("  tack bom  [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]");
@@ -5257,7 +5257,7 @@ static void print_help(void) {
   puts("  - --strict enables -Wunsupported only for tcc/TinyCC");
   puts("  - target id/bin are safe-token validated by default");
   puts("  - target src must stay repo-relative by default");
-  puts("  - --why prints short \"why rebuild\" diagnostics for compile/link decisions");
+  puts("  - --why/--explain prints short \"why rebuild\" diagnostics for compile/link decisions");
   puts("  - cache    = stored under .tack-cache/ (deps via mtime/size/hash; depfile via size/hash; use --no-cache to disable)");
   puts("  - --ci     = deterministic CI mode with stable TACK_SUMMARY output and unbuffered stdout/stderr");
   puts("  - --events-jsonl FILE = write tack.events.v1 JSONL for build/run/test");
@@ -5565,7 +5565,9 @@ static const char * const TACK_INIT_TEMPLATES_CSS_LINES[] = {
   "  background:var(--codebg);\n",
   "  font-weight:700;\n",
   "}\n",
-  ".doc-search{margin:0 0 .85rem 0}\n",
+  ".doc-search{margin:0 0 .85rem 0;position:relative}\n",
+  ".header-tools{display:flex;align-items:center;min-width:0}\n",
+  ".doc-search-header{margin:0;width:clamp(14rem,32vw,24rem);min-width:0}\n",
   ".doc-search input{\n",
   "  width:100%;\n",
   "  padding:.55rem .7rem;\n",
@@ -5575,6 +5577,7 @@ static const char * const TACK_INIT_TEMPLATES_CSS_LINES[] = {
   "  color:var(--fg);\n",
   "}\n",
   ".search-results{margin-top:.55rem;padding-top:.55rem;border-top:1px solid var(--border)}\n",
+  ".doc-search-header .search-results{position:absolute;top:calc(100% + .35rem);left:0;right:0;margin-top:0;padding:.65rem;border:1px solid var(--border);border-radius:12px;background:var(--bg);box-shadow:var(--shadow);z-index:30;max-height:min(60vh,26rem);overflow:auto}\n",
   ".search-results-list{list-style:none;margin:0;padding:0}\n",
   ".search-results-list li + li{margin-top:.45rem}\n",
   ".search-results-list a{display:block;padding:0;overflow-wrap:anywhere}\n",
@@ -5639,6 +5642,12 @@ static const char * const TACK_INIT_TEMPLATES_CSS_LINES[] = {
   "pre code{background:transparent;padding:0;border-radius:0}\n",
   "table{border-collapse:collapse;width:100%}\n",
   "th,td{border:1px solid var(--border);padding:0.45rem 0.55rem;text-align:left;vertical-align:top}\n",
+  "\n",
+  ".doc-index-groups{display:grid;gap:1rem;margin:1.25rem 0}\n",
+  ".doc-group{border:1px solid var(--border);background:var(--panel);border-radius:10px;padding:.85rem 1rem}\n",
+  ".doc-group h2{margin:0 0 .55rem 0;font-size:1rem;border:0;padding:0}\n",
+  ".doc-group-list{margin:0;padding-left:1.2rem}\n",
+  ".doc-group-list li + li{margin-top:.22rem}\n",
   ".toc{\n",
   "  border:1px dashed var(--border);\n",
   "  background:var(--panel);\n",
@@ -5680,6 +5689,7 @@ static const char * const TACK_INIT_TEMPLATES_CSS_LINES[] = {
   "  }\n",
   "  a{text-decoration:underline}\n",
   "  nav a[aria-current=\"page\"]{background:Highlight;color:HighlightText;outline:2px solid HighlightText;outline-offset:1px}\n",
+  "  .doc-search-header .search-results{box-shadow:none}\n",
   "}\n",
   0
 };
@@ -5763,6 +5773,7 @@ static const char * const TACK_INIT_TEMPLATE_MIN_HTML_LINES[] = {
   "  <div class=\"row\">\n",
   "    <div class=\"brand\">{{TACK_PROJECT_TITLE}}</div>\n",
   "    <div class=\"spacer\"></div>\n",
+  "    <div class=\"header-tools\">{{TACK_HEADER_TOOLS_HTML}}</div>\n",
   "  </div>\n",
   "</header>\n",
   "\n",
@@ -9967,6 +9978,7 @@ int main(int argc, char **argv) {
   argi = 1;
   while (argi < argc) {
     if (streq(argv[argi], "-h") || streq(argv[argi], "--help")) { print_help(); return 0; }
+    if (streq(argv[argi], "--version")) { cmd_version(); return 0; }
     if (streq(argv[argi], "--no-config")) { g_no_config = 1; argi++; continue; }
     if (streq(argv[argi], "--no-code-config")) { g_no_code_config = 1; argi++; continue; }
     if (streq(argv[argi], "--config")) {

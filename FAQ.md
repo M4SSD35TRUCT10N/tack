@@ -1,4 +1,4 @@
-# tack FAQ / FQA (DE/EN) — v0.8.1-dev
+# tack FAQ / FAQ (DE/EN) — v0.8.1-dev
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md) • [Docs](docs/README.md)
 
@@ -6,12 +6,12 @@
 
 ## Deutsch (FAQ)
 
+### Sind `v0.8.0-dev` und `v0.8.1-dev` abgeschlossen?
+Ja. `v0.8.0-dev` ist als kleiner CI-Grundlagenblock abgeschlossen. `v0.8.1-dev` ist als Doc-UX-/Search-/Polishing-Schritt abgeschlossen. Das bedeutet nicht, dass tack insgesamt „fertig“ ist; es heißt nur, dass diese beiden Entwicklungsschritte nicht weiter offen geführt werden. Der nächste Fokus liegt auf Real-World-Ports, Stabilität und weiteren kleineren 0.8.x-Schritten.
 
 ### Müssen Specs von `draft` auf `angenommen` wechseln?
-Ja. Eine Spezifikation sollte nicht unnötig im Entwurfsstatus bleiben, wenn der definierte Umfang bereits umgesetzt und geprüft ist. Für tack heißt das: 0004 bis 0007 sind jetzt **angenommen**, weil die jeweilige Grundlage im Produkt vorhanden ist. Entwurf bleibt nur dort sinnvoll, wo der definierte Umfang noch nicht eingelöst ist oder bewusst offen bleibt.
+Ja. Eine Spezifikation sollte nicht unnötig im Entwurfsstatus bleiben, wenn der definierte Umfang bereits umgesetzt und geprüft ist. Für tack heißt das: 0004 bis 0009 sind jetzt **angenommen**, weil die jeweilige Grundlage im Produkt vorhanden ist. Entwurf bleibt nur dort sinnvoll, wo der definierte Umfang noch nicht eingelöst ist oder bewusst offen bleibt.
 
-### Do specs need to move from `draft` to `accepted`?
-Yes. A specification should not remain in draft unnecessarily once the defined scope has been implemented and validated. For tack, this means 0004 through 0007 are now **accepted** because each foundation exists in the product. Draft remains appropriate only where the defined scope is not yet fulfilled or is intentionally left open.
 
 ### Warum hat die 0.8-Serie mit Doku-Commits begonnen?
 Weil es sich zuerst um eine **Grundsatzänderung im Änderungsprozess** handelte: `docs/` wurde als Ort für Spezifikationen und Architekturentscheidungen eingeführt, damit größere 0.8-Themen erst dort beschrieben und dann in kleinen Code-Schritten umgesetzt werden. Mit Commit 0003 ist nun auch der erste kleine Produktions-Code-Schritt gelandet.
@@ -319,6 +319,12 @@ Marker-Kommentare (`<!-- TACK:BEGIN ... -->`) liefert das eingebaute Layout oder
 ---
 
 ## English (FAQ)
+
+### Are `v0.8.0-dev` and `v0.8.1-dev` complete?
+Yes. `v0.8.0-dev` is complete as the small CI foundation block. `v0.8.1-dev` is complete as the doc UX/search/polish step. This does not mean tack as a whole is “finished”; it means these two development steps are no longer open. The next focus is real-world ports, stability, and further small 0.8.x steps.
+
+### Do specs need to move from `draft` to `accepted`?
+Yes. A specification should not remain in draft unnecessarily once the defined scope has been implemented and validated. For tack, this means SPEC 0004 through SPEC 0009 are now **accepted** because each foundation exists in the product. Draft remains appropriate only where the defined scope is not yet fulfilled or is intentionally left open.
 
 ### Why did the 0.8 series start with documentation commits?
 Because the first change was a **foundational change to the change process itself**: `docs/` became the home for specifications and architecture decisions, so larger 0.8 topics would be described there first and then implemented in small code steps. Commit 0003 now lands the first small production-code step.

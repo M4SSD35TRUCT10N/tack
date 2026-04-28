@@ -9,11 +9,11 @@
 
 **Backlinks:** [FAQ](FAQ.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md) • [Docs](docs/README.md)
 
-> **0.8-Entwicklungshinweis / 0.8 development note**
+> **0.8-Abschlussvermerk / 0.8 closure note**
 >
-> DE: **0.8.0-dev** hat die CI-Grundlagen (`--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap`, `--report-junit`) sowie die Trennung zwischen Compilerwahl und Compiler-Policy geliefert. **0.8.1-dev** erweitert jetzt gezielt `tack doc`: strukturiertere Ausgabe, bessere Typografie/CSS und gruppierte Navigation für Unterverzeichnisse unter `docs/`, ohne tack in eine Web-App oder einen vollständigen Markdown-Konverter zu verwandeln.
+> DE: **0.8.0-dev** ist als kleiner, erfolgreich geprüfter CI-Grundlagenblock abgeschlossen. **0.8.1-dev** ist ebenfalls abgeschlossen und bildet den Doc-UX-/Search-/Polishing-Stand: strukturiertere `tack doc`-Ausgabe, bessere Typografie/CSS, gruppierte Navigation für Unterverzeichnisse unter `docs/`, optional zuschaltbare Header-Suche und synchronisierte Dokumentation/INI/Templates.
 >
-> EN: **0.8.0-dev** delivered the CI foundations (`--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap`, `--report-junit`) plus the split between compiler selection and compiler policy. **0.8.1-dev** now extends `tack doc` in a focused way: more structured output, better typography/CSS, and grouped navigation for subdirectories under `docs/`, without turning tack into a web app or a full Markdown converter.
+> EN: **0.8.0-dev** is closed as a small, successfully validated CI foundation block. **0.8.1-dev** is closed as the doc UX/search/polish state: more structured `tack doc` output, better typography/CSS, grouped navigation for subdirectories under `docs/`, optional header search, and synchronized documentation/INI/templates.
 
 ---
 
@@ -68,8 +68,9 @@ Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/`
 - [SPEC 0006 – TAP-Report-Grundlage](docs/specs/0006-tap-report-foundation.md)
 - [SPEC 0007 – JUnit-XML-Grundlage](docs/specs/0007-junit-xml-foundation.md)
 - [SPEC 0008 – tack-doc-UX-Grundlage](docs/specs/0008-doc-ux-foundation.md)
+- [SPEC 0009 – Optionale JS-Such-Grundlage](docs/specs/0009-optional-js-search-foundation.md)
 
-## Feature-Basis (Implementierungsstand v0.7.25)
+## Abgeschlossener Funktionsstand (v0.8.1-dev)
 
 - Single-File Build-Driver (C89/ANSI‑C)
 - Kein Make/CMake/Ninja
@@ -97,7 +98,7 @@ Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/`
 - `tack sbom`: erzeugt eine **Build-Input-SBOM** in mehreren Formaten (Default: tack‑JSON unter `build/sbom.json`; CycloneDX/SPDX mit formatabhängigen Defaults; `--all-targets` schreibt je Target eine eigene JSON-Datei).
 - `tack doc`: erzeugt offline HTML-Doku in `build/doc/` als kleine strukturierte Markdown-Ansicht für **alle Root-Markdowns** (`*.md` im Projekt-Root) sowie optional alle `docs/**/*.md` (wenn vorhanden), verlinkt die BOM und gruppiert Unterverzeichnisse unter `docs/` in Navigation und Index als eigene Dokumentbereiche.
 - `tack init`: legt bei Bedarf (nicht destruktiv) `templates/` inkl. Standard-CSS/Template sowie eine Start-`tack.ini` an; das Standard-`src/main.c` bleibt bewusst versionsneutral (`Hello from tack!`).
-- Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
+- Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`; `[doc]`: optional `allow_js_search`).
 - Die mitgelieferte `templates/tack_doc.css` enthält jetzt Grundunterstützung für Hell/Dunkel (`prefers-color-scheme`) sowie High-Contrast/Forced-Colors (`prefers-contrast: more`, `forced-colors: active`).
 - HTML-Ausgabe: stabile Template-Ankerpunkte (Marker + IDs) für CSS-Hooks und optionales Post-Processing.
 - **Konfiguration / Layering**:
@@ -288,9 +289,9 @@ Der Unterschied ist bewusst: Nach `tack clean` wird das Depfile vor einem mögli
 - `init` – Grundstruktur & Hello-World erzeugen (legt auch `.gitignore` + Fossil-Ignore an, ohne zu überschreiben)
 - `list` – Targets anzeigen
 - `fmt [--check] [--diff] [--list] [--rule NAME] [--target NAME] [--no-defaults] [-v] [--strict] [-- PATH...]` – Quellcode formatieren (externe Formatter; Policy via `[fmt]`/`[fmt "NAME"]`)
-- `build [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – Target bauen
-- `run [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]` – bauen + ausführen
-- `test [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – bauen + `_test.c` ausführen
+- `build [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE]` – Target bauen
+- `run [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [-- <args...>]` – bauen + ausführen
+- `test [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [--report-tap FILE] [--report-junit FILE]` – bauen + `_test.c` ausführen
 - `clean [--cache]` – Inhalte von `build/` löschen (Ordner bleibt bestehen)
   - `--cache` löscht zusätzlich `.tack-cache/` (Compile-Cache-Reset)
 - `clobber` – `build/` komplett löschen (löscht auch `.tack-cache/`)
@@ -440,6 +441,7 @@ Diese Sektionen sind optional. Ohne Eintrag nutzt tack das eingebaute HTML-Layou
 **Schlüssel**
 - `template = PATH` (HTML-Datei; wird gelesen, Standardlimit max. 1 MiB; nicht in den Output kopiert)
 - `css = PATH` (CSS-Datei; wird in den Output kopiert und per `<link>` eingebunden)
+- `allow_js_search = yes|no` (Default: `no`; optionale kleine Dokumentensuche als Progressive Enhancement)
 
 **Fallback-Regel für BOM:** Wenn `[bom]` nicht gesetzt ist, nutzt BOM die Werte aus `[doc]`.
 
@@ -460,12 +462,13 @@ css      = templates/tack_doc.css
 - `{{TACK_PAGE_TITLE}}` (escaped)
 - `{{TACK_PROJECT_TITLE}}` (escaped)
 - `{{TACK_HEAD_ASSETS}}`
+- `{{TACK_HEADER_TOOLS_HTML}}` (optional; Suchfeld/Tools in der Kopfzeile, wenn aktiviert)
 - `{{TACK_NAV_HTML}}`
 - `{{TACK_TOC_HTML}}`
 - `{{TACK_CONTENT_HTML}}` (**Pflicht**, sonst Fehler)
 - `{{TACK_FOOTER_HTML}}`
 
-Der Output enthält stabile Marker (`<!-- TACK:BEGIN ... -->`) und IDs (`#tack-nav`, `#tack-content`, `#tack-footer`) als Vertrag für CSS-Hooks und optionales Post-Processing.
+Der Output enthält stabile Marker (`<!-- TACK:BEGIN ... -->`) und IDs (`#tack-nav`, `#tack-content`, `#tack-footer`) als Vertrag für CSS-Hooks und optionales Post-Processing. Wenn die optionale Header-Suche genutzt werden soll, muss das Template `{{TACK_HEADER_TOOLS_HTML}}` an geeigneter Stelle ausgeben; ohne diesen Platzhalter bleibt die Suche bewusst unsichtbar.
 
 - **IDs** werden immer von tack erzeugt (NAV/CONTENT/FOOTER).
 - **Marker** kommen entweder aus dem eingebauten Layout **oder** aus dem Template. Wenn ein eigenes Template verwendet wird und Marker benötigt werden, müssen sie im Template um die Platzhalter liegen (die shipped Templates machen das so).
@@ -635,14 +638,19 @@ Starting with the 0.8 series, larger direction changes are additionally recorded
 - [SPEC 0006 – TAP report foundation](docs/specs/0006-tap-report-foundation.md)
 - [SPEC 0007 – JUnit XML foundation](docs/specs/0007-junit-xml-foundation.md)
 - [SPEC 0008 – tack doc UX foundation](docs/specs/0008-doc-ux-foundation.md)
+- [SPEC 0009 – Optional JS search foundation](docs/specs/0009-optional-js-search-foundation.md)
 
 > **CI-Grundlagenblock / CI foundation block**
 >
 > DE: Die Spezifikationen 0004 bis 0007 sind inzwischen **angenommene Grundlagen**, weil `--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap` und `--report-junit` im aktuellen Stand umgesetzt sind.
 >
 > EN: Specifications 0004 through 0007 are now **accepted foundations** because `--ci`, `TACK_SUMMARY`, `--events-jsonl`, `--report-tap`, and `--report-junit` are implemented in the current state.
+>
+> DE: SPEC 0008 und SPEC 0009 sind ebenfalls als 0.8.1-dev-Grundlagen angenommen, weil Markdown-lite-UX, gruppierte Navigation und optionale Header-Suche umgesetzt und getestet sind.
+>
+> EN: SPEC 0008 and SPEC 0009 are also accepted 0.8.1-dev foundations because Markdown-lite UX, grouped navigation, and optional header search are implemented and tested.
 
-## Feature baseline (implementation state: v0.7.25)
+## Completed feature state (v0.8.1-dev)
 
 - single‑file build driver (C89)
 - No Make/CMake/Ninja
@@ -667,7 +675,7 @@ Starting with the 0.8 series, larger direction changes are additionally recorded
 - `tack sbom`: emits a **build-input SBOM** in multiple formats (default: tack JSON at `build/sbom.json`; CycloneDX/SPDX with format-specific defaults; `--all-targets` writes one JSON file per target).
 - `tack doc`: generates offline HTML docs in `build/doc/` as a small structured Markdown view for all root-level `*.md` files plus optional `docs/**/*.md` (if present), links the BOM, and groups subdirectories below `docs/` as separate documentation areas in navigation and index.
 - `tack init`: non-destructively creates `templates/` with default CSS/template and a starter `tack.ini` when needed.
-- Optional: HTML templates + CSS for DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
+- Optional: HTML templates + CSS for DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`; `[doc]`: optional `allow_js_search`).
 - The shipped `templates/tack_doc.css` now includes baseline support for light/dark (`prefers-color-scheme`) plus high-contrast / forced-colors (`prefers-contrast: more`, `forced-colors: active`).
 - HTML output: stable template anchor markers (markers + IDs) for CSS hooks and optional post-processing.
 - **Configuration layering**:
@@ -857,9 +865,9 @@ That distinction is intentional: after `tack clean`, the depfile is rewritten be
 - `init` – create a minimal skeleton + hello world (also provisions `.gitignore` + Fossil ignore, non-destructive)
 - `list` – show targets
 - `fmt [--check] [--diff] [--list] [--rule NAME] [--target NAME] [--no-defaults] [-v] [--strict] [-- PATH...]` – format sources (external formatters; policy via `[fmt]`/`[fmt "NAME"]`)
-- `build [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – build target
-- `run [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [-- <args...>]` – build + run target
-- `test [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core]` – build + execute `_test.c`
+- `build [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE]` – build target
+- `run [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [-- <args...>]` – build + run target
+- `test [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [--report-tap FILE] [--report-junit FILE]` – build + execute `_test.c`
 - `clean [--cache]` – delete contents of `build/` (keep directory)
   - `--cache` also deletes `.tack-cache/` (compile cache reset)
 - `clobber` – delete `build/` entirely (also deletes `.tack-cache/`)
@@ -1020,6 +1028,7 @@ Example:
 [doc]
 template = templates/tack_template_min.html
 css      = templates/tack_doc.css
+allow_js_search = no
 
 [bom]
 ; optional: if omitted, the fallback uses [doc]
@@ -1031,12 +1040,13 @@ css      = templates/tack_doc.css
 - `{{TACK_PAGE_TITLE}}` (escaped)
 - `{{TACK_PROJECT_TITLE}}` (escaped)
 - `{{TACK_HEAD_ASSETS}}`
+- `{{TACK_HEADER_TOOLS_HTML}}` (optional; search/tools in the header when enabled)
 - `{{TACK_NAV_HTML}}`
 - `{{TACK_TOC_HTML}}`
 - `{{TACK_CONTENT_HTML}}` (**required**, otherwise error)
 - `{{TACK_FOOTER_HTML}}`
 
-The output contains stable markers (`<!-- TACK:BEGIN ... -->`) and IDs (`#tack-nav`, `#tack-content`, `#tack-footer`) as a contract for CSS hooks and optional post-processing.
+The output contains stable markers (`<!-- TACK:BEGIN ... -->`) and IDs (`#tack-nav`, `#tack-content`, `#tack-footer`) as a contract for CSS hooks and optional post-processing. If the optional header search should be used, the template must emit `{{TACK_HEADER_TOOLS_HTML}}` at a suitable location; without that placeholder the search intentionally stays invisible.
 
 - **IDs** are always emitted by tack (NAV/CONTENT/FOOTER).
 - **Markers** come either from the built-in layout **or** from the template. If a custom template needs markers, it must wrap the placeholders with them (the shipped templates already do this).
