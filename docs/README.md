@@ -17,3 +17,7 @@
 - [GitHub self-hosted runners – workflow starter / Workflow-Starter](../docs/guides/github-self-hosted-runners.md)
 - [GitHub self-hosted runner installation on Windows x64 / Installation unter Windows x64](../docs/guides/github-runner-install-windows.md)
 - [GitHub self-hosted runner installation on Linux ARM64 / Installation unter Linux ARM64](../docs/guides/github-runner-install-linux-arm64.md)
+
+
+DE: Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokumentgruppen in Navigation und Index behandelt.
+EN: Subdirectories below `docs/` are treated by `tack doc` as separate document groups in navigation and index.

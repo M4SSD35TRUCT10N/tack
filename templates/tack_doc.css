@@ -146,6 +146,12 @@ code{
 pre code{background:transparent;padding:0;border-radius:0}
 table{border-collapse:collapse;width:100%}
 th,td{border:1px solid var(--border);padding:0.45rem 0.55rem;text-align:left;vertical-align:top}
+
+.doc-index-groups{display:grid;gap:1rem;margin:1.25rem 0}
+.doc-group{border:1px solid var(--border);background:var(--panel);border-radius:10px;padding:.85rem 1rem}
+.doc-group h2{margin:0 0 .55rem 0;font-size:1rem;border:0;padding:0}
+.doc-group-list{margin:0;padding-left:1.2rem}
+.doc-group-list li + li{margin-top:.22rem}
 .toc{
   border:1px dashed var(--border);
   background:var(--panel);

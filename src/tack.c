@@ -6688,23 +6688,26 @@ static void md_append_nav_link(MemBuf *b, const char *href, const char *label, i
   mb_append(b, "</a></li>\n");
 }
 
-static char *doc_label_from_rel_alloc(const char *rel_html) {
+static const char *doc_label_after_docs(const char *rel_html) {
   const char *label = rel_html ? rel_html : "doc";
-  const char *ext;
+  if (strncmp(label, "docs/", 5) == 0) label += 5;
+  return label;
+}
+
+static char *doc_humanize_label_alloc(const char *src) {
+  const char *p = src ? src : "doc";
   char *out;
   size_t i, j, n;
-  if (strncmp(label, "docs/", 5) == 0) label += 5;
-  ext = strrchr(label, '.');
-  n = ext ? (size_t)(ext - label) : strlen(label);
+  n = strlen(p);
   out = (char*)xmalloc(n * 3u + 1u);
   j = 0u;
   for (i = 0u; i < n; i++) {
-    char c = label[i];
+    char c = p[i];
     if (c == '/' || c == '\\') {
       out[j++] = ' ';
       out[j++] = '/';
       out[j++] = ' ';
-    } else if (c == '-') {
+    } else if (c == '-' || c == '_') {
       out[j++] = ' ';
     } else {
       out[j++] = c;
@@ -6712,6 +6715,67 @@ static char *doc_label_from_rel_alloc(const char *rel_html) {
   }
   out[j] = '\0';
   return out;
+}
+
+static char *doc_group_key_alloc(const char *rel_html) {
+  const char *label = doc_label_after_docs(rel_html);
+  const char *slash = strchr(label, '/');
+  size_t n;
+  char *out;
+  if (!slash) return xstrdup("");
+  n = (size_t)(slash - label);
+  out = (char*)xmalloc(n + 1u);
+  memcpy(out, label, n);
+  out[n] = '\0';
+  return out;
+}
+
+static char *doc_group_title_alloc(const char *group_key) {
+  const char *k = group_key ? group_key : "";
+  char *out;
+  size_t i, j, n;
+  int cap_next = 1;
+  if (k[0] == '\0') return xstrdup("Docs");
+  if (streq_icase(k, "adr")) return xstrdup("ADR");
+  if (streq_icase(k, "spec") || streq_icase(k, "specs")) return xstrdup("SPEC");
+  n = strlen(k);
+  out = (char*)xmalloc(n + 1u);
+  j = 0u;
+  for (i = 0u; i < n; i++) {
+    char c = k[i];
+    if (c == '-' || c == '_' || c == '/' || c == '\\') {
+      out[j++] = ' ';
+      cap_next = 1;
+      continue;
+    }
+    if (cap_next && isalpha((unsigned char)c)) {
+      out[j++] = (char)toupper((unsigned char)c);
+      cap_next = 0;
+    } else {
+      out[j++] = c;
+      cap_next = 0;
+    }
+  }
+  out[j] = '\0';
+  return out;
+}
+
+static char *doc_entry_label_from_rel_alloc(const char *rel_html) {
+  const char *label = doc_label_after_docs(rel_html);
+  const char *ext;
+  const char *slash = strchr(label, '/');
+  char *out;
+  if (slash) label = slash + 1;
+  ext = strrchr(label, '.');
+  if (ext && streq(ext, ".html")) {
+    char *tmp = (char*)xmalloc((size_t)(ext - label) + 1u);
+    memcpy(tmp, label, (size_t)(ext - label));
+    tmp[ext - label] = '\0';
+    out = doc_humanize_label_alloc(tmp);
+    free(tmp);
+    return out;
+  }
+  return doc_humanize_label_alloc(label);
 }
 
 static char *doc_nav_inner_alloc_dyn(const char *prefix, StrVec *root_md, StrVec *root_html,
@@ -6745,15 +6809,35 @@ static char *doc_nav_inner_alloc_dyn(const char *prefix, StrVec *root_md, StrVec
   }
 
   if (docs_html && docs_html->count > 0) {
-    mb_append(&b, "<h2>Docs</h2>\n<ul class=\"nav-list nav-list-docs\">\n");
+    char *prev_group = 0;
+    int in_list = 0;
     for (i = 0; i < docs_html->count; i++) {
-      char *label = doc_label_from_rel_alloc(docs_html->items[i]);
+      char *group_key = doc_group_key_alloc(docs_html->items[i]);
+      char *group_title = doc_group_title_alloc(group_key);
+      char *label = doc_entry_label_from_rel_alloc(docs_html->items[i]);
       char href[512];
+      int same_group = prev_group && streq(prev_group, group_key);
+
+      if (!same_group) {
+        if (in_list) mb_append(&b, "</ul>\n");
+        mb_append(&b, "<h2>");
+        mb_append_html_escaped(&b, group_title ? group_title : "Docs");
+        mb_append(&b, "</h2>\n<ul class=\"nav-list nav-list-docs\">\n");
+        in_list = 1;
+        if (prev_group) free(prev_group);
+        prev_group = group_key;
+        group_key = 0;
+      }
+
       tack_snprintf(href, sizeof(href), "%s%s", p, docs_html->items[i]);
-      md_append_nav_link(&b, href, label, current_rel && streq(current_rel, docs_html->items[i]));
-      free(label);
+      md_append_nav_link(&b, href, label ? label : "doc", current_rel && streq(current_rel, docs_html->items[i]));
+
+      if (group_key) free(group_key);
+      if (group_title) free(group_title);
+      if (label) free(label);
     }
-    mb_append(&b, "</ul>\n");
+    if (in_list) mb_append(&b, "</ul>\n");
+    if (prev_group) free(prev_group);
   }
 
   return mb_steal(&b);
@@ -7127,7 +7211,6 @@ static void emit_doc_index(FILE *out, void *ctx) {
       free(label);
     }
   } else {
-    /* fallback */
     fputs("<li><a href=\"index.html\">Index</a></li>", out);
   }
 
@@ -7135,32 +7218,39 @@ static void emit_doc_index(FILE *out, void *ctx) {
   fputs("</ul>", out);
 
   if (d && d->docs_html && d->docs_html->count > 0) {
-    fputs("<h2 id=\"docs\">Docs</h2>", out);
-    fputs("<ul>", out);
+    char *prev_group = 0;
+    int in_list = 0;
+    fputs("<div class=\"doc-index-groups\" id=\"docs\">", out);
     for (i = 0; i < d->docs_html->count; i++) {
-      const char *rel = d->docs_html->items[i]; /* e.g. docs/spec/foo.html */
-      const char *label = rel;
-      const char *ext;
-      char tmp[512];
+      char *group_key = doc_group_key_alloc(d->docs_html->items[i]);
+      char *group_title = doc_group_title_alloc(group_key);
+      char *label = doc_entry_label_from_rel_alloc(d->docs_html->items[i]);
+      int same_group = prev_group && streq(prev_group, group_key);
 
-      /* label: strip leading "docs/" and trailing ".html" */
-      if (strncmp(rel, "docs/", 5) == 0) label = rel + 5;
-      ext = strrchr(label, '.');
-      if (ext && streq(ext, ".html")) {
-        size_t n = (size_t)(ext - label);
-        if (n >= sizeof(tmp)) n = sizeof(tmp) - 1;
-        memcpy(tmp, label, n);
-        tmp[n] = '\0';
-        label = tmp;
+      if (!same_group) {
+        if (in_list) fputs("</ul></section>", out);
+        fputs("<section class=\"doc-group\"><h2>", out);
+        write_html_escaped(out, group_title ? group_title : "Docs");
+        fputs("</h2><ul class=\"doc-group-list\">", out);
+        in_list = 1;
+        if (prev_group) free(prev_group);
+        prev_group = group_key;
+        group_key = 0;
       }
 
       fputs("<li><a href=\"", out);
-      write_html_escaped(out, rel);
+      write_html_escaped(out, d->docs_html->items[i]);
       fputs("\">", out);
-      write_html_escaped(out, label);
+      write_html_escaped(out, label ? label : "doc");
       fputs("</a></li>", out);
+
+      if (group_key) free(group_key);
+      if (group_title) free(group_title);
+      if (label) free(label);
     }
-    fputs("</ul>", out);
+    if (in_list) fputs("</ul></section>", out);
+    if (prev_group) free(prev_group);
+    fputs("</div>", out);
   }
 
   fputs("<p>Generated by tack. Pages use a small, structure-aware Markdown view that stays offline-friendly and works without JavaScript.</p>", out);

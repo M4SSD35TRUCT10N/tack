@@ -206,7 +206,11 @@ int main(void) {
     fprintf(stderr, "FAIL read-nested-html\n");
     return 1;
   }
-  if (!contains_text(buf, "aria-current=\"page\">specs / alpha</a>")) {
+  if (!contains_text(buf, "<h2>SPEC</h2>")) {
+    fprintf(stderr, "FAIL docs-group-heading\n");
+    failures++;
+  }
+  if (!contains_text(buf, "aria-current=\"page\">alpha</a>")) {
     fprintf(stderr, "FAIL current-docs-nav\n");
     failures++;
   }

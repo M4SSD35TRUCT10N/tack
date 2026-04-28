@@ -20,6 +20,7 @@ Status: accepted
   - einfache Auto-Links für `http://` und `https://`
 - seitenbezogene ToC aus erkannten Überschriften (bis Ebene 3)
 - deutlich verbesserte Navigation mit Current-Page-Markierung
+- Gruppierung von `docs/`-Unterverzeichnissen als eigene Dokumentgruppen in Navigation und Index (z. B. `ADR`, `SPEC`)
 - CSS-Nachzug für bessere Typografie, Zeilenumbruch, Abstände und Dark-Mode-Tauglichkeit
 
 ### Nicht-Ziele
@@ -29,7 +30,7 @@ Status: accepted
 - keine Abhängigkeit von externen Web-Frameworks
 
 ### Leitplanke
-`tack doc` bleibt **CSS-first**, **offline-fähig** und **klein**. Struktur wird dort erkannt, wo sie für Lesbarkeit und Navigation den größten Nutzen bringt.
+`tack doc` bleibt **CSS-first**, **offline-fähig** und **klein**. Struktur wird dort erkannt, wo sie für Lesbarkeit und Navigation den größten Nutzen bringt. Unterverzeichnisse unterhalb von `docs/` sind dabei nicht nur Ablage, sondern Teil der erzeugten Dokumentorganisation.
 
 ## English
 
@@ -49,6 +50,7 @@ Status: accepted
   - simple auto-links for `http://` and `https://`
 - page-local ToC from detected headings (up to level 3)
 - improved navigation with current-page marking
+- grouping of `docs/` subdirectories as document groups in navigation and index (for example `ADR`, `SPEC`)
 - CSS refresh for typography, wrapping, spacing, and dark-mode friendliness
 
 ### Non-goals
@@ -58,4 +60,4 @@ Status: accepted
 - no dependency on external web frameworks
 
 ### Guardrail
-`tack doc` remains **CSS-first**, **offline-friendly**, and **small**. Structure is recognized only where it provides the biggest benefit for readability and navigation.
+`tack doc` remains **CSS-first**, **offline-friendly**, and **small**. Structure is recognized only where it provides the biggest benefit for readability and navigation. Subdirectories below `docs/` are therefore treated as part of the generated documentation organization, not just as storage.

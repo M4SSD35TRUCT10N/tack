@@ -94,7 +94,7 @@ Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/`
 - Shared Core Code: `src/core/` wird 1× pro Profil gebaut und optional gelinkt
 - `tack bom`: erzeugt ein Build-Manifest (BOM) als `build/bom.md` und `build/bom.html`.
 - `tack sbom`: erzeugt eine **Build-Input-SBOM** in mehreren Formaten (Default: tack‑JSON unter `build/sbom.json`; CycloneDX/SPDX mit formatabhängigen Defaults; `--all-targets` schreibt je Target eine eigene JSON-Datei).
-- `tack doc`: erzeugt offline HTML-Doku in `build/doc/` als kleine strukturierte Markdown-Ansicht für **alle Root-Markdowns** (`*.md` im Projekt-Root) sowie optional alle `docs/**/*.md` (wenn vorhanden) und verlinkt die BOM.
+- `tack doc`: erzeugt offline HTML-Doku in `build/doc/` als kleine strukturierte Markdown-Ansicht für **alle Root-Markdowns** (`*.md` im Projekt-Root) sowie optional alle `docs/**/*.md` (wenn vorhanden), verlinkt die BOM und gruppiert Unterverzeichnisse unter `docs/` in Navigation und Index als eigene Dokumentbereiche.
 - `tack init`: legt bei Bedarf (nicht destruktiv) `templates/` inkl. Standard-CSS/Template sowie eine Start-`tack.ini` an; das Standard-`src/main.c` bleibt bewusst versionsneutral (`Hello from tack!`).
 - Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - Die mitgelieferte `templates/tack_doc.css` enthält jetzt Grundunterstützung für Hell/Dunkel (`prefers-color-scheme`) sowie High-Contrast/Forced-Colors (`prefers-contrast: more`, `forced-colors: active`).
@@ -174,7 +174,7 @@ Siehe dazu insbesondere [SPEC 0003](docs/specs/0003-compiler-selection-and-polic
 
 tack kann drei Arten von „Dokumentation“ ausgeben, die oft verwechselt werden:
 
-- **DOC**: eine kleine, offline-fähige Projekt-Doku-Site aus allen Root-Markdowns (`*.md` im Projekt-Root) sowie optional `docs/**/*.md` (wenn vorhanden).  
+- **DOC**: eine kleine, offline-fähige Projekt-Doku-Site aus allen Root-Markdowns (`*.md` im Projekt-Root) sowie optional `docs/**/*.md` (wenn vorhanden). Unterverzeichnisse unter `docs/` werden dabei als eigene Dokumentgruppen in Navigation und Index behandelt.  
   Das ist **keine** automatisch generierte API-Dokumentation wie bei `cargo doc`/`rustdoc`.
 - **BOM**: ein **Build-Manifest** für das konkrete Build (Targets, Inputs, Flags, Toolchain/OS, Output-Pfade).  
   Zweck: Debugging, Nachvollziehbarkeit, Reproduzierbarkeit.
@@ -663,7 +663,7 @@ Starting with the 0.8 series, larger direction changes are additionally recorded
 - Shared core code: `src/core/` built once per profile, optionally linked
 - `tack bom`: generates a build manifest (BOM) as `build/bom.md` and `build/bom.html`.
 - `tack sbom`: emits a **build-input SBOM** in multiple formats (default: tack JSON at `build/sbom.json`; CycloneDX/SPDX with format-specific defaults; `--all-targets` writes one JSON file per target).
-- `tack doc`: generates offline HTML docs in `build/doc/` as a small structured Markdown view for all root-level `*.md` files plus optional `docs/**/*.md` (if present), and links the BOM.
+- `tack doc`: generates offline HTML docs in `build/doc/` as a small structured Markdown view for all root-level `*.md` files plus optional `docs/**/*.md` (if present), links the BOM, and groups subdirectories below `docs/` as separate documentation areas in navigation and index.
 - `tack init`: non-destructively creates `templates/` with default CSS/template and a starter `tack.ini` when needed.
 - Optional: HTML templates + CSS for DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - The shipped `templates/tack_doc.css` now includes baseline support for light/dark (`prefers-color-scheme`) plus high-contrast / forced-colors (`prefers-contrast: more`, `forced-colors: active`).
@@ -743,7 +743,7 @@ See especially [SPEC 0003](docs/specs/0003-compiler-selection-and-policy-split.m
 
 tack can output three kinds of “documentation” that are often mixed up:
 
-- **DOC**: a small, offline-friendly project documentation site from all root-level `*.md` files plus optional `docs/**/*.md` (if present).  
+- **DOC**: a small, offline-friendly project documentation site from all root-level `*.md` files plus optional `docs/**/*.md` (if present). Subdirectories below `docs/` are treated as separate document groups in navigation and index.  
   This is **not** automatically generated API documentation like `cargo doc`/`rustdoc`.
 - **BOM**: a **build manifest** for a specific build (targets, inputs, flags, toolchain/OS, output paths).  
   Purpose: debugging, traceability, reproducibility.
