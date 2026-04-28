@@ -10,6 +10,8 @@
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
 ### v0.8.0-dev
+- `tack doc` renders a small structure-aware Markdown view instead of a plain-text-only wrapper: headings, paragraphs, lists, fenced code blocks, inline code, Markdown links, and simple auto-links improve readability without turning `tack` into a full Markdown engine.
+- `tack doc` now builds a page-local ToC from detected headings, marks the current page in the left navigation, and ships a refreshed doc CSS for better typography, wrapping, spacing, and dark-mode behaviour.
 - Eröffnet die **0.8-Serie** als neue Entwicklungslinie für Grundsatzthemen.
 - Führt `docs/README.md`, `docs/adr/0001-open-v0.8-series.md`, `docs/specs/0001-bilingual-documentation-policy.md` und `docs/specs/0002-ini-first-toolchain-policy-foundation.md` ein.
 - Hebt die interne Tool-Version jetzt ebenfalls auf `v0.8.0-dev` an, damit `tack version`, `tack init`, BOM/SBOM und weitere versionierte Ausgaben nicht mehr hinter der 0.8-Dokumentation zurückbleiben.
@@ -176,6 +178,8 @@
 > Until then, this file tracks versions/milestones.
 
 ### v0.8.0-dev
+- `tack doc` renders a small structure-aware Markdown view instead of a plain-text-only wrapper: headings, paragraphs, lists, fenced code blocks, inline code, Markdown links, and simple auto-links improve readability without turning `tack` into a full Markdown engine.
+- `tack doc` now builds a page-local ToC from detected headings, marks the current page in the left navigation, and ships a refreshed doc CSS for better typography, wrapping, spacing, and dark-mode behaviour.
 - Opens the **0.8 series** as the new development line for foundational topics.
 - Introduces `docs/README.md`, `docs/adr/0001-open-v0.8-series.md`, `docs/specs/0001-bilingual-documentation-policy.md`, and `docs/specs/0002-ini-first-toolchain-policy-foundation.md`.
 - Bumps the internal tool version to `v0.8.0-dev` as well, so `tack version`, `tack init`, BOM/SBOM, and other versioned outputs no longer lag behind the 0.8 documentation.

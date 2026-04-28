@@ -11,6 +11,7 @@
 - [SPEC 0005 – Events JSONL foundation / Events-JSONL-Grundlage](../docs/specs/0005-events-jsonl-foundation.md)
 - [SPEC 0006 – TAP report foundation / TAP-Report-Grundlage](../docs/specs/0006-tap-report-foundation.md)
 - [SPEC 0007 – JUnit XML foundation / JUnit-XML-Grundlage](../docs/specs/0007-junit-xml-foundation.md)
+- [SPEC 0008 – tack doc UX foundation](../docs/specs/0008-doc-ux-foundation.md)
 
 ## Guides / Leitfäden
 - [GitHub self-hosted runners – workflow starter / Workflow-Starter](../docs/guides/github-self-hosted-runners.md)

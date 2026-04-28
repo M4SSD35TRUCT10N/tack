@@ -94,7 +94,7 @@ Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/`
 - Shared Core Code: `src/core/` wird 1× pro Profil gebaut und optional gelinkt
 - `tack bom`: erzeugt ein Build-Manifest (BOM) als `build/bom.md` und `build/bom.html`.
 - `tack sbom`: erzeugt eine **Build-Input-SBOM** in mehreren Formaten (Default: tack‑JSON unter `build/sbom.json`; CycloneDX/SPDX mit formatabhängigen Defaults; `--all-targets` schreibt je Target eine eigene JSON-Datei).
-- `tack doc`: erzeugt offline HTML-Doku in `build/doc/` (Wrapper um Markdown) für **alle Root-Markdowns** (`*.md` im Projekt-Root) sowie optional alle `docs/**/*.md` (wenn vorhanden) und verlinkt die BOM.
+- `tack doc`: erzeugt offline HTML-Doku in `build/doc/` als kleine strukturierte Markdown-Ansicht für **alle Root-Markdowns** (`*.md` im Projekt-Root) sowie optional alle `docs/**/*.md` (wenn vorhanden) und verlinkt die BOM.
 - `tack init`: legt bei Bedarf (nicht destruktiv) `templates/` inkl. Standard-CSS/Template sowie eine Start-`tack.ini` an; das Standard-`src/main.c` bleibt bewusst versionsneutral (`Hello from tack!`).
 - Optional: HTML-Templates + CSS für DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - Die mitgelieferte `templates/tack_doc.css` enthält jetzt Grundunterstützung für Hell/Dunkel (`prefers-color-scheme`) sowie High-Contrast/Forced-Colors (`prefers-contrast: more`, `forced-colors: active`).
@@ -632,6 +632,7 @@ Starting with the 0.8 series, larger direction changes are additionally recorded
 - [SPEC 0005 – Events JSONL foundation](docs/specs/0005-events-jsonl-foundation.md)
 - [SPEC 0006 – TAP report foundation](docs/specs/0006-tap-report-foundation.md)
 - [SPEC 0007 – JUnit XML foundation](docs/specs/0007-junit-xml-foundation.md)
+- [SPEC 0008 – tack doc UX foundation](docs/specs/0008-doc-ux-foundation.md)
 
 > **CI-Grundlagenblock / CI foundation block**
 >
@@ -662,7 +663,7 @@ Starting with the 0.8 series, larger direction changes are additionally recorded
 - Shared core code: `src/core/` built once per profile, optionally linked
 - `tack bom`: generates a build manifest (BOM) as `build/bom.md` and `build/bom.html`.
 - `tack sbom`: emits a **build-input SBOM** in multiple formats (default: tack JSON at `build/sbom.json`; CycloneDX/SPDX with format-specific defaults; `--all-targets` writes one JSON file per target).
-- `tack doc`: generates offline HTML docs in `build/doc/` (wrapper around Markdown) for all root-level `*.md` files plus optional `docs/**/*.md` (if present), and links the BOM.
+- `tack doc`: generates offline HTML docs in `build/doc/` as a small structured Markdown view for all root-level `*.md` files plus optional `docs/**/*.md` (if present), and links the BOM.
 - `tack init`: non-destructively creates `templates/` with default CSS/template and a starter `tack.ini` when needed.
 - Optional: HTML templates + CSS for DOC/BOM via `tack.ini` (`[doc]`/`[bom]`: `template`, `css`).
 - The shipped `templates/tack_doc.css` now includes baseline support for light/dark (`prefers-color-scheme`) plus high-contrast / forced-colors (`prefers-contrast: more`, `forced-colors: active`).

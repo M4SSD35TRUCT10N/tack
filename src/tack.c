@@ -5467,67 +5467,195 @@ static const char *FOSSIL_IGNORE_FULL_LINES[] = {
 /* --------------------------- init templates --------------------------- */
 
 static const char * const TACK_INIT_TEMPLATES_CSS_LINES[] = {
-  "/* tack_doc.css - minimal, CSS-first, offline-friendly */\n",
+  "/* tack_doc.css — structured, CSS-first, offline-friendly */\n",
   ":root{\n",
-  "  --bg:#ffffff; --fg:#111111; --muted:#555555; --border:#e6e6e6;\n",
-  "  --link:#0b57d0; --codebg:#f6f6f6;\n",
-  "  --maxw: 1100px; --gap: 1rem; --radius: 10px;\n",
+  "  --bg:#ffffff;\n",
+  "  --fg:#111111;\n",
+  "  --muted:#5b6472;\n",
+  "  --border:#dfe5ec;\n",
+  "  --panel:#f7f9fc;\n",
+  "  --link:#0b57d0;\n",
+  "  --codebg:#f3f5f8;\n",
+  "  --shadow:0 1px 2px rgba(0,0,0,.05);\n",
+  "  --maxw: 1200px;\n",
+  "  --gap: 1rem;\n",
+  "  --radius: 12px;\n",
   "  --sans: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;\n",
   "  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, \"Liberation Mono\", monospace;\n",
   "}\n",
   "@media (prefers-color-scheme: dark){\n",
   "  :root{\n",
-  "    --bg:#0f1115; --fg:#e8e8e8; --muted:#b7b7b7; --border:#2a2f3a;\n",
-  "    --link:#7aa2ff; --codebg:#161a22;\n",
+  "    --bg:#0f1115;\n",
+  "    --fg:#e8e8e8;\n",
+  "    --muted:#aeb7c4;\n",
+  "    --border:#2a313c;\n",
+  "    --panel:#141922;\n",
+  "    --link:#8db1ff;\n",
+  "    --codebg:#171d27;\n",
+  "    --shadow:none;\n",
   "  }\n",
   "}\n",
   "*{box-sizing:border-box}\n",
-  "html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--sans);line-height:1.55}\n",
+  "html,body{\n",
+  "  margin:0;\n",
+  "  padding:0;\n",
+  "  background:var(--bg);\n",
+  "  color:var(--fg);\n",
+  "  font-family:var(--sans);\n",
+  "  line-height:1.65;\n",
+  "}\n",
   "a{color:var(--link);text-decoration:none}\n",
   "a:hover{text-decoration:underline}\n",
-  "a:focus-visible{outline:2px solid var(--link);outline-offset:2px;text-decoration:underline}\n",
-  "header{border-bottom:1px solid var(--border);padding:0.75rem 1rem;position:sticky;top:0;background:var(--bg);z-index:5}\n",
-  "header .row{max-width:var(--maxw);margin:0 auto;display:flex;gap:var(--gap);align-items:center}\n",
-  "header .brand{font-weight:700}\n",
-  "header .spacer{flex:1}\n",
-  "header input[type=\"search\"]{\n",
-  "  width:min(420px, 46vw);\n",
-  "  padding:0.45rem 0.6rem;border:1px solid var(--border);border-radius:8px;\n",
-  "  background:var(--bg);color:var(--fg);\n",
+  ":focus-visible{outline:2px solid currentColor;outline-offset:2px}\n",
+  "header{\n",
+  "  border-bottom:1px solid var(--border);\n",
+  "  padding:0.85rem 1rem;\n",
+  "  position:sticky;\n",
+  "  top:0;\n",
+  "  background:color-mix(in srgb, var(--bg) 92%, transparent);\n",
+  "  backdrop-filter:saturate(140%) blur(6px);\n",
+  "  z-index:5;\n",
   "}\n",
-  "main.wrap{max-width:var(--maxw);margin:0 auto;display:grid;grid-template-columns: 280px 1fr;gap:var(--gap);padding:1rem}\n",
-  "nav{border:1px solid var(--border);border-radius:var(--radius);padding:0.75rem;max-height: calc(100vh - 7rem);overflow:auto}\n",
-  "nav h2{margin:0 0 0.5rem 0;font-size:1rem}\n",
+  "header .row{max-width:var(--maxw);margin:0 auto;display:flex;gap:var(--gap);align-items:center}\n",
+  "header .brand{font-weight:700;letter-spacing:.01em}\n",
+  "header .spacer{flex:1}\n",
+  "main.wrap{\n",
+  "  max-width:var(--maxw);\n",
+  "  margin:0 auto;\n",
+  "  display:grid;\n",
+  "  grid-template-columns:300px minmax(0,1fr);\n",
+  "  gap:var(--gap);\n",
+  "  padding:1rem;\n",
+  "  align-items:start;\n",
+  "}\n",
+  "nav{\n",
+  "  border:1px solid var(--border);\n",
+  "  background:var(--panel);\n",
+  "  border-radius:var(--radius);\n",
+  "  box-shadow:var(--shadow);\n",
+  "  padding:0.9rem;\n",
+  "  max-height:calc(100vh - 7rem);\n",
+  "  overflow:auto;\n",
+  "}\n",
+  "nav h2{\n",
+  "  margin:.2rem 0 .55rem 0;\n",
+  "  font-size:.88rem;\n",
+  "  text-transform:uppercase;\n",
+  "  letter-spacing:.04em;\n",
+  "  color:var(--muted);\n",
+  "}\n",
+  "nav h2:not(:first-child){margin-top:1rem}\n",
   "nav ul{list-style:none;margin:0;padding:0}\n",
-  "nav li{margin:0.2rem 0}\n",
-  "nav a{display:block;padding:0.25rem 0.35rem;border-radius:6px}\n",
-  "nav a[aria-current=\"page\"]{background:var(--codebg);font-weight:600}\n",
-  "article{border:1px solid var(--border);border-radius:var(--radius);padding:1rem;min-width:0}\n",
-  "article h1{margin-top:0}\n",
+  "nav li{margin:0}\n",
+  "nav a{\n",
+  "  display:block;\n",
+  "  padding:0.38rem 0.5rem;\n",
+  "  border-radius:8px;\n",
+  "  overflow-wrap:anywhere;\n",
+  "}\n",
+  "nav a[aria-current=\"page\"]{\n",
+  "  background:var(--codebg);\n",
+  "  font-weight:700;\n",
+  "}\n",
+  "article{\n",
+  "  border:1px solid var(--border);\n",
+  "  background:var(--bg);\n",
+  "  border-radius:var(--radius);\n",
+  "  box-shadow:var(--shadow);\n",
+  "  padding:1.2rem 1.25rem;\n",
+  "  min-width:0;\n",
+  "}\n",
+  "article > :first-child{margin-top:0}\n",
+  "article > :last-child{margin-bottom:0}\n",
+  "article p,\n",
+  "article li,\n",
+  "article td,\n",
+  "article th,\n",
+  "article h1,\n",
+  "article h2,\n",
+  "article h3,\n",
+  "article h4,\n",
+  "article h5,\n",
+  "article h6{\n",
+  "  overflow-wrap:anywhere;\n",
+  "  word-break:normal;\n",
+  "}\n",
+  "article h1,\n",
+  "article h2,\n",
+  "article h3,\n",
+  "article h4,\n",
+  "article h5,\n",
+  "article h6{\n",
+  "  line-height:1.25;\n",
+  "  scroll-margin-top:5rem;\n",
+  "}\n",
+  "article h1{font-size:2rem;margin:0 0 1rem 0}\n",
+  "article h2{font-size:1.55rem;margin:2rem 0 .8rem 0;padding-top:.2rem;border-top:1px solid var(--border)}\n",
+  "article h3{font-size:1.2rem;margin:1.5rem 0 .65rem 0}\n",
+  "article h4,\n",
+  "article h5,\n",
+  "article h6{font-size:1rem;margin:1.25rem 0 .5rem 0}\n",
+  "article p{margin:.85rem 0}\n",
+  "article ul,\n",
+  "article ol{margin:.85rem 0;padding-left:1.4rem}\n",
+  "article li + li{margin-top:.3rem}\n",
   "pre,code{font-family:var(--mono)}\n",
-  "pre{background:var(--codebg);padding:0.75rem;border-radius:8px;overflow:auto;border:1px solid var(--border)}\n",
-  "code{background:var(--codebg);padding:0.1rem 0.25rem;border-radius:6px}\n",
+  "pre{\n",
+  "  background:var(--codebg);\n",
+  "  padding:0.85rem 1rem;\n",
+  "  border-radius:10px;\n",
+  "  overflow:auto;\n",
+  "  border:1px solid var(--border);\n",
+  "}\n",
+  "code{\n",
+  "  background:var(--codebg);\n",
+  "  padding:0.1rem 0.28rem;\n",
+  "  border-radius:6px;\n",
+  "}\n",
+  "pre code{background:transparent;padding:0;border-radius:0}\n",
   "table{border-collapse:collapse;width:100%}\n",
-  "th,td{border:1px solid var(--border);padding:0.4rem 0.5rem;text-align:left;vertical-align:top}\n",
-  "aside.toc{border:1px dashed var(--border);border-radius:var(--radius);padding:0.75rem;margin:0 0 1rem 0;color:var(--muted)}\n",
+  "th,td{border:1px solid var(--border);padding:0.45rem 0.55rem;text-align:left;vertical-align:top}\n",
+  ".toc{\n",
+  "  border:1px dashed var(--border);\n",
+  "  background:var(--panel);\n",
+  "  border-radius:var(--radius);\n",
+  "  padding:0.85rem .95rem;\n",
+  "  margin:0 0 1rem 0;\n",
+  "}\n",
+  ".toc h2{margin:0 0 .55rem 0;font-size:1rem}\n",
+  ".toc-list{list-style:none;margin:0;padding:0}\n",
+  ".toc-list li + li{margin-top:.22rem}\n",
+  ".toc-list .toc-l2{padding-left:.75rem}\n",
+  ".toc-list .toc-l3{padding-left:1.5rem}\n",
   "footer{max-width:var(--maxw);margin:0 auto;padding:1rem;color:var(--muted);border-top:1px solid var(--border)}\n",
   "@media (max-width: 980px){\n",
+  "  header{position:static;backdrop-filter:none}\n",
   "  main.wrap{grid-template-columns:1fr}\n",
   "  nav{max-height:none}\n",
   "}\n",
-  "@media (prefers-contrast: more){\n",
-  "  a{text-decoration:underline}\n",
-  "  nav a[aria-current=\"page\"]{outline:2px solid currentColor}\n",
-  "}\n",
-  "@media (forced-colors: active){\n",
-  "  *{forced-color-adjust:auto}\n",
-  "  a{text-decoration:underline}\n",
-  "  nav a[aria-current=\"page\"]{outline:2px solid LinkText}\n",
-  "}\n",
   "@media print{\n",
   "  header, nav{display:none !important}\n",
-  "  article{border:none}\n",
+  "  article{border:none;box-shadow:none;padding:0}\n",
   "  a{text-decoration:underline;color:#000}\n",
+  "}\n",
+  "@media (prefers-contrast: more){\n",
+  "  a{text-decoration:underline}\n",
+  "  header,nav,article,pre,table,th,td,.toc,footer{border-width:2px}\n",
+  "  nav a[aria-current=\"page\"]{outline:2px solid currentColor;outline-offset:1px}\n",
+  "}\n",
+  "@media (forced-colors: active){\n",
+  "  :root{\n",
+  "    --bg:Canvas;\n",
+  "    --fg:CanvasText;\n",
+  "    --muted:GrayText;\n",
+  "    --border:ButtonText;\n",
+  "    --panel:Canvas;\n",
+  "    --link:LinkText;\n",
+  "    --codebg:Canvas;\n",
+  "    --shadow:none;\n",
+  "  }\n",
+  "  a{text-decoration:underline}\n",
+  "  nav a[aria-current=\"page\"]{background:Highlight;color:HighlightText;outline:2px solid HighlightText;outline-offset:1px}\n",
   "}\n",
   0
 };
@@ -6311,25 +6439,495 @@ typedef struct {
   const char *kind;          /* "doc" or "bom" */
   const char *project_title; /* optional; escaped in template */
   const char *css_href;      /* relative href for generated page (copied to outdir) */
-  const char *nav_inner;     /* inner links (a-tags) */
+  const char *nav_inner;     /* inner links (HTML fragment) */
 } HtmlCfg;
 
 typedef struct {
-  char *md; /* owned; freed by caller */
-} MdCtx;
+  char *html; /* owned; freed by caller */
+} HtmlFragCtx;
 
-static void emit_md_pre(FILE *out, void *ctx) {
-  MdCtx *m = (MdCtx*)ctx;
-  fputs("<main id=\"tack-content\"><pre>", out);
-  if (m && m->md) write_html_escaped(out, m->md);
-  fputs("</pre></main>\n", out);
+typedef struct {
+  char *buf;
+  size_t len;
+  size_t cap;
+} MemBuf;
+
+static void mb_init(MemBuf *b) {
+  b->buf = 0;
+  b->len = 0u;
+  b->cap = 0u;
 }
 
-static int write_doc_page(const char *out_path, const char *title, const char *nav_inner, const HtmlCfg *hc, const char *md_path) {
+static void mb_reserve(MemBuf *b, size_t need_extra) {
+  size_t need;
+  size_t ncap;
+  if (!b) return;
+  need = b->len + need_extra + 1u;
+  if (need <= b->cap) return;
+  ncap = b->cap ? b->cap : 256u;
+  while (ncap < need) {
+    if (ncap > ((size_t)-1) / 2u) tack_die("buffer overflow");
+    ncap *= 2u;
+  }
+  b->buf = (char*)xrealloc(b->buf, ncap);
+  b->cap = ncap;
+}
+
+static void mb_append_n(MemBuf *b, const char *s, size_t n) {
+  if (!b || !s || n == 0u) return;
+  mb_reserve(b, n);
+  memcpy(b->buf + b->len, s, n);
+  b->len += n;
+  b->buf[b->len] = '\0';
+}
+
+static void mb_append(MemBuf *b, const char *s) {
+  if (!s) return;
+  mb_append_n(b, s, strlen(s));
+}
+
+static void mb_append_ch(MemBuf *b, int c) {
+  char ch = (char)c;
+  mb_append_n(b, &ch, 1u);
+}
+
+static void mb_append_html_escaped_n(MemBuf *b, const char *s, size_t n) {
+  size_t i;
+  if (!b || !s) return;
+  for (i = 0u; i < n; i++) {
+    unsigned char c = (unsigned char)s[i];
+    if (c == '&') mb_append(b, "&amp;");
+    else if (c == '<') mb_append(b, "&lt;");
+    else if (c == '>') mb_append(b, "&gt;");
+    else if (c == '"') mb_append(b, "&quot;");
+    else mb_append_ch(b, (int)c);
+  }
+}
+
+static void mb_append_html_escaped(MemBuf *b, const char *s) {
+  if (!s) return;
+  mb_append_html_escaped_n(b, s, strlen(s));
+}
+
+static char *mb_steal(MemBuf *b) {
+  char *out;
+  if (!b) return 0;
+  if (!b->buf) return xstrdup("");
+  out = b->buf;
+  b->buf = 0;
+  b->len = 0u;
+  b->cap = 0u;
+  return out;
+}
+
+static void mb_free(MemBuf *b) {
+  if (!b) return;
+  free(b->buf);
+  b->buf = 0;
+  b->len = 0u;
+  b->cap = 0u;
+}
+
+static int md_is_blank(const char *s) {
+  const unsigned char *p = (const unsigned char*)(s ? s : "");
+  while (*p) {
+    if (*p != ' ' && *p != '\t' && *p != '\r' && *p != '\n') return 0;
+    p++;
+  }
+  return 1;
+}
+
+static void md_trim_inplace(char *s) {
+  char *p;
+  char *e;
+  if (!s) return;
+  p = s;
+  while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+  if (p != s) memmove(s, p, strlen(p) + 1u);
+  e = s + strlen(s);
+  while (e > s && (e[-1] == ' ' || e[-1] == '\t' || e[-1] == '\r' || e[-1] == '\n')) e--;
+  *e = '\0';
+}
+
+static int md_parse_heading(const char *line, int *level_out, const char **text_out) {
+  const char *p = line;
+  int level = 0;
+  while (*p == ' ' || *p == '\t') p++;
+  while (*p == '#' && level < 6) { level++; p++; }
+  if (level == 0 || *p != ' ') return 0;
+  while (*p == ' ') p++;
+  if (level_out) *level_out = level;
+  if (text_out) *text_out = p;
+  return 1;
+}
+
+static int md_parse_ul_item(const char *line, const char **text_out) {
+  const char *p = line;
+  while (*p == ' ' || *p == '\t') p++;
+  if ((p[0] == '-' || p[0] == '*' || p[0] == '+') && p[1] == ' ') {
+    if (text_out) *text_out = p + 2;
+    return 1;
+  }
+  return 0;
+}
+
+static int md_parse_ol_item(const char *line, const char **text_out) {
+  const char *p = line;
+  while (*p == ' ' || *p == '\t') p++;
+  if (!isdigit((unsigned char)*p)) return 0;
+  while (isdigit((unsigned char)*p)) p++;
+  if (p[0] == '.' && p[1] == ' ') {
+    if (text_out) *text_out = p + 2;
+    return 1;
+  }
+  return 0;
+}
+
+static int md_is_fence(const char *line) {
+  const char *p = line;
+  while (*p == ' ' || *p == '\t') p++;
+  return strncmp(p, "```", 3) == 0;
+}
+
+static int md_is_url_start(const char *p) {
+  return (strncmp(p, "https://", 8) == 0 || strncmp(p, "http://", 7) == 0);
+}
+
+static void md_append_slug(MemBuf *b, const char *text, int ordinal) {
+  const unsigned char *p = (const unsigned char*)(text ? text : "");
+  int prev_dash = 0;
+  char num[32];
+  while (*p) {
+    unsigned char c = *p++;
+    if (isalnum(c)) {
+      mb_append_ch(b, (int)tolower(c));
+      prev_dash = 0;
+    } else if (!prev_dash) {
+      mb_append_ch(b, '-');
+      prev_dash = 1;
+    }
+  }
+  while (b->len > 0u && b->buf[b->len - 1u] == '-') {
+    b->len--;
+    b->buf[b->len] = '\0';
+  }
+  if (b->len == 0u) mb_append(b, "section");
+  sprintf(num, "-%d", ordinal);
+  mb_append(b, num);
+}
+
+static void md_emit_inline(MemBuf *out, const char *text) {
+  const char *p = text ? text : "";
+  while (*p) {
+    if (*p == '`') {
+      const char *q = strchr(p + 1, '`');
+      if (q) {
+        mb_append(out, "<code>");
+        mb_append_html_escaped_n(out, p + 1, (size_t)(q - (p + 1)));
+        mb_append(out, "</code>");
+        p = q + 1;
+        continue;
+      }
+    }
+    if (*p == '[') {
+      const char *mid = strchr(p + 1, ']');
+      if (mid && mid[1] == '(') {
+        const char *end = strchr(mid + 2, ')');
+        if (end) {
+          mb_append(out, "<a href=\"");
+          mb_append_html_escaped_n(out, mid + 2, (size_t)(end - (mid + 2)));
+          mb_append(out, "\">");
+          mb_append_html_escaped_n(out, p + 1, (size_t)(mid - (p + 1)));
+          mb_append(out, "</a>");
+          p = end + 1;
+          continue;
+        }
+      }
+    }
+    if (md_is_url_start(p)) {
+      const char *q = p;
+      while (*q && !isspace((unsigned char)*q) && *q != '<' && *q != '>' && *q != '"') q++;
+      mb_append(out, "<a href=\"");
+      mb_append_html_escaped_n(out, p, (size_t)(q - p));
+      mb_append(out, "\">");
+      mb_append_html_escaped_n(out, p, (size_t)(q - p));
+      mb_append(out, "</a>");
+      p = q;
+      continue;
+    }
+    mb_append_html_escaped_n(out, p, 1u);
+    p++;
+  }
+}
+
+static void md_flush_paragraph(MemBuf *html, MemBuf *para) {
+  if (!para || para->len == 0u) return;
+  mb_append(html, "<p>");
+  md_emit_inline(html, para->buf);
+  mb_append(html, "</p>\n");
+  para->len = 0u;
+  if (para->buf) para->buf[0] = '\0';
+}
+
+static void md_close_list(MemBuf *html, int *list_type) {
+  if (!html || !list_type || *list_type == 0) return;
+  if (*list_type == 1) mb_append(html, "</ul>\n");
+  else if (*list_type == 2) mb_append(html, "</ol>\n");
+  *list_type = 0;
+}
+
+static char *doc_root_label_alloc(const char *md_root);
+
+static void md_append_nav_link(MemBuf *b, const char *href, const char *label, int current) {
+  mb_append(b, "<li><a href=\"");
+  mb_append_html_escaped(b, href ? href : "");
+  mb_append(b, "\"");
+  if (current) mb_append(b, " aria-current=\"page\"");
+  mb_append(b, ">");
+  mb_append_html_escaped(b, label ? label : "");
+  mb_append(b, "</a></li>\n");
+}
+
+static char *doc_label_from_rel_alloc(const char *rel_html) {
+  const char *label = rel_html ? rel_html : "doc";
+  const char *ext;
+  char *out;
+  size_t i, j, n;
+  if (strncmp(label, "docs/", 5) == 0) label += 5;
+  ext = strrchr(label, '.');
+  n = ext ? (size_t)(ext - label) : strlen(label);
+  out = (char*)xmalloc(n * 3u + 1u);
+  j = 0u;
+  for (i = 0u; i < n; i++) {
+    char c = label[i];
+    if (c == '/' || c == '\\') {
+      out[j++] = ' ';
+      out[j++] = '/';
+      out[j++] = ' ';
+    } else if (c == '-') {
+      out[j++] = ' ';
+    } else {
+      out[j++] = c;
+    }
+  }
+  out[j] = '\0';
+  return out;
+}
+
+static char *doc_nav_inner_alloc_dyn(const char *prefix, StrVec *root_md, StrVec *root_html,
+                                     StrVec *docs_html, const char *current_rel) {
+  MemBuf b;
+  int i;
+  const char *p = prefix ? prefix : "";
+  mb_init(&b);
+  mb_append(&b, "<h2>Navigation</h2>\n<ul class=\"nav-list nav-list-primary\">\n");
+  {
+    char tmp[512];
+    tack_snprintf(tmp, sizeof(tmp), "%sindex.html", p);
+    md_append_nav_link(&b, tmp, "Overview", current_rel && streq(current_rel, "index.html"));
+    tack_snprintf(tmp, sizeof(tmp), "%s../bom.html", p);
+    md_append_nav_link(&b, tmp, "BOM", 0);
+  }
+  mb_append(&b, "</ul>\n");
+
+  if (root_md && root_html && root_md->count > 0 && root_html->count > 0) {
+    int cnt = root_md->count < root_html->count ? root_md->count : root_html->count;
+    mb_append(&b, "<h2>Root docs</h2>\n<ul class=\"nav-list\">\n");
+    for (i = 0; i < cnt; i++) {
+      char *label = doc_root_label_alloc(root_md->items[i]);
+      char href[512];
+      if (!label) label = xstrdup("doc");
+      tack_snprintf(href, sizeof(href), "%s%s", p, root_html->items[i]);
+      md_append_nav_link(&b, href, label, current_rel && streq(current_rel, root_html->items[i]));
+      free(label);
+    }
+    mb_append(&b, "</ul>\n");
+  }
+
+  if (docs_html && docs_html->count > 0) {
+    mb_append(&b, "<h2>Docs</h2>\n<ul class=\"nav-list nav-list-docs\">\n");
+    for (i = 0; i < docs_html->count; i++) {
+      char *label = doc_label_from_rel_alloc(docs_html->items[i]);
+      char href[512];
+      tack_snprintf(href, sizeof(href), "%s%s", p, docs_html->items[i]);
+      md_append_nav_link(&b, href, label, current_rel && streq(current_rel, docs_html->items[i]));
+      free(label);
+    }
+    mb_append(&b, "</ul>\n");
+  }
+
+  return mb_steal(&b);
+}
+
+static void emit_html_fragment(FILE *out, void *ctx) {
+  HtmlFragCtx *m = (HtmlFragCtx*)ctx;
+  if (m && m->html) fputs(m->html, out);
+}
+
+static int render_markdown_lite(const char *md, char **html_out, char **toc_out) {
+  MemBuf html;
+  MemBuf toc_items;
+  MemBuf para;
+  int in_code = 0;
+  int list_type = 0;
+  int heading_ord = 0;
+  const char *cur;
+  mb_init(&html);
+  mb_init(&toc_items);
+  mb_init(&para);
+  cur = md ? md : "";
+
+  while (*cur) {
+    const char *line_start = cur;
+    const char *line_end = cur;
+    char *line;
+    char *trimmed;
+    while (*line_end && *line_end != '\n') line_end++;
+    line = (char*)xmalloc((size_t)(line_end - line_start) + 1u);
+    memcpy(line, line_start, (size_t)(line_end - line_start));
+    line[line_end - line_start] = '\0';
+    if (*line_end == '\n') cur = line_end + 1;
+    else cur = line_end;
+    if (line[0] && line[strlen(line) - 1u] == '\r') line[strlen(line) - 1u] = '\0';
+
+    trimmed = xstrdup(line);
+    md_trim_inplace(trimmed);
+
+    if (in_code) {
+      if (md_is_fence(trimmed)) {
+        mb_append(&html, "</code></pre>\n");
+        in_code = 0;
+      } else {
+        mb_append_html_escaped(&html, line);
+        mb_append(&html, "\n");
+      }
+      free(trimmed);
+      free(line);
+      continue;
+    }
+
+    if (md_is_blank(trimmed)) {
+      md_flush_paragraph(&html, &para);
+      md_close_list(&html, &list_type);
+      free(trimmed);
+      free(line);
+      continue;
+    }
+
+    if (md_is_fence(trimmed)) {
+      md_flush_paragraph(&html, &para);
+      md_close_list(&html, &list_type);
+      mb_append(&html, "<pre><code>");
+      in_code = 1;
+      free(trimmed);
+      free(line);
+      continue;
+    }
+
+    {
+      int level = 0;
+      const char *text = 0;
+      if (md_parse_heading(trimmed, &level, &text)) {
+        MemBuf slug;
+        md_flush_paragraph(&html, &para);
+        md_close_list(&html, &list_type);
+        mb_init(&slug);
+        heading_ord++;
+        md_append_slug(&slug, text, heading_ord);
+        mb_append(&html, "<h");
+        mb_append_ch(&html, '0' + level);
+        mb_append(&html, " id=\"");
+        mb_append_html_escaped(&html, slug.buf ? slug.buf : "section");
+        mb_append(&html, "\">");
+        md_emit_inline(&html, text);
+        mb_append(&html, "</h");
+        mb_append_ch(&html, '0' + level);
+        mb_append(&html, ">\n");
+
+        if (level <= 3) {
+          char cls[32];
+          sprintf(cls, "toc-l%d", level);
+          mb_append(&toc_items, "<li class=\"");
+          mb_append(&toc_items, cls);
+          mb_append(&toc_items, "\"><a href=\"#");
+          mb_append_html_escaped(&toc_items, slug.buf ? slug.buf : "section");
+          mb_append(&toc_items, "\">");
+          md_emit_inline(&toc_items, text);
+          mb_append(&toc_items, "</a></li>\n");
+        }
+        mb_free(&slug);
+        free(trimmed);
+        free(line);
+        continue;
+      }
+    }
+
+    {
+      const char *item = 0;
+      if (md_parse_ul_item(trimmed, &item)) {
+        md_flush_paragraph(&html, &para);
+        if (list_type != 1) {
+          md_close_list(&html, &list_type);
+          mb_append(&html, "<ul>\n");
+          list_type = 1;
+        }
+        mb_append(&html, "<li>");
+        md_emit_inline(&html, item);
+        mb_append(&html, "</li>\n");
+        free(trimmed);
+        free(line);
+        continue;
+      }
+      if (md_parse_ol_item(trimmed, &item)) {
+        md_flush_paragraph(&html, &para);
+        if (list_type != 2) {
+          md_close_list(&html, &list_type);
+          mb_append(&html, "<ol>\n");
+          list_type = 2;
+        }
+        mb_append(&html, "<li>");
+        md_emit_inline(&html, item);
+        mb_append(&html, "</li>\n");
+        free(trimmed);
+        free(line);
+        continue;
+      }
+    }
+
+    md_close_list(&html, &list_type);
+    if (para.len > 0u) mb_append(&para, " ");
+    mb_append(&para, trimmed);
+    free(trimmed);
+    free(line);
+  }
+
+  if (in_code) mb_append(&html, "</code></pre>\n");
+  md_flush_paragraph(&html, &para);
+  md_close_list(&html, &list_type);
+
+  if (toc_items.len > 0u) {
+    MemBuf toc;
+    mb_init(&toc);
+    mb_append(&toc, "<aside class=\"toc\" id=\"tack-toc\"><h2>On this page</h2><ul class=\"toc-list\">\n");
+    mb_append(&toc, toc_items.buf ? toc_items.buf : "");
+    mb_append(&toc, "</ul></aside>\n");
+    *toc_out = mb_steal(&toc);
+  } else {
+    *toc_out = xstrdup("");
+  }
+  *html_out = mb_steal(&html);
+  mb_free(&toc_items);
+  mb_free(&para);
+  return 0;
+}
+
+static int write_doc_page(const char *out_path, const char *title, const char *nav_inner,
+                          const HtmlCfg *hc, const char *md_path) {
   HtmlPage pg;
-  MdCtx mctx;
+  HtmlFragCtx hctx;
   long n = 0;
   char *md = 0;
+  char *html = 0;
   char *head_assets = 0;
   char *nav = 0;
   char *toc = 0;
@@ -6337,22 +6935,23 @@ static int write_doc_page(const char *out_path, const char *title, const char *n
 
   md = read_entire_file(md_path, &n);
   (void)n;
+  if (!md) md = xstrdup("");
+  render_markdown_lite(md, &html, &toc);
 
   memset(&pg, 0, sizeof(pg));
-  memset(&mctx, 0, sizeof(mctx));
-  mctx.md = md;
+  memset(&hctx, 0, sizeof(hctx));
+  hctx.html = html;
 
   head_assets = make_head_assets(hc ? hc->css_href : 0);
   nav = make_nav_block(nav_inner);
-  toc = make_empty_toc_block();
 
   pg.page_title = title;
   pg.project_title = (hc && hc->project_title) ? hc->project_title : "tack";
   pg.head_assets_html = head_assets;
   pg.nav_html = nav;
   pg.toc_html = toc;
-  pg.emit_content = emit_md_pre;
-  pg.content_ctx = &mctx;
+  pg.emit_content = emit_html_fragment;
+  pg.content_ctx = &hctx;
   pg.emit_footer = emit_footer_default;
   pg.footer_ctx = 0;
 
@@ -6361,7 +6960,8 @@ static int write_doc_page(const char *out_path, const char *title, const char *n
   free(head_assets);
   free(nav);
   free(toc);
-  if (md) free(md);
+  free(html);
+  free(md);
 
   return rc;
 }
@@ -6502,71 +7102,6 @@ static char *doc_prefix_for_rel_alloc(const char *rel_html) {
   return pre;
 }
 
-static char *doc_nav_inner_alloc_dyn(const char *prefix, StrVec *root_md, StrVec *root_html, int has_docs) {
-  /* prefix: "" for pages in docdir root; "../" for pages under docdir/docs/ etc */
-  const char *p = prefix ? prefix : "";
-  size_t n = 0;
-  int i;
-  char *out;
-
-  /* base links: Index + BOM (+ optional Docs) */
-  n += 64;
-  n += strlen(p) + strlen("index.html") + 32;
-  n += strlen(p) + strlen("../bom.html") + 32;
-  if (has_docs) n += strlen(p) + strlen("index.html#docs") + 32;
-
-  if (root_md && root_html) {
-    int cnt = root_md->count < root_html->count ? root_md->count : root_html->count;
-    for (i = 0; i < cnt; i++) {
-      const char *h = root_html->items[i];
-      const char *m = root_md->items[i];
-      char *label = doc_root_label_alloc(m);
-      if (!label) label = xstrdup("doc");
-      n += strlen(p) + strlen(h) + strlen(label) + 32;
-      free(label);
-    }
-  }
-
-  out = (char*)xmalloc(n + 1);
-  out[0] = '\0';
-
-  tack_cat(out, n + 1, "<a href=\"");
-  tack_cat(out, n + 1, p);
-  tack_cat(out, n + 1, "index.html\">Index</a>");
-
-  if (root_md && root_html) {
-    int cnt = root_md->count < root_html->count ? root_md->count : root_html->count;
-    for (i = 0; i < cnt; i++) {
-      const char *h = root_html->items[i];
-      const char *m = root_md->items[i];
-      char *label = doc_root_label_alloc(m);
-      if (!label) label = xstrdup("doc");
-
-      tack_cat(out, n + 1, " | <a href=\"");
-      tack_cat(out, n + 1, p);
-      tack_cat(out, n + 1, h);
-      tack_cat(out, n + 1, "\">");
-      tack_cat(out, n + 1, label);
-      tack_cat(out, n + 1, "</a>");
-
-      free(label);
-    }
-  }
-
-  if (has_docs) {
-    tack_cat(out, n + 1, " | <a href=\"");
-    tack_cat(out, n + 1, p);
-    tack_cat(out, n + 1, "index.html#docs\">Docs</a>");
-  }
-
-  tack_cat(out, n + 1, " | <a href=\"");
-  tack_cat(out, n + 1, p);
-  tack_cat(out, n + 1, "../bom.html\">BOM</a>");
-
-  return out;
-}
-
-
 static void emit_doc_index(FILE *out, void *ctx) {
   DocIndexCtx *d = (DocIndexCtx*)ctx;
   int i;
@@ -6628,7 +7163,7 @@ static void emit_doc_index(FILE *out, void *ctx) {
     fputs("</ul>", out);
   }
 
-  fputs("<p>Generated by tack. Pages are simple offline HTML wrappers around Markdown (no JS).</p>", out);
+  fputs("<p>Generated by tack. Pages use a small, structure-aware Markdown view that stays offline-friendly and works without JavaScript.</p>", out);
   fputs("</main>\n", out);
 }
 
@@ -7663,7 +8198,7 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
       if (h) sv_push_own(&root_html, h);
     }
 
-    nav_inner = doc_nav_inner_alloc_dyn("", &root_md, &root_html, has_docs);
+    nav_inner = doc_nav_inner_alloc_dyn("", &root_md, &root_html, has_docs ? &docs_html : 0, 0);
     if (!nav_inner) { sv_free(&docs_md); sv_free(&docs_html); sv_free(&root_md); sv_free(&root_html); return 1; }
 
     /* root markdown -> docdir/<root>.html */
@@ -7683,7 +8218,11 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
         }
 
         if (verbose) printf("tack: doc: %s\n", out);
-        rc2 = write_doc_page(out, title2, nav_inner, &hc, mdp);
+        {
+          char *nav_page = doc_nav_inner_alloc_dyn("", &root_md, &root_html, has_docs ? &docs_html : 0, htm);
+          rc2 = write_doc_page(out, title2, nav_page, &hc, mdp);
+          free(nav_page);
+        }
         free(lbl);
         if (rc2 != 0) { free(nav_inner); sv_free(&docs_md); sv_free(&docs_html); sv_free(&root_md); sv_free(&root_html); return rc2; }
       }
@@ -7707,7 +8246,7 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
       free(dir);
 
       prefix = doc_prefix_for_rel_alloc(rel_html);
-      nav2 = doc_nav_inner_alloc_dyn(prefix, &root_md, &root_html, has_docs);
+      nav2 = doc_nav_inner_alloc_dyn(prefix, &root_md, &root_html, has_docs ? &docs_html : 0, rel_html);
 
       tack_snprintf(title, sizeof(title), "tack %s", mdp);
 
@@ -7749,8 +8288,13 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
       dctx.root_html = &root_html;
       dctx.docs_html = has_docs ? &docs_html : 0;
 
-      head_assets = make_head_assets(hc.css_href);
-      nav = make_nav_block(nav_inner);
+      {
+        char *nav_inner_index = 0;
+        head_assets = make_head_assets(hc.css_href);
+        nav_inner_index = doc_nav_inner_alloc_dyn("", &root_md, &root_html, has_docs ? &docs_html : 0, "index.html");
+        nav = make_nav_block(nav_inner_index);
+        free(nav_inner_index);
+      }
       toc = make_empty_toc_block();
 
       memset(&pg, 0, sizeof(pg));
