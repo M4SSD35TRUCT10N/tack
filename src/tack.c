@@ -6289,6 +6289,7 @@ typedef struct {
   const char *page_title;
   const char *project_title;
   const char *head_assets_html;
+  const char *header_tools_html;
   const char *nav_html;
   const char *toc_html;
   EmitFn emit_content;
@@ -6373,31 +6374,36 @@ static char *make_head_assets(const char *css_href, const char *js_href) {
   return out;
 }
 
-static char *make_doc_search_block(const char *doc_prefix) {
+static char *make_doc_search_block(const char *doc_prefix, const char *extra_class) {
   const char *prefix = doc_prefix ? doc_prefix : "";
-  const char *pre = "<div class=\"doc-search\" id=\"tack-search\" data-doc-prefix=\"";
-  const char *mid = "\"><label class=\"sr-only\" for=\"tack-search-input\">Search docs</label><input id=\"tack-search-input\" type=\"search\" placeholder=\"Search docs...\" autocomplete=\"off\"><div id=\"tack-search-results\" class=\"search-results\" hidden></div></div>\n";
-  size_t n = strlen(pre) + strlen(prefix) + strlen(mid);
+  const char *klass = extra_class ? extra_class : "";
+  const char *pre = "<div class=\"doc-search";
+  const char *mid1 = "\" id=\"tack-search\" data-doc-prefix=\"";
+  const char *mid2 = "\"><label class=\"sr-only\" for=\"tack-search-input\">Search docs</label><input id=\"tack-search-input\" type=\"search\" placeholder=\"Search docs...\" autocomplete=\"off\"><div id=\"tack-search-results\" class=\"search-results\" hidden></div></div>\n";
+  size_t n = strlen(pre) + strlen(klass) + strlen(mid1) + strlen(prefix) + strlen(mid2) + 2u;
   char *out = (char*)xmalloc(n + 1u);
   out[0] = '\0';
   strcat(out, pre);
+  if (klass[0]) {
+    strcat(out, " ");
+    strcat(out, klass);
+  }
+  strcat(out, mid1);
   strcat(out, prefix);
-  strcat(out, mid);
+  strcat(out, mid2);
   return out;
 }
 
-static char *make_nav_block(const char *inner_links_html, const char *search_html) {
+static char *make_nav_block(const char *inner_links_html) {
   const char *pre = "<nav id=\"tack-nav\">";
   const char *post = "</nav>\n";
   size_t n = strlen(pre) + strlen(post);
   char *out;
 
-  if (search_html) n += strlen(search_html);
   if (inner_links_html) n += strlen(inner_links_html);
   out = (char*)xmalloc(n + 1);
   out[0] = '\0';
   strcat(out, pre);
-  if (search_html) strcat(out, search_html);
   if (inner_links_html) strcat(out, inner_links_html);
   strcat(out, post);
   return out;
@@ -6434,6 +6440,11 @@ static int tpl_render(FILE *out, const char *tpl_text, const HtmlPage *pg, int *
     if (strncmp(p, "{{TACK_HEAD_ASSETS}}", (int)(sizeof("{{TACK_HEAD_ASSETS}}") - 1)) == 0) {
       if (pg->head_assets_html) fputs(pg->head_assets_html, out);
       p += (int)(sizeof("{{TACK_HEAD_ASSETS}}") - 1);
+      continue;
+    }
+    if (strncmp(p, "{{TACK_HEADER_TOOLS_HTML}}", (int)(sizeof("{{TACK_HEADER_TOOLS_HTML}}") - 1)) == 0) {
+      if (pg->header_tools_html) fputs(pg->header_tools_html, out);
+      p += (int)(sizeof("{{TACK_HEADER_TOOLS_HTML}}") - 1);
       continue;
     }
     if (strncmp(p, "{{TACK_NAV_HTML}}", (int)(sizeof("{{TACK_NAV_HTML}}") - 1)) == 0) {
@@ -7379,7 +7390,7 @@ static int write_doc_search_js(const char *out_path, StrVec *root_md, StrVec *ro
   int i;
   f = fopen(out_path, "wb");
   if (!f) return 1;
-  fputs("(function(){\nvar DATA = [\n", f);
+  fputs("var SEARCH_DATA = [\n", f);
   {
     int first = 1;
     int cnt = (root_md && root_html) ? (root_md->count < root_html->count ? root_md->count : root_html->count) : 0;
@@ -7430,7 +7441,7 @@ static int write_doc_search_js(const char *out_path, StrVec *root_md, StrVec *ro
     const char *p = strstr(line, needle);
     if (p) {
       fwrite(line, 1u, (size_t)(p - line), f);
-      fputs("DATA", f);
+      fputs("SEARCH_DATA", f);
       fputs(p + strlen(needle), f);
     } else {
       fputs(line, f);
@@ -7449,6 +7460,7 @@ static int write_doc_page(const char *out_path, const char *title, const char *n
   char *html = 0;
   char *head_assets = 0;
   char *nav = 0;
+  char *header_tools = 0;
   char *toc = 0;
   char *html_rel = 0;
   MdRenderCtx mctx;
@@ -7468,15 +7480,15 @@ static int write_doc_page(const char *out_path, const char *title, const char *n
   hctx.html = html;
 
   {
-    char *search_html = ((hc && hc->js_href && hc->js_href[0]) ? make_doc_search_block(hc->search_prefix ? hc->search_prefix : "") : 0);
+    header_tools = ((hc && hc->js_href && hc->js_href[0]) ? make_doc_search_block(hc->search_prefix ? hc->search_prefix : "", "doc-search-header") : 0);
     head_assets = make_head_assets(hc ? hc->css_href : 0, hc ? hc->js_href : 0);
-    nav = make_nav_block(nav_inner, search_html);
-    free(search_html);
+    nav = make_nav_block(nav_inner);
   }
 
   pg.page_title = title;
   pg.project_title = (hc && hc->project_title) ? hc->project_title : "tack";
   pg.head_assets_html = head_assets;
+  pg.header_tools_html = header_tools;
   pg.nav_html = nav;
   pg.toc_html = toc;
   pg.emit_content = emit_html_fragment;
@@ -7487,6 +7499,7 @@ static int write_doc_page(const char *out_path, const char *title, const char *n
   rc = write_html_page(out_path, (hc && hc->kind) ? hc->kind : "doc", &pg);
 
   free(head_assets);
+  free(header_tools);
   free(nav);
   free(toc);
   free(html_rel);
@@ -8846,6 +8859,7 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
       HtmlPage pg;
       DocIndexCtx dctx;
       char *head_assets = 0;
+      char *header_tools = 0;
       char *nav = 0;
       char *toc = 0;
 
@@ -8855,12 +8869,10 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
 
       {
         char *nav_inner_index = 0;
-        char *search_html = 0;
         head_assets = make_head_assets(hc.css_href, hc.js_href);
         nav_inner_index = doc_nav_inner_alloc_dyn("", &root_md, &root_html, has_docs ? &docs_html : 0, "index.html");
-        search_html = (hc.js_href && hc.js_href[0]) ? make_doc_search_block("") : 0;
-        nav = make_nav_block(nav_inner_index, search_html);
-        free(search_html);
+        header_tools = (hc.js_href && hc.js_href[0]) ? make_doc_search_block("", "doc-search-header") : 0;
+        nav = make_nav_block(nav_inner_index);
         free(nav_inner_index);
       }
       toc = make_empty_toc_block();
@@ -8869,6 +8881,7 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
       pg.page_title = "tack docs";
       pg.project_title = "tack";
       pg.head_assets_html = head_assets;
+      pg.header_tools_html = header_tools;
       pg.nav_html = nav;
       pg.toc_html = toc;
       pg.emit_content = emit_doc_index;
@@ -8878,10 +8891,11 @@ static int cmd_doc(TargetVec *tv, const Target *t, int verbose, int strict, int 
 
       {
         int rc2 = write_html_page(idx, "doc", &pg);
-        if (rc2 != 0) { free(head_assets); free(nav); free(toc); free(nav_inner); sv_free(&docs_md); sv_free(&docs_html); sv_free(&root_md); sv_free(&root_html); return rc2; }
+        if (rc2 != 0) { free(head_assets); free(header_tools); free(nav); free(toc); free(nav_inner); sv_free(&docs_md); sv_free(&docs_html); sv_free(&root_md); sv_free(&root_html); return rc2; }
       }
 
       free(head_assets);
+      free(header_tools);
       free(nav);
       free(toc);
     }

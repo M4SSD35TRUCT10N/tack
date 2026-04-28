@@ -1011,6 +1011,7 @@ These sections are optional. Without entries, tack uses the built-in HTML layout
 **Keys**
 - `template = PATH` (HTML file; read at runtime, default limit max. 1 MiB; not copied into the output)
 - `css = PATH` (CSS file; copied into the output and linked via `<link>`)
+- `allow_js_search = yes|no` (default: `no`; optional small document search as progressive enhancement)
 
 **Fallback rule for BOM:** if `[bom]` is not set, BOM inherits the values from `[doc]`.
 

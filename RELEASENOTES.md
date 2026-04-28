@@ -10,6 +10,8 @@
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
 ### v0.8.1-dev
+- `tack doc`: Optionales JS-Suchfeld in die Kopfzeile verlegt statt in die linke Navigation.
+- `tack doc`: Generiertes Suchskript korrigiert; die Seitensuche durchsucht jetzt wieder den vollständigen statischen Dokumentindex.
 - `tack doc` rendert jetzt eine kleine, strukturierte Markdown-Ansicht statt eines reinen Plain-Text-Wrappers: Überschriften, Absätze, Listen, fenced code blocks, Inline-Code, Markdown-Links und einfache Auto-Links verbessern die Lesbarkeit, ohne tack in eine vollständige Markdown-Engine zu verwandeln.
 - `tack doc` baut jetzt eine seitenbezogene ToC aus erkannten Überschriften auf, markiert die aktuelle Seite in der linken Navigation und bringt ein überarbeitetes Doc-CSS für bessere Typografie, Zeilenumbruch, Abstände und Dark-Mode-Verhalten mit.
 - `tack doc` behandelt Unterverzeichnisse unter `docs/` jetzt als eigene Gruppen in Navigation und Index; `docs/README.md` bleibt unter `Docs`, während Verzeichnisse wie `docs/adr/` und `docs/specs/` als kürzere Gruppen wie `ADR` und `SPEC` dargestellt werden.
@@ -185,6 +187,8 @@
 > Until then, this file tracks versions/milestones.
 
 ### v0.8.1-dev
+- `tack doc`: moved the optional JS search box into the header instead of the left navigation.
+- `tack doc`: fixed the generated search script; document search now works again against the full static document index.
 - `tack doc` now renders a small structured Markdown view instead of a plain-text-only wrapper: headings, paragraphs, lists, fenced code blocks, inline code, Markdown links, and simple auto-links improve readability without turning tack into a full Markdown engine.
 - `tack doc` now builds a page-local ToC from detected headings, marks the current page in the left navigation, and ships a refreshed doc CSS for better typography, wrapping, spacing, and dark-mode behaviour.
 - `tack doc` now treats subdirectories below `docs/` as their own groups in navigation and index; `docs/README.md` stays under `Docs`, while directories such as `docs/adr/` and `docs/specs/` are rendered as shorter groups like `ADR` and `SPEC`.

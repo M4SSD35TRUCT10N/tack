@@ -217,6 +217,18 @@ int main(void) {
     fprintf(stderr, "FAIL js-group\n");
     failures++;
   }
+  if (!contains_text(buf, "var SEARCH_DATA = [")) {
+    fprintf(stderr, "FAIL js-search-data-array\n");
+    failures++;
+  }
+  if (!contains_text(buf, "var DATA = SEARCH_DATA;")) {
+    fprintf(stderr, "FAIL js-data-bind\n");
+    failures++;
+  }
+  if (contains_text(buf, "var DATA = DATA;")) {
+    fprintf(stderr, "FAIL js-self-shadow\n");
+    failures++;
+  }
 
   (void)set_env_local("TACK_CC", "");
 
