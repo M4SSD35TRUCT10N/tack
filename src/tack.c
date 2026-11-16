@@ -77,7 +77,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.8.1-dev"
+#define TACK_VERSION "0.8.2-dev"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -196,6 +196,9 @@ static const char *g_warn_flags_tcc_strict[] = { "-Wunsupported", 0 };
 /* Profiles */
 typedef enum { PROF_DEBUG = 0, PROF_RELEASE = 1 } Profile;
 static const char *profile_name(Profile p) { return (p == PROF_RELEASE) ? "release" : "debug"; }
+/* Active command target/profile. The default (unset) preserves v0.8.1 behavior. */
+static const char *g_active_compiler_target = 0;
+static Profile g_active_compiler_profile = PROF_DEBUG;
 
 typedef struct {
   int total;
@@ -555,6 +558,12 @@ static void cc_cache_reset(void) {
   g_cc_source_label = 0;
 }
 
+static void set_active_compiler_target(const char *name, Profile p) {
+  g_active_compiler_target = name;
+  g_active_compiler_profile = p;
+  cc_cache_reset();
+}
+
 static void compiler_program_copy(char *dst, size_t cap, const char *what, const char *src) {
   const char *v;
   size_t n;
@@ -608,6 +617,8 @@ static void compiler_program_copy(char *dst, size_t cap, const char *what, const
 static const char *get_cc(void);
 static int compiler_policy_name_is_valid(const char *name);
 static const char *compiler_policy_source_label(void);
+static const char *active_profile_compiler(void);
+static const char *active_profile_compiler_policy(void);
 
 static const char *compiler_source_label(void) {
   if (!g_cc_cache_inited) (void)get_cc();
@@ -615,6 +626,7 @@ static const char *compiler_source_label(void) {
 }
 
 static const char *compiler_policy_source_label(void) {
+  if (active_profile_compiler_policy()) return "config:[target profile] compiler_policy";
   if (g_config_loaded && g_config_compiler_policy && g_config_compiler_policy[0]) {
     return "config:[project] compiler_policy";
   }
@@ -630,6 +642,9 @@ static const char *get_cc(void) {
   if (v && v[0]) {
     compiler_program_copy(g_cc_cache, sizeof(g_cc_cache), "TACK_CC", v);
     g_cc_source_label = "env:TACK_CC";
+  } else if ((v = active_profile_compiler()) != 0) {
+    compiler_program_copy(g_cc_cache, sizeof(g_cc_cache), "[target profile] compiler", v);
+    g_cc_source_label = "config:[target profile] compiler";
   } else if (g_config_loaded && g_config_compiler && g_config_compiler[0]) {
     compiler_program_copy(g_cc_cache, sizeof(g_cc_cache), "[project] compiler", g_config_compiler);
     g_cc_source_label = "config:[project] compiler";
@@ -3102,6 +3117,8 @@ typedef struct {
 typedef struct {
   char *name;
   Profile profile;
+  char *compiler;               /* [target "name".profile] compiler */
+  char *compiler_policy;        /* [target "name".profile] compiler_policy */
   int core_set, core;
   StrVec includes;
   StrVec defines;
@@ -3138,6 +3155,30 @@ static IniTargetVec g_ini_targets;
 static IniProfileVec g_ini_profile_targets;
 static IniOverrideVec g_ini_overrides;
 static IniProfileOverrideVec g_ini_profile_overrides;
+
+static const char *active_profile_compiler(void) {
+  int i;
+  if (!g_config_loaded || !g_active_compiler_target) return 0;
+  for (i = 0; i < g_ini_profile_targets.count; i++) {
+    IniProfileCfg *t = &g_ini_profile_targets.items[i];
+    if (t->profile == g_active_compiler_profile &&
+        streq(t->name, g_active_compiler_target) && t->compiler && t->compiler[0])
+      return t->compiler;
+  }
+  return 0;
+}
+
+static const char *active_profile_compiler_policy(void) {
+  int i;
+  if (!g_config_loaded || !g_active_compiler_target) return 0;
+  for (i = 0; i < g_ini_profile_targets.count; i++) {
+    IniProfileCfg *t = &g_ini_profile_targets.items[i];
+    if (t->profile == g_active_compiler_profile &&
+        streq(t->name, g_active_compiler_target) &&
+        t->compiler_policy && t->compiler_policy[0]) return t->compiler_policy;
+  }
+  return 0;
+}
 
 /* --------------------------- fmt (INI config) --------------------------- */
 
@@ -3291,6 +3332,8 @@ static void ini_profile_targets_free(void) {
   for (i = 0; i < g_ini_profile_targets.count; i++) {
     IniProfileCfg *t = &g_ini_profile_targets.items[i];
     free(t->name);
+    free(t->compiler);
+    free(t->compiler_policy);
     sv_free(&t->includes);
     sv_free(&t->defines);
     sv_free(&t->cflags);
@@ -3856,7 +3899,20 @@ static int ini_load_file(const char *path) {
       }
 
       if (sec == SEC_TARGET_PROFILE && cur_tp) {
-        if (strieq(key, "core")) {
+        if (strieq(key, "compiler")) {
+          free(cur_tp->compiler);
+          tack_check_len("[target profile] compiler", val, TACK_MAX_CC);
+          cur_tp->compiler = xstrdup(val);
+          cc_cache_reset();
+        } else if (strieq(key, "compiler_policy")) {
+          if (!compiler_policy_name_is_valid(val)) {
+            fclose(f);
+            fprintf(stderr, "tack: invalid [target profile] compiler_policy: %s\n", val);
+            return 1;
+          }
+          free(cur_tp->compiler_policy);
+          cur_tp->compiler_policy = xstrdup(val);
+        } else if (strieq(key, "core")) {
           int b;
           if (parse_bool(val, &b)) { cur_tp->core_set = 1; cur_tp->core = b; }
         } else if (strieq(key, "includes")) {
@@ -4548,6 +4604,12 @@ static CompilerPolicy compiler_policy_auto_detect(const char *cc) {
 }
 
 static CompilerPolicy compiler_policy_for_cc(const char *cc) {
+  const char *target_policy = active_profile_compiler_policy();
+  if (target_policy) {
+    CompilerPolicy p = compiler_policy_from_name(target_policy);
+    if (p != COMPILER_POLICY_AUTO) return p;
+    return compiler_policy_auto_detect(cc);
+  }
   if (g_config_loaded && g_config_compiler_policy && g_config_compiler_policy[0]) {
     CompilerPolicy p = compiler_policy_from_name(g_config_compiler_policy);
     if (p != COMPILER_POLICY_AUTO) return p;
@@ -4920,6 +4982,7 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
 
   const char *inc_common[5];
 
+  set_active_compiler_target(t->name, p);
   cc = get_cc();
 
   core_touched = 0;
@@ -5052,10 +5115,11 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
 
 /* --------------------------- tests --------------------------- */
 
-static int build_and_run_tests(Profile p, int verbose, int force, int strict, TestRunStats *stats) {
+static int build_and_run_tests(const char *target_name, Profile p, int verbose, int force, int strict, TestRunStats *stats) {
   StrVec tests;
   int i;
   const char *cc;
+  EffectiveOverride test_ov;
 
   char tests_root[512];
   char tests_bin[512];
@@ -5064,7 +5128,9 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict, Te
 
   if (stats) memset(stats, 0, sizeof(*stats));
 
+  set_active_compiler_target(target_name, p);
   cc = get_cc();
+  get_effective_override(target_name, p, &test_ov);
 
   sv_init(&tests);
   scan_dir_recursive_suffix(&tests, g_tests_dir, "_test.c");
@@ -5133,6 +5199,8 @@ static int build_and_run_tests(Profile p, int verbose, int force, int strict, Te
 
       push_common_warnings(&av, strict);
       push_profile_flags(&av, p);
+      /* A target's profile compiler and strict cflags also govern its test run. */
+      av_push_list(&av, test_ov.cflags);
 
       /* includes */
       {
@@ -5233,8 +5301,9 @@ static void print_help(void) {
   puts("");
 
   puts("Compiler selection:");
-  puts("  TACK_CC -> [project] compiler -> built-in default (tcc)");
-  puts("  [project] compiler_policy = auto|tcc|gcc|clang|generic");
+  puts("  TACK_CC -> [target NAME.profile] compiler -> [project] compiler -> built-in tcc");
+  puts("  compiler_policy = auto|tcc|gcc|clang|generic (project or target profile)");
+  puts("  doctor [debug|release] [--target NAME] shows the active compiler");
   puts("  tack doctor prints the compiler, source, policy and policy source");
   puts("");
 
@@ -5265,9 +5334,12 @@ static void print_help(void) {
 
 static void cmd_version(void) { printf("tack %s\n", TACK_VERSION); }
 
-static void cmd_doctor(void) {
+static void cmd_doctor(const char *target_name, Profile p) {
+  set_active_compiler_target(target_name, p);
   printf("Compiler default: %s\n", g_cc_default);
-  printf("Compiler override: env TACK_CC or [project] compiler\n");
+  printf("Compiler override: env TACK_CC, [target profile] compiler or [project] compiler\n");
+  printf("Compiler target: %s\n", target_name);
+  printf("Compiler profile: %s\n", profile_name(p));
   printf("Compiler in use: %s\n", get_cc());
   printf("Compiler source: %s\n", compiler_source_label());
   printf("Compiler policy: %s\n", compiler_policy_name(compiler_policy_for_cc(get_cc())));
@@ -5814,7 +5886,7 @@ static const char * const TACK_INIT_DEFAULT_TACK_INI_LINES[] = {
   "default_target = app\n",
   "; compiler = tcc\n",
   "; compiler_policy = auto\n",
-  "; compiler priority: TACK_CC -> [project] compiler -> built-in default (tcc)\n",
+  "; compiler priority: TACK_CC -> [target NAME.profile] compiler -> [project] compiler -> built-in tcc\n",
   "allow_unsafe_paths = no\n",
   "\n",
   "[target \"app\"]\n",
@@ -7775,6 +7847,7 @@ static int cmd_bom(Profile p, TargetVec *tv, const Target *t, int verbose, int s
   const char *inc_common[5];
 
   (void)tv;
+  set_active_compiler_target(t->name, p);
 
   if (!outdir) outdir = g_build_dir;
 
@@ -8461,6 +8534,7 @@ static int cmd_sbom_internal(Profile p, TargetVec *tv, const Target *t, int verb
   StrVec core_srcs;
 
   (void)tv;
+  set_active_compiler_target(t->name, p);
 
   if (!outdir) outdir = g_build_dir;
 
@@ -10033,7 +10107,25 @@ int main(int argc, char **argv) {
 
   if (streq(cmd, "help"))    { print_help(); tv_free(&tv); config_free(); return 0; }
   if (streq(cmd, "version")) { cmd_version(); tv_free(&tv); config_free(); return 0; }
-  if (streq(cmd, "doctor"))  { cmd_doctor(); tv_free(&tv); config_free(); return 0; }
+  if (streq(cmd, "doctor")) {
+    int i = argi;
+    Profile p = parse_profile(&i, argc, argv);
+    const char *target_name = default_target_name();
+    for (; i < argc; i++) {
+      if (streq(argv[i], "--target") && i + 1 < argc) {
+        target_name = argv[++i];
+      } else {
+        fprintf(stderr, "tack: doctor: unknown argument: %s\n", argv[i]);
+        tv_free(&tv); config_free(); return 2;
+      }
+    }
+    if (!find_target(&tv, target_name)) {
+      fprintf(stderr, "tack: doctor: unknown target: %s\n", target_name);
+      tv_free(&tv); config_free(); return 2;
+    }
+    cmd_doctor(target_name, p);
+    tv_free(&tv); config_free(); return 0;
+  }
   if (streq(cmd, "init"))    { int rc = cmd_init(); tv_free(&tv); config_free(); return rc; }
   if (streq(cmd, "new"))     {
     int rc;
@@ -10235,7 +10327,11 @@ int main(int argc, char **argv) {
       if (events_open(events_jsonl) != 0) { junit_close(); tap_close(); tv_free(&tv); config_free(); return 2; }
       start_ms = tack_now_ms();
       events_write_run_started("test", p, "");
-      rc = build_and_run_tests(p, verbose, force, strict, &stats);
+      if (!find_target(&tv, target_name)) {
+        fprintf(stderr, "tack: test: unknown target: %s\n", target_name);
+        events_close(); junit_close(); tap_close(); tv_free(&tv); config_free(); return 2;
+      }
+      rc = build_and_run_tests(target_name, p, verbose, force, strict, &stats);
       duration_ms = tack_elapsed_ms(start_ms);
       events_write_run_finished("test", p, (rc == 0) ? "ok" : "failed", duration_ms);
       junit_write_report(p, &stats, duration_ms);

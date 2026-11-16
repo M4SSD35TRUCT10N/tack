@@ -1121,3 +1121,20 @@ A detailed FAQ is available [here](FAQ.md).
 
 ## License
 MIT
+
+## v0.8.2-dev Compiler per target/profile / Compiler je Zielprofil
+
+```ini
+[project]
+compiler = tcc
+compiler_policy = auto
+
+[target "app".release]
+compiler = gcc
+compiler_policy = gcc
+cflags = -std=c89;-pedantic-errors;-Wextra;-Werror
+```
+
+DE: `tack doctor release --target app` zeigt die ausgewählte Release-Toolchain. `tack test release --ci --rebuild` nutzt den Release-Compiler des Standardtargets. Diese Funktion ist in v0.8.2-dev implementiert, aber bis zur Testabnahme nicht freigegeben.
+
+EN: `tack doctor release --target app` reports the selected release toolchain. `tack test release --ci --rebuild` uses the default target's release compiler. This feature is implemented in v0.8.2-dev but not approved until tested.

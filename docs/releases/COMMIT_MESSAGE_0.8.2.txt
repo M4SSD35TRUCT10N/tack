@@ -1,0 +1,11 @@
+feat(tack): select compiler and policy per target profile (v0.8.2-dev)
+
+- Add INI compiler and compiler_policy keys to target debug/release profiles.
+- Bind build, run, tests, BOM and SBOM to target/profile compiler selection.
+- Inherit selected release target cflags for standalone test compilation.
+- Add doctor target/profile selection and focused C89 regression source.
+- Preserve TACK_CC override and existing project fallback behavior.
+- Document cache limitation, profile priority and explicitly unrun test gates.
+- Non-goals: package management, generic toolchain DSL, BA-STD migration.
+
+Signed-off-by: Enrico Lefass <enrico.lefass@mailbox.org>

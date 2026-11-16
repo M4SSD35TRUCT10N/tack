@@ -625,3 +625,9 @@ If you rely on exotic include patterns (macros/generators), use `--rebuild` or `
 ---
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
+
+## Compiler selection per profile / Compilerwahl je Profil (v0.8.2-dev)
+
+DE: `[project] compiler=tcc` für Debug; in `[target "app".release] compiler=gcc`, optional `compiler_policy=gcc`. `tack doctor release --target app` zeigt die Releasewahl. `TACK_CC` überschreibt die Compilerdatei, nicht automatisch eine erzwungene Policy. Bei Compilerwechsel im selben Profil mit `--rebuild` arbeiten.
+
+EN: Use `[project] compiler=tcc` with `[target "app".release] compiler=gcc`. `doctor release --target app` shows the release compiler. `TACK_CC` overrides the program but not an explicit policy. Use `--rebuild` when switching compilers within a profile.

@@ -365,3 +365,9 @@
 ---
 
 **Backlinks:** [README](README.md) • [FAQ](FAQ.md) • [Roadmap](ROADMAP.md)
+
+## v0.8.2-dev — Target/profile compiler selection (NOT RELEASED / NICHT FREIGEGEBEN)
+
+DE: `[target "NAME".debug|release]` akzeptiert `compiler` und `compiler_policy` mit Vorrang von `TACK_CC`. `tack test release` übernimmt Compiler und Extra-`cflags` des Targets. `tack doctor release --target NAME` zeigt die Auswahl. Keine ausgeführten Regressionstests in diesem Entwurf.
+
+EN: Target/profile `compiler` and `compiler_policy` selection; `TACK_CC` takes precedence. Tests inherit target/profile compiler and extra `cflags`. Doctor supports profile and target. No regression tests executed for this draft.

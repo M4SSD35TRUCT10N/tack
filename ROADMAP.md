@@ -313,3 +313,9 @@ This stays open until the core build workflow is proven in practice.
 ---
 
 Back: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
+
+## v0.8.2 / v0.8.3 BA-STD-C89 sequence
+
+DE: 0.8.2 implementiert deklarative Compiler-/Policy-Wahl nach Target und Profil, einschließlich Testbindung. 0.8.3 zieht die BA-STD-C89-Struktur, Agentenportabilität, Dokumentation und überprüfbare Ratchets im tack-Repository nach. Release-Gates sind bis zur unabhängigen Abnahme offen. Danach Rückkehr zu ASCENDERE DESCENDERE; dessen RC2.1-Windows-Abnahme nicht durch eine Standardisierungsänderung ersetzen.
+
+EN: 0.8.2 adds declarative per-target/profile compiler and policy selection, including tests. 0.8.3 applies BA-STD-C89 structure, provider-neutral agents, documentation and verifiable ratchets. Release gates remain open until independently accepted; then return to ASCENDERE DESCENDERE.
