@@ -1,23 +1,13 @@
-# tack — Tiny ANSI-C Kit (v0.8.1-dev)
+# tack — Tiny ANSI-C Kit (v0.8.3-dev, NICHT FREIGEGEBEN / NOT RELEASED)
 
 ---
 
-> **DE/EN README**
-> 
-> DE: Ein schlanker **Build‑Driver** für C (C89/ANSI‑C), inspiriert von Cargo‑Workflows: `new`, `init`, `list`, `build`, `run`, `test` — ohne Make/CMake/Ninja‑Stack.  
-> EN: A tiny **build driver** for C (C89/ANSI‑C), inspired by Cargo workflows: `new`, `init`, `list`, `build`, `run`, `test` — without a Make/CMake/Ninja stack.
-
-**Backlinks:** [FAQ](FAQ.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md) • [Docs](docs/README.md)
-
-> **0.8-Abschlussvermerk / 0.8 closure note**
->
-> DE: **0.8.0-dev** ist als kleiner, erfolgreich geprüfter CI-Grundlagenblock abgeschlossen. **0.8.1-dev** ist ebenfalls abgeschlossen und bildet den Doc-UX-/Search-/Polishing-Stand: strukturiertere `tack doc`-Ausgabe, bessere Typografie/CSS, gruppierte Navigation für Unterverzeichnisse unter `docs/`, optional zuschaltbare Header-Suche und synchronisierte Dokumentation/INI/Templates.
->
-> EN: **0.8.0-dev** is closed as a small, successfully validated CI foundation block. **0.8.1-dev** is closed as the doc UX/search/polish state: more structured `tack doc` output, better typography/CSS, grouped navigation for subdirectories under `docs/`, optional header search, and synchronized documentation/INI/templates.
 
 ---
 
 # Deutsch
+
+`v0.8.0-dev` (CI-Grundlagen) und `v0.8.1-dev` (DOC-UX und Suche) sind abgeschlossene Entwicklungsschritte. `v0.8.2-dev` und `v0.8.3-dev` sind weiterhin nicht freigegeben.
 
 `tack` ist ein **Build- und Projekt-Werkzeug in einer einzigen C-Datei** (C89/ANSI‑C).
 Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und trotzdem:
@@ -110,7 +100,7 @@ Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/`
 
 ## Ökosystem: Software, die gut mit tack zusammenspielt
 
-- **Compiler/Toolchain:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM. Auswahl-Priorität: `TACK_CC` → `[project] compiler` → Built-in-Default `tcc`. Das Debug-Profil nutzt compilerbewusste Basis-Flags: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC; die Built-in-Policy kann jetzt optional über `[project] compiler_policy` präzisiert werden. `tack doctor` zeigt dazu Compilerquelle, wirksame Policy und deren Herkunft an.
+- **Compiler/Toolchain:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM. Auswahl-Priorität: `TACK_CC` → aktives `[target "NAME".debug|release] compiler` → `[project] compiler` → Built-in-Default `tcc`. Das Debug-Profil nutzt compilerbewusste Basis-Flags: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC; die Built-in-Policy kann jetzt optional über `[project] compiler_policy` präzisiert werden. `tack doctor` zeigt dazu Compilerquelle, wirksame Policy und deren Herkunft an.
 - **Versionsverwaltung:** Git, Fossil (tack `init` legt u. a. `.gitignore` + Fossil-Ignore an).
 - **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (einfach `tack build` / `tack test` aufrufen). Für stabilere CI-Ausgaben gibt es ab 0.8 zusätzlich `--ci` mit einer festen `TACK_SUMMARY`-Abschlusszeile. Darauf bauen `--events-jsonl FILE` als kleine versionierte Ereignisschicht und `--report-tap FILE` als optionaler TAP-Bericht und `--report-junit FILE` als konservativer JUnit-XML-Bericht für `tack test` auf.
 - **Editor/IDE:** VS Code (Tasks), Vim/Neovim, Emacs, CLion/IntelliJ (External Tools), Visual Studio (External Tools).
@@ -141,8 +131,8 @@ Dieses Repo legt `tack` unter `src/tack.c` ab. Du kannst es aber auch in die Rep
 
 ## 0.8-Leitplanke: Compilerwahl vs. Produktpolitik
 
-- **Compilerwahl**: `TACK_CC` steht weiterhin für das **Compilerprogramm**; zusätzlich gibt es jetzt repo-lokal `[project] compiler`.
-- **Priorität**: `TACK_CC` übersteuert `[project] compiler`, danach folgen Built-ins.
+- **Compilerwahl**: `TACK_CC` steht weiterhin für das **Compilerprogramm**; optional legen `[target "NAME".debug|release] compiler` und `[project] compiler` die deklarative Auswahl fest.
+- **Priorität**: `TACK_CC` → aktives Targetprofil → Projekt → Built-ins. Siehe SPEC 0010.
 - **Produktpolitik**: Zusätzliche Projekt- und Toolchain-Politik gehört in `tack.ini`, z. B. `[project] compiler_policy`.
 - **Built-ins**: Eingebaute tack-Defaults bleiben als dokumentierte Fallbacks zulässig.
 - **Nicht-Ziel**: 0.8 baut `tack` nicht zu einer generischen Toolchain-DSL oder einem Meta-Buildsystem um.
@@ -587,7 +577,33 @@ MIT
 
 ---
 
+
+## v0.8.2-dev: Compiler je Target und Profil
+
+`[target "NAME".debug]` und `[target "NAME".release]` unterstützen `compiler` und `compiler_policy`. Die Priorität lautet `TACK_CC` → aktives Targetprofil → `[project]` → `tcc`. `tack test` verwendet den Compiler und die zusätzlichen `cflags` des gewählten Zielprofils. `tack doctor release --target app` zeigt die wirksame Auswahl. Nach einem Compilerwechsel innerhalb desselben Profils ist `--rebuild` erforderlich, solange die Compileridentität noch nicht im Cache-Schlüssel steht. Siehe [SPEC 0010](docs/specs/0010-profile-compiler-selection.md).
+
+```ini
+[project]
+compiler = tcc
+compiler_policy = auto
+
+[target "app".release]
+compiler = gcc
+compiler_policy = auto
+cflags = -std=c89;-pedantic-errors;-Wextra;-Werror
+```
+
+## v0.8.3-dev: BA-STD-C89-Anpassung (nicht freigegeben)
+
+Die Repositorystruktur enthält den gemeinsamen Agentenvertrag `AGENTS.md`, den kurzen `CLAUDE.md`-Verweis sowie den zentralen Testheader `include/tests/tack_test_embed.h`. Compilerprofile bleiben deklarativ in `tack.ini`. In dieser Korrekturrunde wurden veraltete Testaufrufe repariert und die Dokumentation wieder in getrennte DE/EN-Abschnitte aufgeteilt. Linux/GCC Debug und Release wurden ausgeführt; Windows-, TinyCC- und Coverage-High-Water-Abnahme bleiben offen. Siehe [Versionsbericht](docs/releases/0.8.3-dev.md) und [SPEC 0011](docs/specs/0011-ba-std-c89-ratchet-adoption.md).
+
+`tack init` und `tack new` erzeugen weiterhin ein **generisches, nicht destruktives** Projektgerüst. Die erzeugte `tack.ini` enthält jetzt kommentierte Beispiele für Profilcompiler. BA-STD-C89-spezifische Agenten-, Sicherheits- und Coverage-Regeln werden nicht ungefragt in fremde Projekte kopiert; siehe [Scaffolding-Leitfaden](docs/guides/init-new-and-ba-std-c89.md).
+
+---
+
 # English
+
+`v0.8.0-dev` (CI foundations) and `v0.8.1-dev` (DOC UX and search) are completed development steps. `v0.8.2-dev` and `v0.8.3-dev` are not yet released.
 
 `tack` is a **single‑file build & project tool written in C** (C89/ANSI‑C).
 It targets projects that intentionally want to **avoid Make/CMake/Ninja** while still having:
@@ -687,7 +703,7 @@ Starting with the 0.8 series, larger direction changes are additionally recorded
 
 ## Ecosystem: software that pairs well with tack
 
-- **Compilers/toolchains:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM. Selection priority is `TACK_CC` → `[project] compiler` → built-in default `tcc`. The debug profile uses compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC; the built-in policy can now be pinned via `[project] compiler_policy` when needed. `tack doctor` also shows the compiler source, active policy, and policy source.
+- **Compilers/toolchains:** TinyCC (tcc), GCC/MinGW-w64, Clang/LLVM. Selection priority is `TACK_CC` → active `[target "NAME".debug|release] compiler` → `[project] compiler` → built-in default `tcc`. The debug profile uses compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC; the built-in policy can now be pinned via `[project] compiler_policy` when needed. `tack doctor` also shows the compiler source, active policy, and policy source.
 - **Version control:** Git, Fossil (tack `init` provisions `.gitignore` and Fossil ignore settings, among other things).
 - **CI/CD:** GitHub Actions, GitLab CI, Jenkins, Buildkite, … (just call `tack build` / `tack test`). Starting with 0.8, `--ci` additionally enables a stable trailing `TACK_SUMMARY` line. On top of that, `--events-jsonl FILE` provides a small versioned event layer and `--report-tap FILE` adds an optional TAP report and `--report-junit FILE` a conservative JUnit XML report for `tack test`.
 - **Editors/IDEs:** VS Code (Tasks), Vim/Neovim, Emacs, CLion/IntelliJ (External Tools), Visual Studio (External Tools).
@@ -718,8 +734,8 @@ This repo keeps tack at `src/tack.c`. You may also place it in the repo root —
 
 ## 0.8 guardrail: compiler selection vs. product policy
 
-- **Compiler selection**: `TACK_CC` continues to mean the **compiler program**; in addition there is now repo-local `[project] compiler`.
-- **Priority**: `TACK_CC` overrides `[project] compiler`, followed by built-ins.
+- **Compiler selection**: `TACK_CC` still denotes the **compiler executable**; `[target "NAME".debug|release] compiler` and `[project] compiler` provide declarative choices.
+- **Priority**: `TACK_CC` → active target profile → project → built-ins. See SPEC 0010.
 - **Product policy**: Additional project and toolchain policy belongs in `tack.ini`, e.g. `[project] compiler_policy`.
 - **Built-ins**: built-in tack defaults remain allowed as documented fallbacks.
 - **Non-goal**: 0.8 does not turn `tack` into a generic toolchain DSL or meta-build system.
@@ -1122,7 +1138,9 @@ A detailed FAQ is available [here](FAQ.md).
 ## License
 MIT
 
-## v0.8.2-dev Compiler per target/profile / Compiler je Zielprofil
+## v0.8.2-dev: Compiler per target and profile
+
+`[target "NAME".debug]` and `[target "NAME".release]` support `compiler` and `compiler_policy`. Precedence is `TACK_CC` → active target profile → `[project]` → `tcc`. `tack test` uses the selected target/profile's compiler and extra `cflags`. `tack doctor release --target app` shows the active selection. Switching compilers within one profile requires `--rebuild` until compiler identity becomes part of the cache key. See [SPEC 0010](docs/specs/0010-profile-compiler-selection.md).
 
 ```ini
 [project]
@@ -1131,16 +1149,12 @@ compiler_policy = auto
 
 [target "app".release]
 compiler = gcc
-compiler_policy = gcc
+compiler_policy = auto
 cflags = -std=c89;-pedantic-errors;-Wextra;-Werror
 ```
 
-DE: `tack doctor release --target app` zeigt die ausgewählte Release-Toolchain. `tack test release --ci --rebuild` nutzt den Release-Compiler des Standardtargets. Diese Funktion ist in v0.8.2-dev implementiert, aber bis zur Testabnahme nicht freigegeben.
+## v0.8.3-dev: BA-STD-C89 alignment (not released)
 
-EN: `tack doctor release --target app` reports the selected release toolchain. `tack test release --ci --rebuild` uses the default target's release compiler. This feature is implemented in v0.8.2-dev but not approved until tested.
+The repository includes the provider-neutral `AGENTS.md` contract, short `CLAUDE.md` pointer, and shared test header `include/tests/tack_test_embed.h`. Compiler profiles remain declarative in `tack.ini`. This correction round fixes outdated test calls and restores clearly separated DE/EN documentation. Linux/GCC debug and release tests have run; Windows, TinyCC and coverage high-water acceptance remain open. See the [release record](docs/releases/0.8.3-dev.md) and [SPEC 0011](docs/specs/0011-ba-std-c89-ratchet-adoption.md).
 
-## BA-STD-C89 v0.8.3-dev status / Standardisierung
-
-DE: Die Repositorystruktur wurde als **Kandidat** auf BA-STD-C89 angeglichen. `AGENTS.md` ist die kanonische Agentenregelquelle und `CLAUDE.md` ein bloßer Verweis. Der gemeinsame Testheader liegt unter `include/tests/`. Die Coverage-Ausgangsmessung fehlt noch; diese Version ist weder vollständig konform noch freigegeben.
-
-EN: BA-STD-C89 structural migration candidate. `AGENTS.md` is the canonical provider-neutral contract, while `CLAUDE.md` points to it. Shared test header is under `include/tests/`. Coverage baseline still needs measurement; no release approval.
+`tack init` and `tack new` still generate a **generic, non-destructive** scaffold. The generated `tack.ini` now includes commented profile compiler examples. BA-STD-C89 agent, security and coverage policies are not copied into unrelated projects without consent; see the [scaffolding guide](docs/guides/init-new-and-ba-std-c89.md).

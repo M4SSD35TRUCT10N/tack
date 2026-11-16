@@ -1,4 +1,4 @@
-# tack FAQ / FAQ (DE/EN) — v0.8.1-dev
+# tack FAQ / FAQ (DE/EN) — v0.8.3-dev
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md) • [Docs](docs/README.md)
 
@@ -52,7 +52,7 @@ Nein. Die 0.8-Serie schärft vor allem die **Begriffe und Zuständigkeiten**. `T
 Weil das den Kern des Projekts verwässern würde. `tack` soll **klein, C89-tauglich, fail-fast und nachvollziehbar** bleiben. Die 0.8-Serie will die vorhandene Compiler-/INI-Politik klarer machen, aber kein frei zusammensetzbares Meta-Buildsystem einführen.
 
 ### Welche Compiler funktionieren?
-Standard ist **tcc**. Die Auswahl-Priorität ist jetzt: `TACK_CC` → `[project] compiler` → Built-in-Default. Über `TACK_CC` oder `[project] compiler` kannst du z.B. `gcc` oder `clang` nutzen, solange sie „klassische“ C‑Kommandozeilen verstehen. Im Debug-Profil setzt tack die Basis-Flags compilerbewusst: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC. Falls nötig, kann die eingebaute Policy zusätzlich über `[project] compiler_policy = auto|tcc|gcc|clang|generic` festgelegt werden. `tack doctor` zeigt jetzt zusätzlich Quelle, wirksame Compiler-Policy und die Herkunft dieser Policy an.  
+Standard ist **tcc**. Die aktuelle Auswahl-Priorität lautet: `TACK_CC` → aktives Targetprofil → `[project] compiler` → Built-in-Default. Über `TACK_CC` oder `[project] compiler` kannst du z.B. `gcc` oder `clang` nutzen, solange sie „klassische“ C‑Kommandozeilen verstehen. Im Debug-Profil setzt tack die Basis-Flags compilerbewusst: `-g` und `-DDEBUG=1` allgemein, `-bt20` nur für tcc/TinyCC. Falls nötig, kann die eingebaute Policy zusätzlich über `[project] compiler_policy = auto|tcc|gcc|clang|generic` festgelegt werden. `tack doctor` zeigt jetzt zusätzlich Quelle, wirksame Compiler-Policy und die Herkunft dieser Policy an.  
 **Wichtig:** `TACK_CC` und `[project] compiler` sind **Compilerprogramme**, nicht „Compiler + Flags“. Flags gehören in `tack.ini`.
 
 ### Warum lehnt tack `TACK_CC="clang -std=c89"` ab?
@@ -318,6 +318,17 @@ Marker-Kommentare (`<!-- TACK:BEGIN ... -->`) liefert das eingebaute Layout oder
 
 ---
 
+
+### Wie wähle ich den Compiler je Profil (v0.8.2-dev)?
+
+Setze beispielsweise `[project] compiler = tcc` und `[target "app".release] compiler = gcc`. `tack doctor release --target app` zeigt Compilerquelle und Policy. `TACK_CC` überschreibt das Compilerprogramm, aber nicht automatisch eine explizit erzwungene `compiler_policy`. Beim Compilerwechsel im gleichen Profil `--rebuild` verwenden.
+
+### Erzeugen `tack init` und `tack new` bereits alle BA-STD-C89-Dateien?
+
+Nein. Beide Befehle bleiben allgemeine, nicht destruktive Scaffold-Werkzeuge. Ihre `tack.ini` enthält optionale Profilcompiler-Beispiele. Ein BA-STD-C89-Agentenvertrag, Coverage-Ratchet und projektspezifische Spezifikationen benötigen bewusste Projektentscheidungen; siehe [Leitfaden](docs/guides/init-new-and-ba-std-c89.md).
+
+---
+
 ## English (FAQ)
 
 ### Are `v0.8.0-dev` and `v0.8.1-dev` complete?
@@ -365,7 +376,7 @@ No. The 0.8 series mainly sharpens the **terminology and responsibilities**. `TA
 Because that would dilute the core of the project. `tack` is supposed to stay **small, C89-friendly, fail-fast, and reviewable**. The 0.8 series aims to clarify the existing compiler/INI policy, not to introduce a freely composable meta-build system.
 
 ### Which compilers work?
-Default is **tcc**. Selection priority is now `TACK_CC` → `[project] compiler` → built-in default. You can use `TACK_CC` or `[project] compiler` to select `gcc`/`clang` etc. as long as they behave like classic C compilers. In debug builds tack applies compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC. When needed, the built-in policy can additionally be pinned via `[project] compiler_policy = auto|tcc|gcc|clang|generic`. `tack doctor` now also reports the compiler source, active compiler policy, and the source of that policy.  
+Default is **tcc**. Current selection priority is `TACK_CC` → active target profile → `[project] compiler` → built-in default. You can use `TACK_CC` or `[project] compiler` to select `gcc`/`clang` etc. as long as they behave like classic C compilers. In debug builds tack applies compiler-aware base flags: `-g` and `-DDEBUG=1` generically, `-bt20` only for tcc/TinyCC. When needed, the built-in policy can additionally be pinned via `[project] compiler_policy = auto|tcc|gcc|clang|generic`. `tack doctor` now also reports the compiler source, active compiler policy, and the source of that policy.  
 Important: `TACK_CC` and `[project] compiler` are compiler programs, not “compiler + flags”. Put flags into `tack.ini`.
 
 ### Why does tack reject `TACK_CC="clang -std=c89"`?
@@ -626,8 +637,10 @@ If you rely on exotic include patterns (macros/generators), use `--rebuild` or `
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md)
 
-## Compiler selection per profile / Compilerwahl je Profil (v0.8.2-dev)
+### How do I select a compiler per profile (v0.8.2-dev)?
 
-DE: `[project] compiler=tcc` für Debug; in `[target "app".release] compiler=gcc`, optional `compiler_policy=gcc`. `tack doctor release --target app` zeigt die Releasewahl. `TACK_CC` überschreibt die Compilerdatei, nicht automatisch eine erzwungene Policy. Bei Compilerwechsel im selben Profil mit `--rebuild` arbeiten.
+For example, set `[project] compiler = tcc` and `[target "app".release] compiler = gcc`. `tack doctor release --target app` shows compiler source and policy. `TACK_CC` overrides the compiler program, but not an explicitly forced `compiler_policy`. Use `--rebuild` when switching compilers within one profile.
 
-EN: Use `[project] compiler=tcc` with `[target "app".release] compiler=gcc`. `doctor release --target app` shows the release compiler. `TACK_CC` overrides the program but not an explicit policy. Use `--rebuild` when switching compilers within a profile.
+### Do `tack init` and `tack new` generate all BA-STD-C89 files?
+
+No. Both remain generic, non-destructive scaffold commands. Their `tack.ini` includes optional profile compiler examples. A BA-STD-C89 agent contract, coverage ratchet and project-specific specifications require deliberate project decisions; see the [guide](docs/guides/init-new-and-ba-std-c89.md).

@@ -33,14 +33,41 @@ Bei `[target "NAME".PROFILE] compiler_policy` gilt die explizite Target-Policy; 
 
 **Grenzen:** Keine neue Toolchain-DSL, keine Änderung des `tackfile.c`-Vertrags, keine automatischen Installer, keine Agentensteuerung. Der Wechsel des Compilers innerhalb desselben Profils erfordert bis zur gesonderten Cache-Verbesserung `--rebuild`, da die bestehende inkrementelle Prüfung keinen Wechsel allein anhand des Compilernamens erkennt.
 
+
+### Abnahme und Nachweise
+
+Regression: `tests/compiler_target_profile_selection_test.c` prüft Umgebungspriorität, Profilfallback, Policy und Target-Isolation. Die vorhandenen Tests zu Compilerwahl und Flags gelten weiterhin. Nach der Korrektur von v0.8.3 wurden die Linux/GCC-Debug- und Release-Suites ausgeführt. Windows/TinyCC, TDM-GCC und gegebenenfalls weitere Compiler bleiben getrennte Gates; die historische 0.8.2-Implementierung war zuvor nicht unabhängig getestet.
+
 ## English
 
-A release target may use a different compiler from its debug target. Compiler selection stays declarative in `tack.ini`, separate from flags and scripts.
+A release target may use a different compiler from its debug target. Compiler selection remains declarative in `tack.ini`, separate from compiler flags or script logic.
 
-Selection precedence: non-empty `TACK_CC` > non-empty active `[target "NAME".PROFILE] compiler` > non-empty `[project] compiler` > built-in `tcc`. Target `compiler_policy` overrides project policy; `auto` detects the effective compiler. A forced non-auto policy remains forced even when `TACK_CC` changes the program, so users must keep the combination consistent. `build`, `run`, `bom`, `sbom`, `doc`, `doctor` and `test` resolve the active target/profile. `test` inherits that target/profile's extra `cflags` as well. `doctor release --target app` reports the selection.
+### Syntax
 
-No generic build DSL, installers, agent management, or `tackfile.c` API expansion. Until cache identity is extended, use `--rebuild` when overriding a compiler within the same profile.
+```ini
+[project]
+compiler = tcc
+compiler_policy = auto
 
-## Acceptance evidence / Abnahme
+[target "app".release]
+compiler = gcc
+compiler_policy = gcc
+cflags = -std=c89;-pedantic-errors;-Wextra;-Werror
+```
 
-Regression source: `tests/compiler_target_profile_selection_test.c` (environment precedence, profile fallback, policy, target isolation). The existing compiler selection and compiler flag regression sources remain normative. **No tests executed for this draft.** Windows/TinyCC, TDM-GCC, GCC and Clang gates remain open.
+Compiler selection priority is:
+
+1. Non-empty `TACK_CC` (executable name or path, never a container for flags).
+2. Non-empty `[target "NAME".PROFILE] compiler` for the active target/profile.
+3. Non-empty `[project] compiler`.
+4. Built-in default `tcc`.
+
+A target-profile `compiler_policy` overrides project policy. `auto` detects policy from the effective compiler program. Otherwise the project policy is used. An explicitly forced `compiler_policy = gcc` remains in effect even under `TACK_CC=tcc`; environment overrides therefore require a matching policy. Incompatible combinations must be caught by compiler gates.
+
+`build`, `run`, `bom`, `sbom` and `doc` bind compiler selection to the active target and profile. `test` uses the compiler of the `--target` target (or `default_target`) and inherits that target/profile's extra `cflags`; it does not independently choose the project compiler. `doctor release --target app` reports the effective selection. Plain `doctor` shows the debug profile of the default target.
+
+**Limits:** No generic toolchain DSL, no changes to the `tackfile.c` contract, no auto-installers or agent control. Switching compilers within a profile requires `--rebuild` until separate cache improvements include compiler identity in the cache key.
+
+### Acceptance and evidence
+
+Regression source: `tests/compiler_target_profile_selection_test.c` covers environment precedence, profile fallback, policy and target isolation. The existing compiler-selection and compiler-flags tests remain applicable. Linux/GCC debug and release suites were executed after the v0.8.3 fixes. Windows/TinyCC, TDM-GCC and any other required compilers remain separate gates; the historical 0.8.2 implementation had not been independently tested before that correction.

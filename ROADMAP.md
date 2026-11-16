@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.8.1-dev
+# tack ROADMAP (DE/EN) — v0.8.3-dev
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)** · **[Docs](docs/README.md)**
 
@@ -158,6 +158,13 @@ Das bleibt bewusst offen, bis die Build‑Basis in der Praxis sitzt.
 
 ---
 
+
+### Laufender Entwicklungsschritt: v0.8.2 / v0.8.3 (noch nicht freigegeben)
+
+v0.8.2 erweitert die deklarative Compiler- und Policy-Wahl pro Targetprofil. v0.8.3 strukturiert das Repository nach BA-STD-C89, behebt Test-Signaturfehler und stellt die zweisprachige Dokumentstruktur wieder her. Linux/GCC-Testläufe ersetzen keine Windows- und TinyCC-Abnahme. Coverage-Baseline und High-Water-Gate dürfen nicht erfunden oder als erfüllt markiert werden. Weitere Arbeit an anderen Projekten ist davon unabhängig.
+
+---
+
 ## English (Roadmap)
 
 ### Completed state: v0.8.1-dev
@@ -314,8 +321,6 @@ This stays open until the core build workflow is proven in practice.
 
 Back: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)**
 
-## v0.8.2 / v0.8.3 BA-STD-C89 sequence
+### Active development step: v0.8.2 / v0.8.3 (not released)
 
-DE: 0.8.2 implementiert deklarative Compiler-/Policy-Wahl nach Target und Profil, einschließlich Testbindung. 0.8.3 zieht die BA-STD-C89-Struktur, Agentenportabilität, Dokumentation und überprüfbare Ratchets im tack-Repository nach. Release-Gates sind bis zur unabhängigen Abnahme offen. Danach Rückkehr zu ASCENDERE DESCENDERE; dessen RC2.1-Windows-Abnahme nicht durch eine Standardisierungsänderung ersetzen.
-
-EN: 0.8.2 adds declarative per-target/profile compiler and policy selection, including tests. 0.8.3 applies BA-STD-C89 structure, provider-neutral agents, documentation and verifiable ratchets. Release gates remain open until independently accepted; then return to ASCENDERE DESCENDERE.
+v0.8.2 adds declarative compiler and policy selection per target profile. v0.8.3 aligns the repository with BA-STD-C89, fixes stale test signatures and restores bilingual documentation structure. Linux/GCC test runs do not replace Windows and TinyCC acceptance. The coverage baseline and high-water gate must not be invented or marked complete. Work on unrelated projects remains independent.

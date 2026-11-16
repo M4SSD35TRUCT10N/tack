@@ -14,6 +14,18 @@ int main(void) {
     fprintf(stderr, "generated tack.ini header does not reference TACK_VERSION\n");
     return 1;
   }
+  if (!lines_contain(TACK_INIT_DEFAULT_TACK_INI_LINES, "[target \"app\".release]")) {
+    fprintf(stderr, "generated tack.ini misses optional release profile example\n");
+    return 1;
+  }
+  if (!lines_contain(TACK_INIT_DEFAULT_TACK_INI_LINES, "compiler = gcc")) {
+    fprintf(stderr, "generated tack.ini misses release compiler example\n");
+    return 1;
+  }
+  if (!lines_contain(TACK_INIT_DEFAULT_TACK_INI_LINES, "--rebuild")) {
+    fprintf(stderr, "generated tack.ini misses compiler-switch cache warning\n");
+    return 1;
+  }
   if (!strstr(TACK_INIT_MAIN_C, "Hello from tack!")) {
     fprintf(stderr, "generated src/main.c scaffold text mismatch\n");
     return 1;

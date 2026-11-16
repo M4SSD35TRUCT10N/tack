@@ -1,15 +1,19 @@
-# SPEC 0011 — tack BA-STD-C89 test and coverage ratchets
+# SPEC 0011 — tack: Test- und Coverage-Ratchets / Test and coverage ratchets
 
-**Status:** DRAFT / ENTWURF — the baseline is NOT MEASURED.
+**Status:** Entwurf / draft. Eine Coverage-Baseline wurde NICHT GEMESSEN.
 
 ## Deutsch
 
-Für `tack` sind alle bestehenden C89-Regressionstests Bestandteil des Test-Ratchets. Sie werden nach erfolgreicher Abnahme gezählt und dürfen nicht ohne dokumentierte, ausdrücklich freigegebene Vertragsänderung abgeschwächt oder entfernt werden.
+Alle bestehenden C89-Regressionstests gehören zum Test-Ratchet. Nach Abnahme dürfen sie nicht ohne dokumentierte und ausdrücklich freigegebene Vertragsänderung entfernt oder abgeschwächt werden.
 
-Das Coverage-Ratchet erhält eine Baseline erst nach einem tatsächlichen reproduzierbaren, `tack`-gesteuerten instrumentierten Lauf. Es gilt die höchste akzeptierte Coverage auf vergleichbarer Grundlage. Ein neuer höherer akzeptierter Wert ersetzt die vorherige Untergrenze. Coverage wird als exaktes Verhältnis `covered/total` dokumentiert, nicht anhand gerundeter Prozentwerte. Jede Änderung am Nenner, Filter, Compiler oder Messprofil muss offengelegt und getrennt freigegeben werden. Baseline-Minderung ist kein Reparaturweg.
+Eine Coverage-Baseline wird ausschließlich durch einen tatsächlich ausgeführten, reproduzierbaren, `tack`-gesteuerten instrumentierten Testlauf begründet. Es gilt der höchste akzeptierte Wert auf vergleichbarer Grundlage. Coverage wird als exaktes Verhältnis `covered/total` geführt, nicht über gerundete Prozentwerte. Änderungen an Nenner, Filtern, Compiler oder Messprofil erfordern Dokumentation und separate Freigabe. Eine niedrigere Baseline ist keine Fehlerbehebung.
 
-**Blocker:** Es existiert zum Zeitpunkt dieses Entwurfs kein neu gemessener tack-Coverage-Ausgangswert. Weder `0%` noch `100%` dürfen als Ersatz eingetragen werden. Eine vollständige BA-STD-C89-Abnahme von v0.8.3 setzt die tatsächliche Messung und Gate-Einrichtung voraus.
+**Offenes Gate:** Es gibt keinen akzeptierten, aktuell gemessenen High-Water-Ausgangswert. Weder `0%` noch `100%` dürfen als Platzhalter verwendet werden. Vollständige BA-STD-C89-Konformität und Releasefreigabe erfordern tatsächliche Messung, Ratchet-Gate und Owner-Abnahme. Grüne Funktionstests allein erfüllen dieses Gate nicht.
 
 ## English
 
-Preserve accepted regression tests as a test ratchet. The coverage ratchet uses the highest actually measured and accepted exact `covered/total` mark under comparable instrumentation. Never invent a baseline or lower the historical high-water mark to get green results. Profile/filter/denominator changes require explicit review. Current baseline is NOT MEASURED, so v0.8.3 is not yet a complete BA-STD-C89 acceptance.
+All existing C89 regression tests belong to the test ratchet. Once accepted, they must not be removed or weakened without an explicitly approved, documented contract change.
+
+A coverage baseline must come from an actually executed, reproducible, `tack`-driven instrumented test run. The highest accepted value under comparable conditions is the high-water mark. Record coverage as the exact `covered/total` ratio, not a rounded percentage. Changes in the denominator, filters, compiler or measurement profile require documentation and separate approval. Lowering the baseline is not a repair.
+
+**Open gate:** No accepted, currently measured high-water baseline exists. Neither `0%` nor `100%` may be used as a placeholder. Full BA-STD-C89 compliance and release approval require actual measurement, a ratchet gate and owner acceptance. Green functional tests alone do not satisfy this gate.

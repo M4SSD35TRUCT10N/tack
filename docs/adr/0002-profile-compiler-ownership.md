@@ -1,13 +1,15 @@
-# ADR 0002 — Compiler per target/profile
+# ADR 0002 — Compiler je Targetprofil / Compiler per target profile
 
-Status / Status: PROPOSED / VORGESCHLAGEN (0.8.2-dev)
+**Status:** vorgeschlagen / proposed (0.8.2-dev)
 
 ## Deutsch
 
-Entscheidung: Die Compilerwahl pro Buildprofil gehört in die explizite INI-Sektion `[target "NAME".debug|release]`. Das Projekt besitzt weiterhin eine universelle Fallback-Wahl. `TACK_CC` hat Vorrang. Tests binden sich an das gewählte Zielprofil, damit ein GCC-Release-Build nicht durch einen TinyCC-Testlauf scheinbar abgenommen wird. `tack` bleibt ein reiner Buildtreiber.
+Die Compilerwahl pro Buildprofil gehört in die explizite INI-Sektion `[target "NAME".debug]` oder `[target "NAME".release]`. `[project] compiler` bleibt Fallback, `TACK_CC` hat Vorrang. Tests nutzen den Compiler und die zusätzlichen `cflags` des ausgewählten Zielprofils, damit ein GCC-Release nicht versehentlich mit TinyCC-Tests abgenommen wird. `tack` bleibt ein Buildtreiber.
 
-Die Alternative eines ausschließlich globalen `compiler`-Wertes wurde verworfen, weil dies für jeden Release-Gate eine manuelle Umgebungsänderung erzwingen würde.
+Eine ausschließlich globale Compilerwahl wurde verworfen, weil dies für jeden Release-Gate manuelle Umgebungsänderungen erfordern würde. Ein Compilerwechsel innerhalb desselben Profils erfordert derzeit `--rebuild`; das Cache-Verhalten wird separat betrachtet.
 
 ## English
 
-Decision: select compiler per `[target "NAME".debug|release]` section; retain `[project]` fallback and `TACK_CC` override. Tests follow the selected target/profile so GCC releases cannot be accidentally validated by a TinyCC test build. Keep tack a build driver, not an orchestration layer.
+Compiler selection per build profile belongs in the explicit INI section `[target "NAME".debug]` or `[target "NAME".release]`. `[project] compiler` remains a fallback and `TACK_CC` takes precedence. Tests use the chosen profile compiler and extra `cflags` so a GCC release cannot accidentally be accepted using TinyCC tests. `tack` remains a build driver.
+
+A global-only compiler setting was rejected because each release gate would otherwise need manual environment changes. Switching compilers within one profile currently requires `--rebuild`; cache behavior is a separate concern.

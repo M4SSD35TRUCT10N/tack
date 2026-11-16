@@ -5887,6 +5887,7 @@ static const char * const TACK_INIT_DEFAULT_TACK_INI_LINES[] = {
   "; compiler = tcc\n",
   "; compiler_policy = auto\n",
   "; compiler priority: TACK_CC -> [target NAME.profile] compiler -> [project] compiler -> built-in tcc\n",
+  "; target/profile compiler selection (optional, set only in the required profile)\n",
   "allow_unsafe_paths = no\n",
   "\n",
   "[target \"app\"]\n",
@@ -5894,6 +5895,16 @@ static const char * const TACK_INIT_DEFAULT_TACK_INI_LINES[] = {
   "bin = app\n",
   "core = yes\n",
   "includes = src\n",
+  "\n",
+  "; Optional profile-local compiler selection (v0.8.2-dev and newer):\n",
+  ";[target \"app\".debug]\n",
+  ";compiler = tcc\n",
+  ";compiler_policy = auto\n",
+  ";[target \"app\".release]\n",
+  ";compiler = gcc\n",
+  ";compiler_policy = auto\n",
+  ";cflags = -std=c89;-pedantic-errors;-Wextra;-Werror\n",
+  "; Select release compiler only when installed; use --rebuild on compiler switch.\n",
   "\n",
   "[doc]\n",
   "template = templates/tack_template_min.html\n",
@@ -6036,22 +6047,22 @@ static int cmd_new(const char *name) {
   char cwd0[1024];
 
   if (!projname_is_safe(name)) {
-    fprintf(stderr, "tack: new: invalid project name (use a single directory name, no spaces or slashes)\\n");
+    fprintf(stderr, "tack: new: invalid project name (use a single directory name, no spaces or slashes)\n");
     return 2;
   }
   if (file_exists(name)) {
-    fprintf(stderr, "tack: new: path exists: %s\\n", name);
+    fprintf(stderr, "tack: new: path exists: %s\n", name);
     return 1;
   }
 
 #ifdef _WIN32
   if (_mkdir(name) != 0) {
-    fprintf(stderr, "tack: new: cannot create dir %s: %s\\n", name, strerror(errno));
+    fprintf(stderr, "tack: new: cannot create dir %s: %s\n", name, strerror(errno));
     return 1;
   }
 #else
   if (mkdir(name, 0777) != 0) {
-    fprintf(stderr, "tack: new: cannot create dir %s: %s\\n", name, strerror(errno));
+    fprintf(stderr, "tack: new: cannot create dir %s: %s\n", name, strerror(errno));
     return 1;
   }
 #endif
@@ -6065,12 +6076,12 @@ static int cmd_new(const char *name) {
 
 #ifdef _WIN32
   if (_chdir(name) != 0) {
-    fprintf(stderr, "tack: new: cannot enter dir %s: %s\\n", name, strerror(errno));
+    fprintf(stderr, "tack: new: cannot enter dir %s: %s\n", name, strerror(errno));
     return 1;
   }
 #else
   if (chdir(name) != 0) {
-    fprintf(stderr, "tack: new: cannot enter dir %s: %s\\n", name, strerror(errno));
+    fprintf(stderr, "tack: new: cannot enter dir %s: %s\n", name, strerror(errno));
     return 1;
   }
 #endif
@@ -6084,12 +6095,12 @@ static int cmd_new(const char *name) {
 #endif
 
   if (rc != 0) {
-    fprintf(stderr, "tack: new: init failed (project dir kept): %s\\n", name);
+    fprintf(stderr, "tack: new: init failed (project dir kept): %s\n", name);
     return rc;
   }
 
-  printf("tack: new: created %s/ (initialized)\\n", name);
-  printf("tack: new: next: cd %s\\n", name);
+  printf("tack: new: created %s/ (initialized)\n", name);
+  printf("tack: new: next: cd %s\n", name);
   return 0;
 }
 

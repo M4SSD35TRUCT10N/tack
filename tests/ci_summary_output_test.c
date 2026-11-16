@@ -15,6 +15,8 @@
 #define DUP_FN dup
 #define DUP2_FN dup2
 #define FILENO_FN fileno
+/* fileno is POSIX, not declared by strict ISO C89 stdio.h. */
+extern int fileno(FILE *stream);
 extern int setenv(const char *name, const char *value, int overwrite);
 #endif
 

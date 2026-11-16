@@ -5,11 +5,15 @@
 #define DUP_FN _dup
 #define DUP2_FN _dup2
 #define FILENO_FN _fileno
+#define CLOSE_FN _close
 #else
 #include <unistd.h>
 #define DUP_FN dup
 #define DUP2_FN dup2
 #define FILENO_FN fileno
+#define CLOSE_FN close
+/* fileno is POSIX, not declared by strict ISO C89 stdio.h. */
+extern int fileno(FILE *stream);
 #endif
 
 #ifndef _WIN32
@@ -38,6 +42,10 @@ static void reset_compiler_cfg(void) {
   (void)set_env_local("TACK_CC", "");
 }
 
+static void capture_debug_doctor(void) {
+  cmd_doctor(default_target_name(), PROF_DEBUG);
+}
+
 static int capture_stdout_to_file(const char *path, void (*fn)(void)) {
   FILE *out;
   int saved_fd;
@@ -51,14 +59,14 @@ static int capture_stdout_to_file(const char *path, void (*fn)(void)) {
 
   out = fopen(path, "wb");
   if (!out) {
-    close(saved_fd);
+    CLOSE_FN(saved_fd);
     return 1;
   }
 
   out_fd = FILENO_FN(out);
   if (DUP2_FN(out_fd, FILENO_FN(stdout)) < 0) {
     fclose(out);
-    close(saved_fd);
+    CLOSE_FN(saved_fd);
     return 1;
   }
 
@@ -67,11 +75,11 @@ static int capture_stdout_to_file(const char *path, void (*fn)(void)) {
 
   if (DUP2_FN(saved_fd, FILENO_FN(stdout)) < 0) {
     fclose(out);
-    close(saved_fd);
+    CLOSE_FN(saved_fd);
     return 1;
   }
 
-  close(saved_fd);
+  CLOSE_FN(saved_fd);
   fclose(out);
   return 0;
 }
@@ -148,7 +156,7 @@ int main(void) {
   g_config_compiler = xstrdup("clang");
   g_config_compiler_policy = xstrdup("generic");
 
-  if (capture_stdout_to_file(doctor_path, cmd_doctor) != 0) {
+  if (capture_stdout_to_file(doctor_path, capture_debug_doctor) != 0) {
     fprintf(stderr, "FAIL capture-doctor\n");
     return 1;
   }

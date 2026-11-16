@@ -1,13 +1,21 @@
-# tack — agent contract / Agentenvertrag
+# tack — Agentenvertrag / Agent contract
 
-**Work scope / Arbeitsbereich:** only the explicitly assigned milestone; no unrelated refactoring. Read relevant SPEC/ADR before editing. Preserve the single-file ISO C89 implementation and `tack.ini` as the sole build definition. Do not add Make, CMake, Ninja, Python or Node as project build dependencies. Keep compiler flags in `tack.ini`, not environment variables. `TACK_CC` is an executable selector only.
+## Deutsch
 
-**Before edits / Vor Änderungen:** review `docs/agents/STATE.md`, `docs/specs/0010-profile-compiler-selection.md`, relevant ADR, tests and active task. Limit broad searching and tool output. Source files only; no testing unless instructed for this milestone.
+**Scope:** Nur der beauftragte Milestone. SPEC, ADR, `docs/agents/STATE.md` und Task vor Änderungen lesen. Einzeldatei-Implementierung in striktem ISO C89 und `tack.ini` als einzige Builddefinition erhalten. Keine neuen Make-/CMake-/Ninja-/Python-/Node-Abhängigkeiten. Flags gehören in die INI; `TACK_CC` wählt nur das Compilerprogramm.
 
-**C89 / Security:** strict ISO C89, fail-closed parsing, safe paths, bounded operations, no hidden warning suppression. Keep test and coverage ratchets; never lower accepted baselines or invent numbers. Do not fabricate a PASS or Windows check.
+**Sicherheit:** Fail-closed Parsing, begrenzte Pfade und Operationen, keine versteckten Warnungsunterdrückungen. Tests und Coverage-High-Water-Werte nicht abschwächen; keine ungemessenen Baselines erfinden. Compiler- oder Windows-Gates niemals als bestanden ausgeben, wenn sie nicht tatsächlich liefen.
 
-**Parallel agents / Agenten:** Codex and Claude Code have identical authority. `CLAUDE.md` only points here; no additional normative instructions. An authorized owner explicitly approves architecture changes, licensing and release status.
+**Agenten:** Codex und Claude Code folgen demselben Vertrag. `CLAUDE.md` verweist ausschließlich hierher. Architektur, Lizenz und Release-Status werden vom Owner freigegeben.
 
-**Delivery / Lieferung:** complete source archive, change log, Conventional Commit message, SHA-256 verification, explicit PASS/FAIL/NOT RUN per check. Actual Windows execution is OWNER VERIFIED only after logs are provided. Until then, report NOT RUN.
+**Lieferung:** Vollständiges Quellen-ZIP, Änderungsprotokoll, Conventional-Commit-Nachricht, SHA-256-Prüfung und für jedes Gate PASS/FAIL/NOT RUN. Windows-Abnahme erfolgt erst durch Owner-Logs. Der aktuelle v0.8.3-dev-Stand ist nicht freigegeben; Coverage-Baseline und High-Water-Gate stehen aus.
 
-**State:** tack v0.8.3-dev BA-STD-C89 candidate, no release approval. The v0.8.2 target/profile compiler feature is not independently regression-tested. No accepted initial coverage high-water mark for this repository yet. Do not present the BA-STD migration as completed without a measured baseline and green gates.
+## English
+
+**Scope:** Only the assigned milestone. Read SPEC, ADR, `docs/agents/STATE.md` and the task before editing. Preserve the single-file strict ISO C89 implementation and `tack.ini` as the sole build definition. No new Make/CMake/Ninja/Python/Node dependencies. Flags belong in the INI; `TACK_CC` selects the compiler executable only.
+
+**Security:** Fail-closed parsing, bounded paths and operations, no hidden warning suppression. Never weaken tests or coverage high-water marks, or invent an unmeasured baseline. Never claim compiler or Windows gates passed unless they actually ran.
+
+**Agents:** Codex and Claude Code have equal authority under this contract. `CLAUDE.md` only points here. Architecture, licensing and release status require owner approval.
+
+**Delivery:** Complete source ZIP, change log, Conventional Commit message, SHA-256 verification and PASS/FAIL/NOT RUN for each gate. Owner-provided logs are required for Windows acceptance. Current v0.8.3-dev is not released; coverage baseline and high-water gate remain open.

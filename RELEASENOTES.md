@@ -9,6 +9,18 @@
 > Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
 > Diese Datei dokumentiert bis dahin die Versionen/Milestones.
 
+### v0.8.3-dev (Entwicklungskandidat, nicht freigegeben)
+- Repariert veraltete `build_and_run_tests()`- und `cmd_doctor()`-Aufrufe in den Regressionstests.
+- Ergänzt die POSIX-`fileno()`-Deklaration für strenge ISO-C89-Tests unter GCC.
+- Synchronisiert DE/EN-Dokumentation, `tack.ini` und `tack init`/`tack new` mit den Profilcompiler-Funktionen.
+- Beweist Linux/GCC Debug und Release mit den ausgeführten Tests; Windows/TinyCC/Coverage bleiben gesonderte Gates.
+- BA-STD-C89-Ratchet bleibt ohne gemessene Coverage-High-Water-Baseline offen.
+
+### v0.8.2-dev (Entwicklungskandidat, nicht freigegeben)
+- Ergänzt `compiler` und `compiler_policy` je Targetprofil mit Vorrang für `TACK_CC`.
+- `tack test` übernimmt Compiler und zusätzliche `cflags` des gewählten Zielprofils; `tack doctor release --target NAME` zeigt die Auswahl.
+- Compilerwechsel im selben Profil erfordert derzeit `--rebuild`.
+
 ### v0.8.1-dev
 - Abschluss: `v0.8.1-dev` ist als Doc-UX-/Search-/Polishing-Schritt abgeschlossen; Programmstand, Doku, INI, Templates und SPEC-Status sind für diesen Stand synchronisiert.
 - Prüfung: vollständige lokale Testsuite grün (`TACK_SUMMARY ... status=ok ... total=22 ... failed=0`) sowie C89/Pedantic/Werror-Builds mit GCC und Clang erfolgreich.
@@ -189,6 +201,18 @@
 > Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
 > Until then, this file tracks versions/milestones.
 
+### v0.8.3-dev (development candidate, not released)
+- Fixes outdated `build_and_run_tests()` and `cmd_doctor()` regression test calls.
+- Adds the POSIX `fileno()` declaration for strict ISO C89 GCC tests.
+- Aligns DE/EN documentation, `tack.ini`, and `tack init`/`tack new` with profile compiler features.
+- Records executed Linux/GCC debug and release tests; Windows/TinyCC/coverage remain separate gates.
+- BA-STD-C89 ratchet acceptance remains open without a measured coverage high-water baseline.
+
+### v0.8.2-dev (development candidate, not released)
+- Adds per-target/profile `compiler` and `compiler_policy` with `TACK_CC` precedence.
+- `tack test` inherits compiler and extra `cflags` for the chosen profile; `tack doctor release --target NAME` reports the selection.
+- Compiler switches within one profile currently require `--rebuild`.
+
 ### v0.8.1-dev
 - Closure: `v0.8.1-dev` is complete as the doc UX/search/polish step; implementation state, documentation, INI, templates, and SPEC status are synchronized for this state.
 - Verification: full local test suite passed (`TACK_SUMMARY ... status=ok ... total=22 ... failed=0`) and GCC/Clang C89/pedantic/Werror builds succeeded.
@@ -365,9 +389,3 @@
 ---
 
 **Backlinks:** [README](README.md) • [FAQ](FAQ.md) • [Roadmap](ROADMAP.md)
-
-## v0.8.2-dev — Target/profile compiler selection (NOT RELEASED / NICHT FREIGEGEBEN)
-
-DE: `[target "NAME".debug|release]` akzeptiert `compiler` und `compiler_policy` mit Vorrang von `TACK_CC`. `tack test release` übernimmt Compiler und Extra-`cflags` des Targets. `tack doctor release --target NAME` zeigt die Auswahl. Keine ausgeführten Regressionstests in diesem Entwurf.
-
-EN: Target/profile `compiler` and `compiler_policy` selection; `TACK_CC` takes precedence. Tests inherit target/profile compiler and extra `cflags`. Doctor supports profile and target. No regression tests executed for this draft.
