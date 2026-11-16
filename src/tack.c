@@ -77,7 +77,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.8.2-dev"
+#define TACK_VERSION "0.8.3-dev"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192

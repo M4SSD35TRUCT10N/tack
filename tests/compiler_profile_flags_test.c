@@ -1,4 +1,4 @@
-#include "tack_test_embed.h"
+#include "tests/tack_test_embed.h"
 
 static int expect_true(const char *label, int cond) {
   if (cond) return 0;

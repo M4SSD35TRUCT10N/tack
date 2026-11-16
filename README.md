@@ -1138,3 +1138,9 @@ cflags = -std=c89;-pedantic-errors;-Wextra;-Werror
 DE: `tack doctor release --target app` zeigt die ausgewählte Release-Toolchain. `tack test release --ci --rebuild` nutzt den Release-Compiler des Standardtargets. Diese Funktion ist in v0.8.2-dev implementiert, aber bis zur Testabnahme nicht freigegeben.
 
 EN: `tack doctor release --target app` reports the selected release toolchain. `tack test release --ci --rebuild` uses the default target's release compiler. This feature is implemented in v0.8.2-dev but not approved until tested.
+
+## BA-STD-C89 v0.8.3-dev status / Standardisierung
+
+DE: Die Repositorystruktur wurde als **Kandidat** auf BA-STD-C89 angeglichen. `AGENTS.md` ist die kanonische Agentenregelquelle und `CLAUDE.md` ein bloßer Verweis. Der gemeinsame Testheader liegt unter `include/tests/`. Die Coverage-Ausgangsmessung fehlt noch; diese Version ist weder vollständig konform noch freigegeben.
+
+EN: BA-STD-C89 structural migration candidate. `AGENTS.md` is the canonical provider-neutral contract, while `CLAUDE.md` points to it. Shared test header is under `include/tests/`. Coverage baseline still needs measurement; no release approval.

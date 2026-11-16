@@ -1,4 +1,4 @@
-#include "tack_test_embed.h"
+#include "tests/tack_test_embed.h"
 
 static int lines_contain(const char * const *lines, const char *needle) {
   int i;

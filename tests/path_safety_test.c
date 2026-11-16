@@ -1,4 +1,4 @@
-#include "tack_test_embed.h"
+#include "tests/tack_test_embed.h"
 
 static int expect_rc(const char *label, int got, int want) {
   if (got == want) return 0;

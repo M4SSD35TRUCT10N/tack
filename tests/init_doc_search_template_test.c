@@ -1,4 +1,4 @@
-#include "tack_test_embed.h"
+#include "tests/tack_test_embed.h"
 
 #ifdef _WIN32
 #include <direct.h>

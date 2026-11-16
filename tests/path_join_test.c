@@ -1,4 +1,4 @@
-#include "tack_test_embed.h"
+#include "tests/tack_test_embed.h"
 
 #ifdef _WIN32
 static int expect_eq(const char *label, const char *got, const char *expected) {

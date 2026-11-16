@@ -1,4 +1,4 @@
-#include "tack_test_embed.h"
+#include "tests/tack_test_embed.h"
 
 #ifndef _WIN32
 extern int setenv(const char *name, const char *value, int overwrite);

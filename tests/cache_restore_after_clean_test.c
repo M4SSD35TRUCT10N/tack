@@ -1,4 +1,4 @@
-#include "tack_test_embed.h"
+#include "tests/tack_test_embed.h"
 
 static int write_text_file(const char *path, const char *text) {
   FILE *f = fopen(path, "wb");

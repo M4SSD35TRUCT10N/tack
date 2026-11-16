@@ -1,4 +1,4 @@
-#include "tack_test_embed.h"
+#include "tests/tack_test_embed.h"
 
 static int file_contains_text(const char *path, const char *needle) {
   FILE *f;
