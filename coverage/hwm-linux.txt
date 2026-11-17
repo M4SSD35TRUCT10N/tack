@@ -1,0 +1,14 @@
+tack-coverage-v1
+profile=linux-gcc-14.2.0-gcov-14.2.0-coverage-v1
+os=linux
+compiler=gcc
+covered=3171
+total=5651
+sources_hash=39ea236e
+source_count=1
+source_state=35a8dea5
+tests_state=7bbfacc4
+flags_state=36eb9e95
+tests_total=25
+tests_passed=24
+tests_skipped=1

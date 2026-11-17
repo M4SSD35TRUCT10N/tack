@@ -8,7 +8,7 @@
 
 ### 0.8-Status
 `v0.8.0-dev` ist als CI-Grundlagenblock abgeschlossen.
-`v0.8.1-dev` ist als Doc-UX-/Search-/Polishing-Schritt abgeschlossen; die zugehörigen SPECs 0004 bis 0009 sind angenommen. `v0.8.2-dev`/`v0.8.3-dev`/`v0.8.4-dev` sind Entwicklungskandidaten. v0.8.4 besitzt eine gemessene, noch nicht angenommene Coverage-Baseline; Windows/TinyCC/Owner-Abnahme stehen aus.
+`v0.8.4` ist zur Veröffentlichung freigegeben und umfasst die v0.8.2/v0.8.3-Entwicklungsschritte. Linux-GCC/gcov-Referenz-HWM und Windows/GCC-Release- sowie TinyCC-Debug-Tests sind ownerbestätigt. Windows-Coverage und GitHub-Publikation sind noch nicht nachgewiesen; die BA-STD-C89-Gruppennorm bleibt Entwurf.
 
 ### Architekturentscheidungen
 - [ADR 0001 – Eröffnung der 0.8-Serie](adr/0001-open-v0.8-series.md)
@@ -33,11 +33,12 @@
 - [GitHub self-hosted runner installation unter Linux ARM64](guides/github-runner-install-linux-arm64.md)
 - [`tack init`/`tack new` und BA-STD-C89](guides/init-new-and-ba-std-c89.md)
 - [Test- und Coverage-Ratchet: Messung und Freigabe](guides/coverage-ratchet.md)
+- [GitHub-Veröffentlichung v0.8.4](guides/publish-v0.8.4.md)
 
 ### Versionsstände
 - [0.8.2-dev: Profilcompiler](releases/0.8.2-dev.md)
 - [0.8.3-dev: BA-STD-C89-Kandidat](releases/0.8.3-dev.md)
-- [0.8.4-dev: Test- und Coverage-Ratchet](releases/0.8.4-dev.md)
+- [0.8.4: Test- und Coverage-Ratchet](releases/0.8.4.md)
 
 Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokumentgruppen in Navigation und Index behandelt.
 
@@ -47,7 +48,7 @@ Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokume
 
 ### 0.8 status
 `v0.8.0-dev` is complete as the CI foundation block.
-`v0.8.1-dev` is complete as the doc UX/search/polish step; the corresponding SPECs 0004 through 0009 are accepted. `v0.8.2-dev`/`v0.8.3-dev`/`v0.8.4-dev` are development candidates. v0.8.4 has a measured but not yet accepted coverage candidate; Windows/TinyCC/owner acceptance remain open.
+`v0.8.4` is approved for publication, incorporating the v0.8.2/v0.8.3 development steps. The Linux GCC/gcov reference HWM and Windows/GCC release plus TinyCC debug tests have owner approval. Windows coverage and actual GitHub publication remain unverified; the BA-STD-C89 group standard is still a draft.
 
 ### Architecture decisions
 - [ADR 0001 – Open the 0.8 series](adr/0001-open-v0.8-series.md)
@@ -72,10 +73,11 @@ Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokume
 - [GitHub self-hosted runner installation on Linux ARM64](guides/github-runner-install-linux-arm64.md)
 - [`tack init`/`tack new` and BA-STD-C89](guides/init-new-and-ba-std-c89.md)
 - [Test and coverage ratchets: measurement and acceptance](guides/coverage-ratchet.md)
+- [Publish v0.8.4 on GitHub](guides/publish-v0.8.4.md)
 
 ### Release records
 - [0.8.2-dev: profile compiler](releases/0.8.2-dev.md)
 - [0.8.3-dev: BA-STD-C89 candidate](releases/0.8.3-dev.md)
-- [0.8.4-dev: test and coverage ratchets](releases/0.8.4-dev.md)
+- [0.8.4: test and coverage ratchets](releases/0.8.4.md)
 
 Subdirectories below `docs/` are treated by `tack doc` as separate document groups in navigation and index.

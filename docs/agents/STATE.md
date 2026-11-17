@@ -2,22 +2,18 @@
 
 ## Deutsch
 
-- Ausgangspunkt: vom Owner bereitgestellte `tack.zip`-Quellen und danach v0.8.3-RC0.1-Korrekturen. Neuer Kandidat: `v0.8.4-dev`.
-- Fehler: Windows mit `TACK_CC=gcc` brach bei POSIX-only-Symbolen in `incremental_link_test.c` unter `-Werror` ab. Guards korrigiert; erneute Windows-Abnahme **NICHT DURCHGEFÜHRT**.
-- Tests: C89-Regression `coverage_ratchet_test.c` und getrennte Skip-Resultate (Exit 77); Linux/GCC Debug und Release haben 24 PASS und 1 Windows-only SKIP von 25 Testquellen.
-- RC0.2: Windows-Pfadtrenner und CRLF-Zeilenenden im Testinventar normalisiert; Regression für beide Varianten ergänzt. Semantische Prüfung des aktualisierten Testfingerprints durch Owner weiterhin ausstehend.
-- Ratchet: Testinventar `coverage/test-inventory.txt` aufgenommen; Änderungen nur nach semantischem Owner-Review und expliziter Annahme. Instrumentierte Linux-GCC/gcov-Messung vorhanden, aber `coverage/hwm-linux.txt` fehlt bis zur Owner-Abnahme.
-- Coverage: `tack test coverage --ci --rebuild`, `tack coverage check`, `tack coverage accept --owner-approve`; bei nicht angenommener HWM bleibt CI-Coverage bewusst `BLOCKED`.
-- Windows/TDM-GCC und TinyCC für 0.8.4: NICHT DURCHGEFÜHRT. Version: NICHT FREIGEGEBEN. Keine erfundene Null-Baseline.
-- Nur `docs/releases/0.8.4-dev.md`; drei alte `COMMIT_MESSAGE_*.txt` werden nicht erneut übernommen.
+- **tack v0.8.4:** vom Owner zur GitHub-Veröffentlichung freigegeben; `TACK_VERSION` und Projekt-`tack.ini` sind auf `0.8.4` synchronisiert. Veröffentlichungs-Tag und Push stehen noch aus.
+- **Windows RC0.2:** Owner-Protokolle: GCC Release und TinyCC Debug jeweils 25 kompiliert, 24 PASS, 1 SKIP, 0 FAIL; `ratchet tests` PASS.
+- **Linux Releasequelle:** GCC Debug und striktes GCC Release mit jeweils 25 kompiliert, 24 PASS, 1 Windows-only-SKIP, 0 FAIL.
+- **Coverage:** Linux GCC 14.2.0 / gcov 14.2.0, Referenzprofil aus `tack.ini`: frisch gemessen und vom Owner als `coverage/hwm-linux.txt` angenommen; `coverage check` muss PASS sein. `coverage/current.txt` ist eine nicht versionierte Messdatei.
+- **Grenzen:** Windows-Coverage `NOT RUN`, keine Windows-HWM. Nicht als komplette Windows-Coverage-Abnahme darstellen. Gruppenweiter BA-STD-C89-Entwurf bleibt nicht ratifiziert.
+- **Historie:** RC0.2 behob Windows-Pfade/Zeilenenden im Testinventar. Kein Test zur Freigabe abgeschwächt. Nur finaler `docs/releases/0.8.4.md` ist der aktuelle Releasebericht; alte dev-Stände 0.8.2/0.8.3 bleiben historische Dokumente.
 
 ## English
 
-- Baseline: owner-supplied `tack.zip` followed by v0.8.3-RC0.1 fixes. New candidate: `v0.8.4-dev`.
-- Fix: `TACK_CC=gcc` on Windows previously failed on POSIX-only symbols in `incremental_link_test.c` under `-Werror`. Guards corrected; Windows rerun **NOT RUN**.
-- Tests: new C89 regression `coverage_ratchet_test.c` and explicit skip status (exit 77); Linux/GCC debug and release have 24 PASS and one Windows-only SKIP across 25 test sources.
-- RC0.2: Canonical Windows path separators and CRLF/LF hashing; new regression cases. Owner review of the changed test fingerprint remains open.
-- Ratchet: recorded `coverage/test-inventory.txt`; changes require semantic owner review and explicit approval. Linux GCC/gcov instrumented measurement exists, but no accepted `coverage/hwm-linux.txt` until owner approval.
-- Coverage commands: `tack test coverage --ci --rebuild`, `tack coverage check`, `tack coverage accept --owner-approve`; missing accepted HWM deliberately keeps coverage CI `BLOCKED`.
-- Windows/TDM-GCC and TinyCC v0.8.4: **NOT RUN**. Version **NOT RELEASED**. No invented zero baseline.
-- Keep only `docs/releases/0.8.4-dev.md`; do not re-add the three former `COMMIT_MESSAGE_*.txt` files.
+- **tack v0.8.4:** owner-approved for GitHub publication; `TACK_VERSION` and `tack.ini` agree on `0.8.4`. Push and release tag not yet performed.
+- **Windows RC0.2:** owner logs prove GCC release and TinyCC debug each compiled 25, with 24 PASS, one SKIP and zero failures; `ratchet tests` PASS.
+- **Linux release source:** GCC debug and strict GCC release each compiled 25, with 24 PASS, one Windows-only SKIP and zero failures.
+- **Coverage:** fresh Linux GCC 14.2.0 / gcov 14.2.0 reference measurement, matching `tack.ini`, owner-accepted and versioned as `coverage/hwm-linux.txt`; `coverage check` must PASS. `coverage/current.txt` is an unversioned generated measurement.
+- **Limits:** Windows coverage remains `NOT RUN` and has no Windows HWM. Do not claim cross-platform coverage acceptance. Group-wide BA-STD-C89 draft is not ratified.
+- **History:** RC0.2 fixed Windows path/newline inventory portability without weakening tests. `docs/releases/0.8.4.md` is the canonical final release record; older 0.8.2/0.8.3 dev documents remain historical.

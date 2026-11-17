@@ -6,16 +6,15 @@
 
 ## Deutsch (Release Notes)
 
-> Hinweis: Offizielle GitHub-Releases werden erst erstellt, sobald reale Projekte (z.B. ft2-clone, nuklear, imgui‑Variante) sauber mit tack gebaut werden können.
-> Diese Datei dokumentiert bis dahin die Versionen/Milestones.
+> `v0.8.4` wurde als eigenständiges CLI-Werkzeug zur Veröffentlichung freigegeben. Die Integration in weitere Fremdprojekte (z. B. ft2-clone oder nuklear) ist weiterhin nicht als getestet zu betrachten. Tag und GitHub-Release sind erst nach dem Push nachzuweisen.
 
-### v0.8.4-dev (Entwicklungskandidat, nicht freigegeben)
+### v0.8.4 (vom Owner zur Veröffentlichung freigegeben)
 - Repariert den strengen GCC-Windows-Build von `incremental_link_test.c`, ohne POSIX-Testlogik zu entfernen.
 - Unterscheidet ausgeführte Tests von echten Plattform-SKIPs in CI-Summary, TAP und JUnit.
 - Ergänzt `tack ratchet tests` mit versioniertem, prüfbarem Testquelleninventar und expliziter Owner-Annahme.
 - Ergänzt `test coverage` und `coverage check/accept` mit GCC/gcov-Messung, Produktionsquellenfilter und versionierter High-Water-Mark pro Plattform.
-- Eine messbare Linux-Baseline liegt lediglich als Kandidat vor; fehlende Owner-Annahme blockiert das Coverage-Gate bewusst.
-- Windows-TDM-GCC, TinyCC und eine angenommene Coverage-HWM erfordern gesonderte Freigaben.
+- Die tatsächliche Linux-GCC/gcov-Referenz-Coverage wurde nach Owner-Entscheidung als `coverage/hwm-linux.txt` angenommen; die Messung des finalen Quellstands ist zu dokumentieren und `coverage check` muss PASS liefern.
+- Die Windows-Abnahme von RC0.2 ergab sowohl mit GCC/Release als auch TinyCC/Debug 24 PASS, 1 SKIP, 0 FAIL bei 25 Testquellen. Windows-Coverage ist nicht gemessen und wird nicht als PASS ausgewiesen.
 
 ### v0.8.3-dev (Entwicklungskandidat, nicht freigegeben)
 - Repariert veraltete `build_and_run_tests()`- und `cmd_doctor()`-Aufrufe in den Regressionstests.
@@ -206,16 +205,15 @@
 
 ## English (Release Notes)
 
-> Note: We will only cut official GitHub Releases once real-world projects (e.g., ft2-clone, nuklear, an imgui C variant) build cleanly with tack.
-> Until then, this file tracks versions/milestones.
+> `v0.8.4` has been approved for publication as a standalone CLI. Integration with additional third-party projects (e.g. ft2-clone or nuklear) has not been verified. Git tag and GitHub Release are still pending the push.
 
-### v0.8.4-dev (development candidate, not released)
+### v0.8.4 (owner-approved for publication)
 - Fixes strict GCC-on-Windows compilation of `incremental_link_test.c` without removing its POSIX testing behavior.
 - Separates actually executed tests from platform SKIPs in CI summaries, TAP and JUnit reports.
 - Adds `tack ratchet tests` with a versioned test-source inventory and explicit owner acceptance.
 - Adds `test coverage` and `coverage check/accept` using GCC/gcov production-line measurement and per-platform high-water baselines.
-- A real Linux measurement exists only as a candidate; the missing owner acceptance deliberately blocks the coverage gate.
-- Windows TDM-GCC, TinyCC and accepted coverage-HWM gates remain open.
+- The Linux GCC/gcov reference coverage measurement for the final source has been owner-accepted as `coverage/hwm-linux.txt`; the release measurement must be recorded and `coverage check` must PASS.
+- Owner-provided Windows RC0.2 runs passed for GCC/release and TinyCC/debug (25 compiled, 24 PASS, one SKIP, zero failures each). Windows coverage is not measured and is not marked PASS.
 
 ### v0.8.3-dev (development candidate, not released)
 - Fixes outdated `build_and_run_tests()` and `cmd_doctor()` regression test calls.

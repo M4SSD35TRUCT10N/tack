@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.8.4-dev
+ * v0.8.4
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -77,7 +77,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.8.4-dev"
+#define TACK_VERSION "0.8.4"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -5300,7 +5300,7 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
   return 0;
 }
 
-/* v0.8.4-dev: measured gcov line ratchet; no third-party runtime. */
+/* v0.8.4: measured gcov line ratchet; no third-party runtime. */
 #define COV_MAX_SOURCES 256
 #define COV_MAX_LINES 500000ul
 #define COV_SKIP_TEST 77

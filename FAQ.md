@@ -1,4 +1,4 @@
-# tack FAQ / FAQ (DE/EN) — v0.8.4-dev
+# tack FAQ / FAQ (DE/EN) — v0.8.4
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md) • [Docs](docs/README.md)
 
@@ -329,9 +329,9 @@ Nein. Beide Befehle bleiben allgemeine, nicht destruktive Scaffold-Werkzeuge. Ih
 
 ---
 
-### Was ist neu in v0.8.4-dev beim Test- und Coverage-Ratchet?
+### Was ist neu in v0.8.4 beim Test- und Coverage-Ratchet?
 
-`tack ratchet tests` prüft das versionierte Inventar der `_test.c`-Quellen. Ein Fingerprint kann Änderungen erkennen, aber nicht die Aussagekraft einer Assertion beurteilen; Änderungen benötigen Owner-Review. `tack test coverage --ci --rebuild` instrumentiert mit GCC/gcov und erzeugt eine echte `coverage/current.txt`. `tack coverage check` verlangt eine akzeptierte HWM. Die erste Messung wird nicht automatisch freigegeben. Der Vergleich ist pro Plattform und Messprofil getrennt. Siehe [Leitfaden](docs/guides/coverage-ratchet.md).
+`tack ratchet tests` prüft das versionierte Inventar der `_test.c`-Quellen. Ein Fingerprint kann Änderungen erkennen, aber nicht die Aussagekraft einer Assertion beurteilen; Änderungen benötigen Owner-Review. `tack test coverage --ci --rebuild` instrumentiert mit GCC/gcov und erzeugt eine echte `coverage/current.txt`. `tack coverage check` verlangt eine akzeptierte HWM. Die erste Linux-GCC/gcov-Referenzmessung wurde nach ausdrücklicher Owner-Abnahme als HWM versioniert; neue oder höhere Messungen bleiben weiterhin abnahmepflichtig. Windows-Coverage benötigt ein gesondertes Messprofil und eine eigene akzeptierte HWM. Siehe [Leitfaden](docs/guides/coverage-ratchet.md).
 
 ## English (FAQ)
 
@@ -649,7 +649,7 @@ For example, set `[project] compiler = tcc` and `[target "app".release] compiler
 
 No. Both remain generic, non-destructive scaffold commands. Their `tack.ini` includes optional profile compiler examples. A BA-STD-C89 agent contract, coverage ratchet and project-specific specifications require deliberate project decisions; see the [guide](docs/guides/init-new-and-ba-std-c89.md).
 
-### What changed in v0.8.4-dev for test and coverage ratchets?
+### What changed in v0.8.4 for test and coverage ratchets?
 
-`tack ratchet tests` validates a versioned inventory of `_test.c` source files. Fingerprints can detect changes but cannot judge the strength of assertions; owner review is still required. `tack test coverage --ci --rebuild` instruments tests using GCC/gcov and writes an actual `coverage/current.txt`. `tack coverage check` requires an accepted HWM. The first measurement is not automatically released; profiles and platform baselines are separate. See the [guide](docs/guides/coverage-ratchet.md).
+`tack ratchet tests` validates a versioned inventory of `_test.c` source files. Fingerprints can detect changes but cannot judge the strength of assertions; owner review is still required. `tack test coverage --ci --rebuild` instruments tests using GCC/gcov and writes an actual `coverage/current.txt`. `tack coverage check` requires an accepted HWM. The first Linux GCC/gcov reference measurement has been accepted by the owner and versioned as an HWM in the source package; future higher measurements still require approval. Windows coverage requires a separate measured profile and accepted baseline. See the [guide](docs/guides/coverage-ratchet.md).
 

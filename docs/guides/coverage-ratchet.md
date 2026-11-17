@@ -1,6 +1,6 @@
 # Test- und Coverage-Ratchet / Test and coverage ratchets
 
-**Stand / status:** v0.8.4-dev, Entwicklungskandidat / development candidate, not released.
+**Stand / status:** v0.8.4, Owner-Freigabe zur GitHub-Publikation / owner-approved for GitHub publication (push/tag pending).
 
 ## Deutsch
 
@@ -40,7 +40,7 @@ tack --config .\tack.ini test coverage --ci --rebuild -j 1
 tack --config .\tack.ini coverage check
 ```
 
-Der erste Befehl misst Produktionszeilen (`src/` und `include/`, ohne `include/tests/`) mittels GCC/gcov und schreibt `coverage/current.txt`. Solange keine freigegebene plattformspezifische `coverage/hwm-*.txt` existiert, wird der Coverage-Lauf **nicht grün**: `BLOCKED` trotz erfolgreich ausgeführter Tests. Ein niedrigerer Wert als eine akzeptierte HWM ist FAIL; ein höherer bleibt bis zur Owner-Freigabe BLOCKED. `--rebuild` und frische Messdaten verhindern veraltete Instrumentierung.
+Der erste Befehl misst Produktionszeilen (`src/` und `include/`, ohne `include/tests/`) mittels GCC/gcov und schreibt das lokal erzeugte, nicht zu commitende `coverage/current.txt`. Für das Linux-Referenzprofil existiert ab v0.8.4 eine vom Owner angenommene `coverage/hwm-linux.txt`. Auf einem passenden Linux-GCC/gcov-Referenzsystem kann der Coverage-Lauf nun **PASS** liefern. Fehlt eine HWM für ein anderes Profil, bleibt dessen Coverage-Gate **BLOCKED**, selbst wenn Tests bestehen. Ein niedrigerer Wert als eine akzeptierte HWM ist FAIL; ein höherer bleibt bis zur Owner-Freigabe BLOCKED. `--rebuild` und frische Messdaten verhindern veraltete Instrumentierung.
 
 Nach Prüfung des angezeigten `covered/total`, der Testresultate, Quell-/Toolchain-Filter und eines dokumentierten Ownersentscheids:
 
@@ -51,9 +51,13 @@ tack --config .\tack.ini coverage check
 
 Die Anhebung ist Teil **desselben freigegebenen Commits** wie die zugehörige höhere Messung. Ein neues Messprofil braucht Vergleichsmessung und dokumentierte Migration; das Absenken der bisherigen HWM ist verboten. `coverage/current.txt` ist **kein** angenommenes HWM und bleibt als lokaler Messbericht von Commit-Artefakten getrennt.
 
-### 4. Windows-Gates
+### 4. Angenommener Linux-Referenzstand
 
-Die vom Owner gemeldete alte Windows-TCC-Suite meldete 24 PASS, zählte aber tatsächlich Plattform-SKIPs als PASS. Das ist für v0.8.4 korrigiert, jedoch nicht erneut auf Windows geprüft. Die Owner-Windows-Abnahme muss GCC/TDM-GCC und TinyCC getrennt ausführen. Ein GCC-Coverageprofil auf Windows erfordert eine überprüfte `windows-...`-ID und ein eigenes `coverage/hwm-windows.txt`.
+Der Owner hat die HWM für das Linux-Referenzprofil ausdrücklich freigegeben. Die auf der finalen Produktionsquelle neu erstellte Messung **3.171/5.651 (56,11396 %)** ist in `coverage/hwm-linux.txt` versioniert. Maßgeblich sind die **tatsächlich** gespeicherten `covered`/`total`-Werte; die Messung vom RC0.2 ist nur historische Evidenz. Der Ratchet prüft Quell-/Test-/Flag-Fingerprints und blockiert geänderte oder inkompatible Messungen. Der einmal angenommene HWM-Wert darf nicht abgesenkt werden.
+
+### 5. Windows-Gates
+
+Die Windows-RC0.2-Abnahme liegt vom Owner vor: GCC Release und TinyCC Debug mit jeweils 25 kompilierten Tests, 24 PASS, einem transparenten Plattform-SKIP und 0 FAIL. Die kanonische Linux-HWM wird **nicht** auf Windows übertragen. Windows-Instrumentierung braucht eine eigene überprüfte `windows-...`-ID, einen frischen Messlauf und Owner-Abnahme vor `coverage/hwm-windows.txt`. Bis dahin ist Windows-Coverage **NOT RUN**, nicht PASS.
 
 ## English
 
@@ -67,8 +71,12 @@ The `[target "app".coverage]` profile above runs GCC with `--coverage` and stric
 
 ### 3. Measure, check, accept
 
-`tack --config .\tack.ini test coverage --ci --rebuild -j 1` runs instrumented tests and writes real production-code line coverage to `coverage/current.txt`; test headers, test sources and build files are excluded. With no accepted platform-specific HWM the gate deliberately returns `BLOCKED` even if tests pass. `tack --config .\tack.ini coverage check` validates a current measurement against an approved HWM. The owner explicitly accepts a reviewed higher baseline with `tack --config .\tack.ini coverage accept --owner-approve`, then rechecks. Commit a raised HWM in the **same accepted revision** as its validated increase. Never weaken test assertions, reset HWM or compare incompatible profiles to produce PASS.
+`tack --config .\tack.ini test coverage --ci --rebuild -j 1` runs instrumented tests and writes real production-code line coverage to `coverage/current.txt`; test headers, test sources and build files are excluded. For the owner-accepted Linux GCC/gcov reference profile, a versioned `coverage/hwm-linux.txt` now exists. A compatible fresh reference run can PASS. Other platforms or profiles with no accepted HWM remain `BLOCKED`, even when tests pass. `tack --config .\tack.ini coverage check` validates a current measurement against an approved HWM. The owner explicitly accepts a reviewed higher baseline with `tack --config .\tack.ini coverage accept --owner-approve`, then rechecks. Commit a raised HWM in the **same accepted revision** as its validated increase. Never weaken test assertions, reset HWM or compare incompatible profiles to produce PASS.
 
-### 4. Windows verification
+### 4. Accepted Linux reference
 
-The earlier Windows TCC suite reported 24 PASS but counted internal platform skips as PASS. v0.8.4 separates them; this has **not yet been re-run on Windows**. Owner verification must run GCC/TDM-GCC and TinyCC separately; Windows instrumented coverage needs its own verified `windows-...` profile ID and `coverage/hwm-windows.txt`.
+The owner explicitly approved the Linux reference HWM. The final production source was remeasured at **3,171/5,651 (56.11396%)** and versioned in `coverage/hwm-linux.txt`. The RC0.2 number is historical evidence only. Source/test/flag fingerprints are checked for staleness; lowering the accepted HWM is forbidden.
+
+### 5. Windows verification
+
+The owner re-ran Windows RC0.2: GCC release and TinyCC debug each compiled 25 tests, with 24 PASS, one explicit platform SKIP and zero failures. The Linux reference HWM cannot be reused for Windows. Windows instrumentation requires its own verified `windows-...` profile ID, fresh measurement and owner acceptance before `coverage/hwm-windows.txt` exists; Windows coverage is **NOT RUN**.

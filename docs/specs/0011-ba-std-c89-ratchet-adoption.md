@@ -1,6 +1,6 @@
 # SPEC 0011 — tack: Test- und Coverage-Ratchets / Test and coverage ratchets
 
-**Status:** Implementierungskandidat v0.8.4-dev; noch nicht freigegeben / implementation candidate v0.8.4-dev, not released.
+**Status:** tack v0.8.4 durch Projekt-Owner zur Veröffentlichung freigegeben / tack v0.8.4 owner-approved for publication; BA-STD-C89 group policy remains a draft.
 
 ## Deutsch
 
@@ -18,7 +18,7 @@ Nach dem vollständigen instrumentierten Testlauf wird `coverage/current.txt` mi
 
 Bei gleicher oder höherer gemessener Coverage ist die HWM zu halten beziehungsweise im **gleichen akzeptierten Stand** anzuheben. Ein bloßer Messfortschritt gilt als `BLOCKED`, bis der Owner nach Prüfung `tack coverage accept --owner-approve` ausführt. Messregressionen sind `FAIL`; inkompatible Profile oder nicht gemessene Referenzumgebungen sind `BLOCKED`. Eine Baseline darf nicht zur Schönung zurückgesetzt oder verringert werden. Für Windows sind Profilkennung und gcc/gcov-Version gesondert zu messen und abzugrenzen.
 
-**Evidenz:** Ein echter Linux/GCC/gcov-Lauf wurde durchgeführt; die resultierende Baseline ist **noch nicht akzeptiert**, daher endet das Coverage-Gate bewusst mit `BLOCKED`. Linux/GCC Debug/Release: 25 Testquellen kompiliert, 24 Tests bestanden und ein Windows-only-Test übersprungen. Windows/TDM-GCC und TinyCC-Nachtest des 0.8.4-Stands sind `NOT RUN`. Die dokumentierte Quelle ist [Versionsbericht 0.8.4](../releases/0.8.4-dev.md).
+**Evidenz:** Die reale Linux/GCC-14.2.0/gcov-14.2.0-Referenzmessung wurde vom Owner für den finalen 0.8.4-Quellstand angenommen und als `coverage/hwm-linux.txt` versioniert. Linux/GCC Debug/Release: 25 Tests kompiliert, 24 PASS und ein Windows-only-SKIP. Der Owner hat auf Windows RC0.2 mit GCC Release und TinyCC Debug jeweils 25 kompiliert, 24 PASS, 1 SKIP und 0 FAIL nachgewiesen. Windows-Coverage ist **NOT RUN**. Die BA-STD-C89-Gruppennorm wird dadurch nicht automatisch ratifiziert. Siehe [Versionsbericht 0.8.4](../releases/0.8.4.md).
 
 ## English
 
@@ -36,4 +36,4 @@ After the full instrumented test run, `coverage/current.txt` records actual cove
 
 Equal coverage retains the HWM; improved coverage must raise it in the **same accepted revision**. Improvement alone stays `BLOCKED` until the owner explicitly runs `tack coverage accept --owner-approve` after review. A regression is `FAIL`; incomparable profiles or missing reference measurements are `BLOCKED`. Never reset or reduce the baseline merely to green a build. Windows needs a separately measured and identified gcc/gcov profile.
 
-**Evidence:** A real Linux GCC/gcov run was performed, but its baseline is **not accepted**, so the coverage gate deliberately ends `BLOCKED`. Linux/GCC Debug/Release: 25 test sources compiled, 24 passed, one Windows-only skip. Windows/TDM-GCC and TinyCC reruns for v0.8.4 are `NOT RUN`. See the [v0.8.4 release record](../releases/0.8.4-dev.md).
+**Evidence:** The real Linux GCC 14.2.0/gcov 14.2.0 reference measurement has been owner-accepted for the final v0.8.4 source and versioned as `coverage/hwm-linux.txt`. Linux GCC debug/release compiled 25 tests with 24 PASS and one Windows-only SKIP. Owner-provided Windows RC0.2 GCC release and TinyCC debug logs each show 25 compiled, 24 PASS, one SKIP, zero failures. Windows coverage is **NOT RUN**. This does not ratify the group-wide BA-STD-C89 draft. See the [v0.8.4 release record](../releases/0.8.4.md).

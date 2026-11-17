@@ -1,4 +1,4 @@
-# tack templates (DE/EN) — v0.8.4-dev
+# tack templates (DE/EN) — v0.8.4
 
 ## Deutsch
 
