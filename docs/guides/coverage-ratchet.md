@@ -6,7 +6,7 @@
 
 ### 1. Test-Ratchet (separat von Coverage)
 
-Das versionierte `coverage/test-inventory.txt` erfasst Namen und Fingerprints aller `_test.c`-Dateien. Prüfen:
+Das versionierte `coverage/test-inventory.txt` erfasst Namen und Fingerprints aller `_test.c`-Dateien. Ab RC0.2 werden Pfadtrenner (`\\` oder `/`) als `/` und Text-Zeilenenden (CRLF, LF) als LF kanonisiert. Sonstige Dateiänderungen bleiben sperrend; die kanonische Darstellung ist kein Freibrief zum Abschwächen von Tests. Prüfen:
 
 ```cmd
 tack --config .\tack.ini ratchet tests
@@ -59,7 +59,7 @@ Die vom Owner gemeldete alte Windows-TCC-Suite meldete 24 PASS, zählte aber tat
 
 ### 1. Test ratchet (separate from coverage)
 
-The versioned `coverage/test-inventory.txt` stores names and fingerprints for `_test.c` files. Check using `tack --config .\tack.ini ratchet tests`. Updates require owner review of the diff and assertions, as fingerprints **do not prove semantic equivalence**. After approval use `tack --config .\tack.ini ratchet tests --owner-approve`.
+The versioned `coverage/test-inventory.txt` stores names and fingerprints for `_test.c` files. Since RC0.2, path separators are canonicalized to `/` and CRLF/LF source newlines are hashed as LF. Other content changes still block acceptance. Check using `tack --config .\tack.ini ratchet tests`. Updates require owner review of the diff and assertions, as fingerprints **do not prove semantic equivalence**. After approval use `tack --config .\tack.ini ratchet tests --owner-approve`.
 
 ### 2. Measurement profile (INI-first)
 

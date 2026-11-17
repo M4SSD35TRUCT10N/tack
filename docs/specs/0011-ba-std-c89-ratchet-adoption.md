@@ -6,7 +6,7 @@
 
 ### Testvertrag
 
-`tack ratchet tests` überprüft das versionierte `coverage/test-inventory.txt` auf Datei- und Byteänderungen an `_test.c`. Das Inventar wird nur mit `tack ratchet tests --owner-approve` verändert. Fingerprints sind **kein** kryptografischer oder semantischer Nachweis: Der Owner muss fachlich prüfen, ob bestehende positive, negative und Regressionstests und ihre Assertions in ihrer Aussagekraft erhalten bleiben. Ein geänderter Test darf nicht allein durch geänderte Zähler als akzeptiert gelten.
+`tack ratchet tests` überprüft das versionierte `coverage/test-inventory.txt` auf Datei- und bedeutungsrelevante Textänderungen an `_test.c` (plattformneutral kanonisierte Pfade und Zeilenenden). Das Inventar wird nur mit `tack ratchet tests --owner-approve` verändert. Fingerprints sind **kein** kryptografischer oder semantischer Nachweis: Der Owner muss fachlich prüfen, ob bestehende positive, negative und Regressionstests und ihre Assertions in ihrer Aussagekraft erhalten bleiben. Ein geänderter Test darf nicht allein durch geänderte Zähler als akzeptiert gelten.
 
 ### Instrumentierung und Quellenumfang
 
@@ -24,7 +24,7 @@ Bei gleicher oder höherer gemessener Coverage ist die HWM zu halten beziehungsw
 
 ### Test contract
 
-`tack ratchet tests` validates versioned `coverage/test-inventory.txt` for changes to `_test.c` filenames and bytes. Only `tack ratchet tests --owner-approve` can update the manifest. Fingerprints are **neither cryptographic nor semantic proof**: the owner must review that accepted positive, negative and regression tests and their assertions retain their strength. An altered test is not accepted merely because the count increased.
+`tack ratchet tests` validates versioned `coverage/test-inventory.txt` for changes to `_test.c` filenames and source contents (canonicalizing path separators and line endings across platforms). Only `tack ratchet tests --owner-approve` can update the manifest. Fingerprints are **neither cryptographic nor semantic proof**: the owner must review that accepted positive, negative and regression tests and their assertions retain their strength. An altered test is not accepted merely because the count increased.
 
 ### Instrumentation and scope
 

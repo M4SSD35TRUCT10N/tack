@@ -4,6 +4,7 @@
 
 ### v0.8.4-dev (nicht freigegeben)
 
+- RC0.2: Testinventar mit kanonischen Windows-Pfaden und LF-/CRLF-Fingerprints; echter Testinhalt bleibt ratchet-geschützt.
 - POSIX-only-Testhelfer für Windows/GCC strikt mit Präprozessor-Guards abgetrennt; Plattform-SKIP (77) wird nicht als PASS gezählt.
 - Versionsgebundenes Testinventar mit Owner-Freigabe und Regressionstest ergänzt.
 - Getrenntes GCC-/gcov-Coverage-Profil, gemessene Line-Coverage, Quellenzeilen-Deduplikation und HWM-Prüfung implementiert.
@@ -28,6 +29,7 @@
 
 ### v0.8.4-dev (not released)
 
+- RC0.2: Canonical Windows paths and LF/CRLF test fingerprints; meaningful test content remains ratchet-protected.
 - Fully guarded POSIX-only test helpers for Windows/GCC; platform SKIP (77) no longer counts as PASS.
 - Added versioned test inventory with explicit owner acceptance and regression coverage.
 - Added separate GCC/gcov instrumentation profile, measured line coverage, source-line deduplication and HWM gate.

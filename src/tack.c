@@ -5774,7 +5774,50 @@ static int cov_generate_gcov(Profile p, TestRunStats *stats) {
   return cov_check_current();
 }
 
-/* Test ratchet uses a source fingerprint inventory; owner reviews any intentional updates. */
+/* Normalize only portable spelling: separators and leading ./ components. */
+static void cov_test_canonical_path(char *path) {
+  size_t i;
+  if (!path) return;
+  for (i = 0u; path[i]; i++) if (path[i] == '\\') path[i] = '/';
+  while (path[0] == '.' && path[1] == '/')
+    memmove(path, path + 2, strlen(path + 2) + 1u);
+}
+
+/* A test inventory tracks source semantics across LF and CRLF checkouts.
+ * Keep binary hashing unchanged for cache/build artifacts. */
+static int cov_test_source_hash(const char *path, unsigned long *out_hash) {
+  FILE *f;
+  unsigned long h = 2166136261ul;
+  int c, pending_cr = 0;
+  unsigned char byte;
+  if (!out_hash) return 1;
+  *out_hash = 0ul;
+  f = fopen(path, "rb");
+  if (!f) return 1;
+  while ((c = fgetc(f)) != EOF) {
+    if (pending_cr) {
+      byte = (unsigned char)'\n';
+      h = fnv1a_update(h, &byte, 1u);
+      pending_cr = 0;
+      if (c == '\n') continue;
+    }
+    if (c == '\r') pending_cr = 1;
+    else {
+      byte = (unsigned char)c;
+      h = fnv1a_update(h, &byte, 1u);
+    }
+  }
+  if (ferror(f)) { fclose(f); return 1; }
+  if (pending_cr) {
+    byte = (unsigned char)'\n';
+    h = fnv1a_update(h, &byte, 1u);
+  }
+  if (fclose(f) != 0) return 1;
+  *out_hash = h & 0xfffffffful;
+  return 0;
+}
+
+/* Test ratchet uses canonical source fingerprints; owner reviews every update. */
 static int cov_test_inventory(int accept) {
   const char *path = "coverage/test-inventory.txt";
   FILE *f;
@@ -5782,6 +5825,7 @@ static int cov_test_inventory(int accept) {
   int i, failed = 0;
   sv_init(&tests);
   scan_dir_recursive_suffix(&tests, g_tests_dir, "_test.c");
+  for (i = 0; i < tests.count; i++) cov_test_canonical_path(tests.items[i]);
   sv_sort_unique(&tests);
   if (tests.count == 0) { sv_free(&tests); return 2; }
   if (accept) {
@@ -5790,7 +5834,7 @@ static int cov_test_inventory(int accept) {
     if (!f) { sv_free(&tests); return 2; }
     for (i = 0; i < tests.count; i++) {
       unsigned long h;
-      if (file_hash32_fnv1a(tests.items[i], &h) != 0) { failed = 1; break; }
+      if (cov_test_source_hash(tests.items[i], &h) != 0) { failed = 1; break; }
       fprintf(f, "%s\t%08lx\n", tests.items[i], h & 0xfffffffful);
     }
     if (fclose(f) != 0) failed = 1;
@@ -5804,7 +5848,7 @@ static int cov_test_inventory(int accept) {
   for (i = 0; i < tests.count; i++) {
     char line[1024], expected[1024];
     unsigned long h;
-    if (file_hash32_fnv1a(tests.items[i], &h) != 0) { failed = 1; break; }
+    if (cov_test_source_hash(tests.items[i], &h) != 0) { failed = 1; break; }
     if (strlen(tests.items[i]) + 20u >= sizeof(expected)) { failed = 1; break; }
     sprintf(expected, "%s\t%08lx", tests.items[i], h & 0xfffffffful);
     if (!fgets(line, sizeof(line), f)) { failed = 1; break; }
