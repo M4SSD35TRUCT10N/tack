@@ -349,8 +349,8 @@ Versioned test inventory and measured coverage gates are implemented. The owner 
 ### Planned: v0.8.5 – approachable configuration
 
 - Prominently explain the v0.8.2-dev compiler/program-policy profile split in README; add a real-world [INI guide](docs/guides/tack-ini.md) and a complete [parser key reference](docs/reference/tack-ini.md).
-- Mark formatter keys currently unreachable due to a misplaced `[sbom]` brace; a separate C89 fix and regression test are release gates.
-- Keep source code unchanged during the documentation candidate; a future version bump and release require fresh independent platform coverage gates.
+- Fix misplaced `[sbom]` branch so `[fmt]` and explicit rule keys are active; C89 parser/CLI regression test added in 0.8.5-dev RC0.2 (Linux PASS).
+- Remaining gates: Windows compiler/tests and fresh Windows/Linux coverage approval, external formatter end-to-end validation, and eventual version bump; no new release claimed.
 
 ### Planned: v0.8.6 – evidence-backed coverage ≥90%
 

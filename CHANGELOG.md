@@ -2,11 +2,11 @@
 
 ## Deutsch
 
-### v0.8.5-dev RC0.1 (Dokumentation, NICHT FREIGEGEBEN)
+### v0.8.5-dev RC0.2 (Formatter-Parserkorrektur, NICHT FREIGEGEBEN)
 - Compilerprogramm und Compiler-Policy je Targetprofil (seit 0.8.2-dev) jetzt direkt im README-Hauptteil erklärt.
 - Bilinguale INI-Anleitung und Parser-Schlüsselreferenz mit nachvollziehbaren Beispielen ergänzt.
-- Bei der Beispielvalidierung entdeckt: `[fmt]`/`[fmt "NAME"]`-Schlüsselzweige sind durch falsch verschachtelten `[sbom]`-Block unerreichbar. Release-Blocker für 0.8.5, kein stiller Codefix in diesem Dokumentations-Meilenstein.
-- Separate Planungsgrundlage für 0.8.6 mit 90-%-Line-Coverage pro Plattform und unabhängiger Anforderungsabdeckung; bestehende HWMs und Testinventar nicht verändert.
+- Den aus 0.8.4 bekannten verschachtelten `[sbom]`-Zweig repariert; `[fmt]` und `[fmt "NAME"]` funktionieren jetzt als INI-Konfiguration. C89-Parser-/CLI-Regressionstest und versioniertes Testinventar ergänzt. Linux GCC Release: 25 PASS, 1 SKIP. Gemessener Linux-Coverage-Kandidat: 3470/5708 (60,79187 %), Freigabe der höheren HWM noch offen.
+- Separate Planungsgrundlage für 0.8.6 mit 90-%-Line-Coverage pro Plattform und unabhängiger Anforderungsabdeckung; angenommene HWMs unverändert, Testinventar für den neuen Regressionstest erhöht.
 
 
 ### v0.8.4 (zur GitHub-Veröffentlichung freigegeben)
@@ -40,11 +40,11 @@
 
 ## English
 
-### v0.8.5-dev RC0.1 (documentation, NOT RELEASED)
+### v0.8.5-dev RC0.2 (formatter parser fix, NOT RELEASED)
 - README now explains the per-target/profile compiler-program and compiler-policy split added in 0.8.2-dev.
 - Added bilingual INI walkthrough and complete parser key reference, including tested examples.
-- Reproduced a pre-existing 0.8.4 defect: `[fmt]`/`[fmt "NAME"]` key handlers are unreachable due to a nested `[sbom]` branch. This is a 0.8.5 release blocker; no silent C89 fix in the documentation milestone.
-- Planned separate 0.8.6 quality targets (90% line coverage per platform and independent requirements coverage); accepted HWMs and test inventory remain unchanged.
+- Fixed the 0.8.4 `[sbom]` nesting defect so `[fmt]` and `[fmt "NAME"]` parse correctly; added strict C89 parser/CLI regression and updated test inventory. Linux release 25 PASS/1 SKIP; measured 60.79187% Linux coverage improvement remains a candidate until accepted.
+- Planned separate 0.8.6 quality targets (90% line coverage per platform and independent requirements coverage); accepted HWMs remain unchanged, test inventory extended for the new regression test.
 
 
 ### v0.8.4 (approved for GitHub publication)

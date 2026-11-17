@@ -8,7 +8,7 @@
 
 **Agenten:** Codex und Claude Code folgen demselben Vertrag. `CLAUDE.md` verweist ausschließlich hierher. Architektur, Lizenz und Release-Status werden vom Owner freigegeben.
 
-**Lieferung:** Vollständiges Quellen-ZIP, Änderungsprotokoll, Conventional-Commit-Nachricht, SHA-256-Prüfung und für jedes Gate PASS/FAIL/NOT RUN. Windows-Abnahme erfolgt erst durch Owner-Logs. tack v0.8.4 ist zur Veröffentlichung freigegeben. Die Linux-GCC/gcov-Referenz-HWM ist vom Owner angenommen; Windows/GCC Release und TinyCC Debug sind ownergeprüft. Windows-Coverage ist nicht gemessen, und ein GitHub-Push/Tag ist nicht bestätigt.
+**Lieferung:** Vollständiges Quellen-ZIP, Änderungsprotokoll, Conventional-Commit-Nachricht, SHA-256-Prüfung und für jedes Gate PASS/FAIL/NOT RUN. Windows-Abnahme erfolgt erst durch Owner-Logs. tack v0.8.4 ist zur Veröffentlichung freigegeben. Die Linux-GCC/gcov-Referenz-HWM ist vom Owner angenommen; Windows/GCC Release und TinyCC Debug sind ownergeprüft. Windows-Coverage wurde für 0.8.4 vom Owner gemessen (3192/5827) und nach Versionierung der HWM erneut mit PASS geprüft. v0.8.5-dev RC0.2 ändert den C89-Parser; Windows-/Coverage-Abnahme dafür ist noch offen.
 
 ## English
 
@@ -18,4 +18,4 @@
 
 **Agents:** Codex and Claude Code have equal authority under this contract. `CLAUDE.md` only points here. Architecture, licensing and release status require owner approval.
 
-**Delivery:** Complete source ZIP, change log, Conventional Commit message, SHA-256 verification and PASS/FAIL/NOT RUN for each gate. Owner-provided logs are required for Windows acceptance. tack v0.8.4 is approved for publication. The Linux GCC/gcov reference HWM is owner-accepted and Windows/GCC release and TinyCC debug test suites are owner-validated. Windows coverage is not measured, and GitHub push/tag has not been confirmed.
+**Delivery:** Complete source ZIP, change log, Conventional Commit message, SHA-256 verification and PASS/FAIL/NOT RUN for each gate. Owner-provided logs are required for Windows acceptance. tack v0.8.4 is approved for publication. The Linux GCC/gcov reference HWM is owner-accepted and Windows/GCC release and TinyCC debug test suites are owner-validated. Owner-measured Windows coverage for 0.8.4 was 3192/5827 and passed again after HWM versioning. v0.8.5-dev RC0.2 changes the C89 parser; Windows and coverage acceptance for this revision remain pending.

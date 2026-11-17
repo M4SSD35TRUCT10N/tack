@@ -7,7 +7,7 @@
 ## Deutsch (FAQ)
 
 ### Warum meldet `tack fmt --list --strict` mit einer gültigen `[fmt "c"]`-Regel `missing cmd`?
-Das ist ein bestätigter **0.8.4-Parserfehler**: Der `[fmt]`-Schlüsselzweig befindet sich durch eine falsch platzierte Klammer innerhalb von `[sbom]` und wird nicht ausgeführt. Auch `cmd`, `include` und `rules` werden deshalb nicht übernommen. Die [Schlüsselreferenz](docs/reference/tack-ini.md) markiert diese Konfiguration als derzeit nicht funktionsfähig. Reparatur mit C89-Regressionstest ist vor der Veröffentlichung der 0.8.5-Formatter-Anleitung erforderlich.
+Der Fehler bestand in **0.8.4**: `[fmt]` und `[fmt "NAME"]` waren versehentlich in den `[sbom]`-Zweig verschachtelt. In **0.8.5-dev RC0.2** ist das korrigiert und mit einem C89-Test für `rules`, `include`, `cmd`, `fmt --list --strict` sowie Negativfälle abgesichert. Dazu muss `tack.exe` aus dem neuen Quellstand gebaut werden. `check_cmd`, `diff_cmd`, `env.*` und `fail_fast=no` sind weiterhin nur eingeschränkt beziehungsweise nicht ausführungswirksam. Windows und externe Formatter-End-to-End-Abnahme stehen aus; siehe [Schlüsselreferenz](docs/reference/tack-ini.md).
 
 ### Wo finde ich die komplette `tack.ini`-Konfiguration und die Compilerfunktionen aus 0.8.2-dev?
 Die **README** erläutert die profilierten Compiler direkt im Hauptteil. Der [Praxisleitfaden](docs/guides/tack-ini.md) führt vom Minimalprojekt zu Debug/Release, mehreren Targets, Formatter und Coverage. Die [Schlüsselreferenz](docs/reference/tack-ini.md) führt die im C89-Parser tatsächlich akzeptierten Felder auf, einschließlich solcher, die noch keinen wirksamen Ausführungspfad besitzen. So sind Referenz und Entwicklungsversprechen sauber getrennt.
@@ -356,7 +356,7 @@ Eine vollständige Erst-Messung ohne versionierte HWM endet erwartbar mit `BLOCK
 ## English (FAQ)
 
 ### Why does a valid `[fmt "c"]` rule fail with `missing cmd` under `tack fmt --list --strict`?
-A confirmed **0.8.4 parser defect** places the `[fmt]` key handler inside an unreachable `[sbom]` conditional. Consequently `rules`, `include` and `cmd` are not read into the effective formatter configuration. The [key reference](docs/reference/tack-ini.md) marks these settings as currently ineffective. Repair and a new C89 regression test are required before the formatter guide can be released as operational in v0.8.5.
+The **0.8.4 parser defect** nested `[fmt]` handling under `[sbom]`. It is fixed in **0.8.5-dev RC0.2**, with a C89 test verifying `rules`, `include`, `cmd`, the `fmt --list --strict` CLI, and invalid-key rejection. Rebuild the executable from the new source. `check_cmd`, `diff_cmd`, `env.*` and `fail_fast = no` still have limited or no execution semantics; see the [key reference](docs/reference/tack-ini.md). Windows and external formatter integration remain NOT RUN.
 
 ### Where are the complete `tack.ini` options and v0.8.2-dev compiler profile features explained?
 The **README** now introduces per-target/profile compiler selection in its main English body. The [practical walkthrough](docs/guides/tack-ini.md) covers single-target setup, Debug/Release, multi-targets, formatters and coverage. The [key reference](docs/reference/tack-ini.md) distinguishes fields actually parsed by the C89 implementation from fields with active execution semantics.

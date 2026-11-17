@@ -75,6 +75,8 @@ tack --config .\tack.ini build release --target app --rebuild -j 1
 
 Die Priorität für das **Compilerprogramm** ist `TACK_CC` → `[target "NAME".PROFILE] compiler` → `[project] compiler` → eingebautes `tcc`. Die **Policy** (`auto|tcc|gcc|clang|generic`) ist eine getrennte Entscheidung über eingebaute Compilerflags. `doctor` zeigt die tatsächlich gewählten Einstellungen. Bei Compilerwechsel im selben Profil `--rebuild` verwenden.
 
+**Formatter-Hinweis für 0.8.5-dev RC0.2:** Die in 0.8.4 defekte Verarbeitung der `[fmt]`-Sektionen ist korrigiert; die neue C89-Regression prüft `fmt --list --strict`. Externe Formatter-Ausführung und Windows-Abnahme stehen noch aus. `check_cmd`, `diff_cmd` und `env.*` werden zwar eingelesen, aber nicht als zusätzliche Aktionen ausgeführt. Die veröffentlichte Binary-Version bleibt bis zur gesonderten Release-Abnahme 0.8.4.
+
 Weitere heute verfügbare Konfigurationsbausteine sind deklarative Multi-Targets und Shared Core, Debug-/Release-/Coverage-Overrides, sichere Pfade, Formatter-Regeln, DOC/BOM/SBOM, CI-Berichte sowie getrennte Linux-/Windows-Coverage-HWMs. Die Bedienung steht **nicht nur in historischen Versionsdateien**, sondern direkt hier und in den folgenden zwei praktischen Nachschlagewerken:
 
 - **[tack.ini-Schritt-für-Schritt-Leitfaden](docs/guides/tack-ini.md):** vom Minimalprojekt über Multi-Targets bis zu Formatter- und Coverage-Profilen.
@@ -728,7 +730,10 @@ Other currently available configuration features include declarative multi-targe
 - **[Practical tack.ini walkthrough](docs/guides/tack-ini.md):** minimal project, profile compilers, multiple targets, formatters and coverage.
 - **[Complete configuration reference](docs/reference/tack-ini.md):** actually supported sections/keys and documented implementation limits.
 
-**Common traps:** `compiler` belongs in `[project]` or a **profiled** target section, not the base `[target "app"]`; empty `cflags =` does not reliably erase inherited flags; a parser brace defect currently makes **all explicit `[fmt]` keys ineffective** in 0.8.4; the reference documents this release blocker and additional inert fields.
+**Common traps:** `compiler` belongs in `[project]` or a **profiled** target section, not the base `[target "app"]`; empty `cflags =` does not reliably erase inherited flags; the **0.8.4** formatter-section parser defect is fixed in **0.8.5-dev RC0.2** but awaits Windows acceptance; the reference distinguishes parsed fields from operational features.
+
+**Formatter note for 0.8.5-dev RC0.2:** The broken `[fmt]` section parsing found in 0.8.4 is fixed, with a C89 regression covering `fmt --list --strict`. External formatter execution and Windows acceptance are pending. `check_cmd`, `diff_cmd`, and `env.*` are parsed but are not performed as additional actions. The published executable version remains 0.8.4 until separate release approval.
+
 
 ## Specifications and architecture decisions
 

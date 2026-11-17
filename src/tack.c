@@ -3858,6 +3858,8 @@ static int ini_load_file(const char *path) {
             g_config_sbom_output = xstrdup(val);
           }
         }
+        continue;
+      }
 
       if (sec == SEC_FMT) {
         if (strieq(key, "enabled")) {
@@ -3913,9 +3915,6 @@ static int ini_load_file(const char *path) {
         } else {
           sv_push(&cur_fr->unknown_keys, key);
         }
-        continue;
-      }
-
         continue;
       }
 

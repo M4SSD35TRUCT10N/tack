@@ -166,9 +166,9 @@ output = build/sbom.cdx.json
 
 `tack ... doc` schreibt HTML nach `build/doc/`; `tack ... bom` erstellt ein Build-Manifest, `tack ... sbom` erstellt eine **Build-Input-SBOM**, keine vollständige Dependency-Auflösung. `output` in `[sbom]` gilt nur für Single-Target-Exporte; bei `--all-targets` erzeugt tack getrennte Dateien. Fehlende konfigurierte HTML-Templates/CSS führen zu einem Fehler, nicht zu stillschweigendem Fallback. DOC bleibt ohne JavaScript lesbar; die Suche ist optional.
 
-## 7. Formatter-Regeln: bekannter Defekt in tack 0.8.4
+## 7. Formatter-Regeln: Parserkorrektur in 0.8.5-dev RC0.2
 
-**WARNUNG: Nicht als funktionsfähiges Beispiel freigegeben.** Die folgende INI zeigt die *vorgesehene* Syntax. Im untersuchten 0.8.4-Produktionscode liegt die Verarbeitung von `[fmt]` und `[fmt "NAME"]` irrtümlich innerhalb eines unerreichbaren `[sbom]`-Zweigs (`src/tack.c`, `ini_load_file`). Deshalb werden selbst `rules`, `include` und `cmd` **nicht wirksam übernommen**. Mit einer ausdrücklich deklarierten Regel endet `fmt --list --strict` reproduzierbar mit `tack: fmt: rule=c: missing cmd`. Der Fehler muss in einem eigenen C89-Korrekturschritt mit Test-Ratchet-/Coverage-Abnahme repariert werden, **bevor** Formatter-INI als 0.8.5-Funktion dokumentiert und veröffentlicht wird.
+**Entwicklungsstand 0.8.5-dev RC0.2 (noch kein Release):** Der in 0.8.4 vorhandene `[sbom]`-Klammerfehler ist korrigiert. `[fmt]` und `[fmt "NAME"]` werden unabhängig eingelesen. Ein C89-Regressionstest überprüft alle Regelwerte, den CLI-Aufruf `fmt --list --strict` sowie gültige und ungültige Konfigurationen. Die Windows-Abnahme und ein externer Formatter-End-to-End-Lauf stehen noch aus. Die folgende Konfiguration funktioniert deshalb als Parser-/Auswahlbeispiel, aber wird noch nicht als plattformübergreifend freigegebener Formatter-Lauf beworben.
 
 ```ini
 [fmt]
@@ -190,9 +190,9 @@ tack --config .\tack.ini fmt --list --rule c --strict
 tack --config .\tack.ini fmt --check --rule c --strict
 ```
 
-Nach **Behebung des Parserdefekts** soll `--list` die Dateiauswahl zeigen und `--check` Dateien unverändert lassen; Exitcode 2 kann Formatabweichung *oder* Konfigurations-/Regelfehler bedeuten. `mode=file` benötigt `@FILE@`; `mode=batch` benötigt `@RSP@`. Der Formatter selbst ist eine **optionale externe Abhängigkeit**, kein Buildtool-Zwang.
+`--list` zeigt die Dateiauswahl ohne Formatterausführung; `--check` arbeitet mit temporären Kopien und soll Originaldateien unverändert lassen. Die externe Formatterausführung ist für RC0.2 noch gesondert abzunehmen. Exitcode 2 kann Formatabweichung *oder* Konfigurations-/Regelfehler bedeuten. `mode=file` benötigt `@FILE@`; `mode=batch` benötigt `@RSP@`. Der Formatter selbst ist eine **optionale externe Abhängigkeit**, kein Buildtool-Zwang.
 
-**Zusätzliche Implementierungsgrenze nach Reparatur des Parserzweigs:** `check_cmd`, `diff_cmd` und `env.NAME` werden im Code zwar als Felder erkannt, aber nicht als eigene Kommandos beziehungsweise Umgebungsvariablen angewandt. Auch `fail_fast = no` garantiert derzeit kein Fortsetzen nach Regelversagen. Diese Felder **nicht** als fertige Features planen; siehe Referenz.
+**Weiter bestehende Implementierungsgrenze:** `check_cmd`, `diff_cmd` und `env.NAME` werden im Code zwar als Felder erkannt, aber nicht als eigene Kommandos beziehungsweise Umgebungsvariablen angewandt. Auch `fail_fast = no` garantiert derzeit kein Fortsetzen nach Regelversagen. Diese Felder **nicht** als fertige Features planen; siehe Referenz.
 
 ## 8. Coverage für Linux und Windows getrennt
 
@@ -359,7 +359,7 @@ output = build/sbom.cdx.json
 
 DOC generates offline-readable HTML; BOM describes build inputs; SBOM is a **build-input SBOM**, not a package resolver. The SBOM `output` setting affects a single-target export; `--all-targets` writes separate per-target files. Configured missing DOC/BOM templates or CSS fail rather than silently falling back.
 
-**Known tack 0.8.4 defect:** The `[fmt]` and `[fmt "NAME"]` key handlers are accidentally nested inside the `[sbom]` conditional in `ini_load_file` and are unreachable. The following is the **intended syntax, not a working 0.8.4 configuration**. `fmt --list --strict` with an explicit rule currently reports `missing cmd`. Repair needs a separate C89 test and independent coverage gates before 0.8.5 release.
+**0.8.5-dev RC0.2 development status (not released):** The `[sbom]` nesting defect in 0.8.4 is fixed; `[fmt]` and `[fmt "NAME"]` are parsed independently. A strict C89 regression test verifies formatter keys, `fmt --list --strict` and rejection of malformed keys/modes. Windows acceptance and an external formatter end-to-end test are still pending. The example below is now valid for parsing and selection but not yet certified as a cross-platform formatter execution gate.
 
 ```ini
 [fmt]
@@ -376,7 +376,7 @@ cmd = clang-format -i --style=file @FILE@
 requires = clang-format
 ```
 
-Once the parser defect is fixed, `fmt --list --rule c --strict` should preview selection and `fmt --check --rule c --strict` should preserve sources. In 0.8.4 explicit rule configuration currently fails; exit code 2 may also denote a configuration or rule error. `mode=file` requires `@FILE@`; `mode=batch` requires `@RSP@`.
+The fixed parser lets `fmt --list --rule c --strict` preview the selection. `fmt --check --rule c --strict` formats temporary copies; its external tool behavior still needs integration validation; exit code 2 may also denote a configuration or rule error. `mode=file` requires `@FILE@`; `mode=batch` requires `@RSP@`.
 
 **Further limitation after a parser fix:** `check_cmd`, `diff_cmd`, and `env.NAME` exist as source-level fields but are not applied in current formatter execution paths. `fail_fast = no` does not currently guarantee continuing after a formatter error. Do not treat these as operational features.
 

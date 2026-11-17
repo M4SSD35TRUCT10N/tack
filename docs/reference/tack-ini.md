@@ -1,8 +1,8 @@
 # tack.ini: Schlüsselreferenz / Configuration key reference
 
-> **Implementierungsstand:** `src/tack.c` aus tack 0.8.4 (dokumentiert für 0.8.5-dev). Diese Liste stammt aus dem realen INI-Parser `ini_load_file` und der Formatter-Ausführung. **Die Formatter-Zweige sind in 0.8.4 wegen fehlerhafter Klammerung in `[sbom]` unerreichbar; ihre Schlüssel sind dokumentierte, derzeit nicht wirksame Syntax.** Keine neuen Optionen werden durch dieses Dokument aktiviert.
+> **Implementierungsstand:** `src/tack.c` aus tack 0.8.4 (dokumentiert für 0.8.5-dev). Diese Liste stammt aus dem realen INI-Parser `ini_load_file` und der Formatter-Ausführung. **Der Parserfehler aus 0.8.4 ist in 0.8.5-dev RC0.2 korrigiert und durch einen C89-Regressionstest abgedeckt; die tatsächliche Windows-Abnahme steht noch aus.** Nicht alle eingelesenen Schlüssel haben Ausführungswirkung.
 >
-> **Implementation scope:** `src/tack.c` from tack 0.8.4, documented during 0.8.5-dev. This is derived from `ini_load_file` and formatter execution. **The formatter key handlers are unreachable in 0.8.4 due to a misplaced `[sbom]` brace; formatter keys below describe intended but currently ineffective syntax.**
+> **Implementation scope:** `src/tack.c` from tack 0.8.4, documented during 0.8.5-dev. This is derived from `ini_load_file` and formatter execution. **The misplaced `[sbom]` brace found in 0.8.4 is fixed in 0.8.5-dev RC0.2 and covered by a C89 regression test. Windows validation is pending; not every accepted key has runtime semantics.**
 
 ---
 
@@ -77,9 +77,9 @@ Im Profil **nicht** unterstützt: `src`, `id`, `bin`, `enabled`, `remove`. Der `
 
 Coverage-HWM-Dateien (`coverage/hwm-linux.txt`, `coverage/hwm-windows.txt`) sind **keine INI-Felder**. `coverage/current.txt` wird generiert und nicht versioniert. Eine Owner-Freigabe erfordert zuvor eine gültige vollständige Messung. Die Ratchet-Kommandos stehen im [Coverage-Leitfaden](../guides/coverage-ratchet.md).
 
-## `[fmt]` (globale Formatter-Policy, derzeit nicht wirksam)
+## `[fmt]` (globale Formatter-Policy, Parser repariert in 0.8.5-dev RC0.2)
 
-| Schlüssel | Typ / Werte | Beabsichtigtes Verhalten **nach** Parserreparatur |
+| Schlüssel | Typ / Werte | Wirksames Verhalten (vorbehaltlich Windows-Abnahme) |
 |---|---|---|
 | `enabled` | Boolean | `no` deaktiviert `tack fmt`; Default `yes` |
 | `defaults` | `auto` / `off`, `no`, `false` | Automatische Regeln bei vorhandenen Tools/Dateien; Default `auto` |
@@ -87,9 +87,9 @@ Coverage-HWM-Dateien (`coverage/hwm-linux.txt`, `coverage/hwm-windows.txt`) sind
 | `exclude` | Glob-Liste | Global ausgeschlossene Formatierdateien |
 | `fail_fast` | Boolean | **Eingelesen**, aber die aktuelle Runtime bricht bei einem Regelfehler ohnehin ab; `no` ist keine garantierte Fortsetzung |
 
-## `[fmt "NAME"]` (Regel, derzeit nicht wirksam)
+## `[fmt "NAME"]` (Regel, Parser repariert in 0.8.5-dev RC0.2)
 
-| Schlüssel | Typ / Werte | Beabsichtigtes Verhalten **nach** Parserreparatur |
+| Schlüssel | Typ / Werte | Wirksames Verhalten (vorbehaltlich Windows-Abnahme) |
 |---|---|---|
 | `tool` | Programmname | Bezeichnung des Formatters |
 | `mode` | `file` / `batch` | Einzeldatei- oder Response-File-Modus |
@@ -102,7 +102,7 @@ Coverage-HWM-Dateien (`coverage/hwm-linux.txt`, `coverage/hwm-windows.txt`) sind
 | `diff_cmd` | Zeichenfolge | **Eingelesen, derzeit vom Ausführungspfad nicht benutzt** |
 | `env.NAME` | Zeichenfolge | **Eingelesen, derzeit nicht an Kindprozesse übergeben** |
 
-Die **interne** `fmt --check`-Implementierung arbeitet mit temporären Kopien und Vergleichen, aber explizite Formatter-INI-Regeln sind wegen des Parserdefekts in 0.8.4 nicht nutzbar. `--diff` ist best effort. `fmt --strict` soll nach dem Fix u. a. unbekannte Formatter-Schlüssel und Platzhalter prüfen; außerhalb des Formatterbereichs werden unbekannte INI-Schlüssel nicht generell streng zurückgewiesen. Daraus **keine** vollständige Schema-Validierung aller Sektionen ableiten.
+In 0.8.5-dev RC0.2 werden explizite Formatter-INI-Regeln korrekt eingelesen, und `fmt --list --strict` ist im C89-Regressionstest nachgewiesen. Die **interne** `fmt --check`-Implementierung arbeitet mit temporären Kopien und Vergleichen; ein externes Formatter-End-to-End-Gate und die Windows-Abnahme stehen noch aus. `--diff` ist best effort. `fmt --strict` prüft u. a. unbekannte Formatter-Schlüssel und Platzhalter; außerhalb des Formatterbereichs werden unbekannte INI-Schlüssel nicht generell streng zurückgewiesen. Daraus **keine** vollständige Schema-Validierung aller Sektionen ableiten.
 
 ## Klare Nicht-Funktionen
 
@@ -174,7 +174,7 @@ Profile sections do **not** accept `src`, `bin`, `id`, `enabled`, or `remove` as
 
 Supported SBOM formats: `tack`, `tack-sbom-1`, `cyclonedx`, `cyclonedx-1.4`, `spdx`, `spdx-2.3`. `output` is **not** the batch output destination for `--all-targets`. The HWM files are versioned measured artifacts, not INI keys; `coverage/current.txt` is generated. See the [coverage guide](../guides/coverage-ratchet.md).
 
-## `[fmt]` (currently ineffective in 0.8.4)
+## `[fmt]` (parser fixed in 0.8.5-dev RC0.2)
 
 | Key | Intended effect **after** parser repair |
 |---|---|
@@ -184,7 +184,7 @@ Supported SBOM formats: `tack`, `tack-sbom-1`, `cyclonedx`, `cyclonedx-1.4`, `sp
 | `exclude` | Global exclusion patterns |
 | `fail_fast` | Parsed, but `no` does not currently guarantee continuing after a rule error |
 
-## `[fmt "NAME"]` (currently ineffective in 0.8.4)
+## `[fmt "NAME"]` (parser fixed in 0.8.5-dev RC0.2)
 
 | Key | Intended effect **after** parser repair |
 |---|---|
@@ -199,7 +199,7 @@ Supported SBOM formats: `tack`, `tack-sbom-1`, `cyclonedx`, `cyclonedx-1.4`, `sp
 | `diff_cmd` | **Parsed, not currently used by execution** |
 | `env.NAME` | **Parsed, not currently forwarded to child processes** |
 
-The **internal** `fmt --check` path uses temporary copies, but explicit INI formatter rules do not currently work due to the parser defect. `fmt --diff` is best effort. Following the fix, `fmt --strict` should validate its rules and unknown formatter keys, but should not be mistaken for universal strict schema validation of all INI sections.
+In 0.8.5-dev RC0.2 the formatter rule keys are parsed, and a C89 regression test verifies `fmt --list --strict` without executing an external formatter. The **internal** `fmt --check` path uses temporary copies; an external formatter end-to-end test and Windows acceptance remain pending. `fmt --diff` is best effort. `fmt --strict` validates configured rules and unknown formatter keys, but should not be mistaken for universal strict schema validation of all INI sections.
 
 ## Not implemented as INI contracts
 

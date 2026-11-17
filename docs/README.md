@@ -26,6 +26,7 @@
 - [SPEC 0009 – Optionale JS-Such-Grundlage](specs/0009-optional-js-search-foundation.md)
 - [SPEC 0010 – Compiler je Targetprofil](specs/0010-profile-compiler-selection.md)
 - [SPEC 0011 – Test- und Coverage-Ratchets](specs/0011-ba-std-c89-ratchet-adoption.md)
+- [SPEC 0012 – Formatter-INI-Parser: Abschnittstrennung](specs/0012-fmt-ini-parser-separation.md)
 
 ### Leitfäden
 - [tack.ini: Praxiseinstieg, Compilerprofile, Targets und Coverage](guides/tack-ini.md)
@@ -71,6 +72,7 @@ Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokume
 - [SPEC 0009 – Optional JS search foundation](specs/0009-optional-js-search-foundation.md)
 - [SPEC 0010 – Compiler per target profile](specs/0010-profile-compiler-selection.md)
 - [SPEC 0011 – Test and coverage ratchets](specs/0011-ba-std-c89-ratchet-adoption.md)
+- [SPEC 0012 – Formatter INI parser section isolation](specs/0012-fmt-ini-parser-separation.md)
 
 ### Guides
 - [tack.ini: guided configuration walkthrough](guides/tack-ini.md)
