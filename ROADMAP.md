@@ -167,7 +167,7 @@ v0.8.2 erweitert die deklarative Compiler- und Policy-Wahl pro Targetprofil. v0.
 
 ### Abgeschlossener Entwicklungsschritt: v0.8.4 (zur Veröffentlichung freigegeben)
 
-Testinventar und Coverage-Gates sind implementiert. Die Windows/GCC-Release- und TinyCC-Debug-Suites wurden vom Owner mit je 24 PASS / 1 SKIP / 0 FAIL geprüft. Die Linux-GCC/gcov-Referenz-HWM ist real gemessen und angenommen. Windows-Coverage bleibt ein separates, noch nicht gemessenes Profil. Die BA-STD-C89-Gruppenmigration benötigt eine eigene Normabnahme. Siehe [Coverage-Leitfaden](docs/guides/coverage-ratchet.md).
+Testinventar und Coverage-Gates sind implementiert. Die Windows/GCC-Release- und TinyCC-Debug-Suites wurden vom Owner mit je 24 PASS / 1 SKIP / 0 FAIL geprüft. Die Linux-GCC/gcov-Referenz-HWM ist real gemessen und angenommen. Windows-Coverage ist nun separat gemessen (3192/5827) und als HWM festgeschrieben; bestätigender Windows-Gate-PASS nach Übernahme steht noch aus. Die BA-STD-C89-Gruppenmigration benötigt eine eigene Normabnahme. Siehe [Coverage-Leitfaden](docs/guides/coverage-ratchet.md).
 
 ## English (Roadmap)
 
@@ -331,4 +331,4 @@ v0.8.2 adds declarative compiler and policy selection per target profile. v0.8.3
 
 ### Completed development step: v0.8.4 (approved for publication)
 
-Versioned test inventory and measured coverage gates are implemented. The owner validated Windows/GCC release and TinyCC debug suites (each 24 PASS / 1 SKIP / 0 FAIL); the measured Linux GCC/gcov reference HWM has been accepted. Windows coverage has not been measured and is a separate profile. Group-wide BA-STD-C89 ratification remains independent. See the [coverage guide](docs/guides/coverage-ratchet.md).
+Versioned test inventory and measured coverage gates are implemented. The owner validated Windows/GCC release and TinyCC debug suites (each 24 PASS / 1 SKIP / 0 FAIL); the measured Linux GCC/gcov reference HWM has been accepted. Windows coverage has now been measured (3192/5827) and versioned as a separate HWM; fresh Windows gate PASS after adopting it remains pending. Group-wide BA-STD-C89 ratification remains independent. See the [coverage guide](docs/guides/coverage-ratchet.md).

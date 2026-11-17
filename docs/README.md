@@ -39,6 +39,7 @@
 - [0.8.2-dev: Profilcompiler](releases/0.8.2-dev.md)
 - [0.8.3-dev: BA-STD-C89-Kandidat](releases/0.8.3-dev.md)
 - [0.8.4: Test- und Coverage-Ratchet](releases/0.8.4.md)
+- [Windows-HWM: Abnahmenachweis 0.8.4](releases/0.8.4-windows-hwm.md)
 
 Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokumentgruppen in Navigation und Index behandelt.
 
@@ -79,5 +80,6 @@ Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokume
 - [0.8.2-dev: profile compiler](releases/0.8.2-dev.md)
 - [0.8.3-dev: BA-STD-C89 candidate](releases/0.8.3-dev.md)
 - [0.8.4: test and coverage ratchets](releases/0.8.4.md)
+- [Windows HWM: 0.8.4 acceptance evidence](releases/0.8.4-windows-hwm.md)
 
 Subdirectories below `docs/` are treated by `tack doc` as separate document groups in navigation and index.

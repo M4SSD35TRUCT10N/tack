@@ -342,6 +342,10 @@ Nein. Beide Befehle bleiben allgemeine, nicht destruktive Scaffold-Werkzeuge. Ih
 
 `tack ratchet tests` prüft das versionierte Inventar der `_test.c`-Quellen. Ein Fingerprint kann Änderungen erkennen, aber nicht die Aussagekraft einer Assertion beurteilen; Änderungen benötigen Owner-Review. `tack test coverage --ci --rebuild` instrumentiert mit GCC/gcov und erzeugt eine echte `coverage/current.txt`. `tack coverage check` verlangt eine akzeptierte HWM. Die erste Linux-GCC/gcov-Referenzmessung wurde nach ausdrücklicher Owner-Abnahme als HWM versioniert; neue oder höhere Messungen bleiben weiterhin abnahmepflichtig. Windows-Coverage benötigt ein gesondertes Messprofil und eine eigene akzeptierte HWM. Siehe [Leitfaden](docs/guides/coverage-ratchet.md).
 
+### Wann ist ein HWM-Gate PASS, FAIL oder BLOCKED?
+
+Eine vollständige Erst-Messung ohne versionierte HWM endet erwartbar mit `BLOCKED no accepted HWM`, auch wenn alle Tests bestanden sind. Nach fachlicher Owner-Abnahme enthält `coverage/hwm-windows.txt` die unveränderten Windows-Messwerte; `coverage/current.txt` ist dagegen nur lokal. `coverage check` meldet PASS bei gleichem vergleichbarem Verhältnis, FAIL bei einer Regression und BLOCKED bei einer Verbesserung ohne zugleich angehobene HWM oder bei veralteten/inkompatiblen Messdaten. Linux und Windows besitzen getrennte Profile: **3192/5827 (54,77947 %) unter Windows** ist nicht gegen **3228/5708 (56,55221 %) unter Linux** auszuspielen. Nach Übernahme der HWM noch einmal lokal `coverage check` und `test coverage` ausführen. [Verbindliche Zustandsmatrix](docs/guides/coverage-ratchet.md) und [Windows-Abnahmenachweis](docs/releases/0.8.4-windows-hwm.md).
+
 ## English (FAQ)
 
 ### How do I accept a Windows coverage HWM before pushing to GitHub?
@@ -666,6 +670,10 @@ For example, set `[project] compiler = tcc` and `[target "app".release] compiler
 ### Do `tack init` and `tack new` generate all BA-STD-C89 files?
 
 No. Both remain generic, non-destructive scaffold commands. Their `tack.ini` includes optional profile compiler examples. A BA-STD-C89 agent contract, coverage ratchet and project-specific specifications require deliberate project decisions; see the [guide](docs/guides/init-new-and-ba-std-c89.md).
+
+### When does a coverage HWM report PASS, FAIL or BLOCKED?
+
+A complete initial measurement with no accepted baseline ends in the expected `BLOCKED no accepted HWM`, even if all tests passed. After explicit owner review, `coverage/hwm-windows.txt` retains the measured Windows data; `coverage/current.txt` remains local. The gate reports PASS for equal comparable coverage, FAIL below the accepted ratio, or BLOCKED for a higher unaccepted value, stale data or incompatible profiles. Windows **3192/5827 (54.77947%)** and Linux **3228/5708 (56.55221%)** are separate reference profiles, not a cross-platform regression. Require a fresh local `coverage check` and `test coverage` after updating the baseline. See the [state matrix](docs/guides/coverage-ratchet.md) and [Windows evidence](docs/releases/0.8.4-windows-hwm.md).
 
 ### What changed in v0.8.4 for test and coverage ratchets?
 

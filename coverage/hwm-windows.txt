@@ -1,0 +1,14 @@
+tack-coverage-v1
+profile=windows-gcc-10.3.0-gcov-10.3.0-coverage-v1
+os=windows
+compiler=gcc
+covered=3192
+total=5827
+sources_hash=39ea236e
+source_count=1
+source_state=811c9dc5
+tests_state=da606c00
+flags_state=36eb9e95
+tests_total=25
+tests_passed=24
+tests_skipped=1

@@ -9,8 +9,8 @@
 - `src/tack.c` meldet `tack 0.8.4`; `tack.ini` trägt denselben Stand. Der vom Owner bestätigte Windows-RC0.2-Testlauf ergab für GCC/Release und TinyCC/Debug jeweils 25 kompiliert, 24 PASS, einen Plattform-SKIP und null Fehler.
 - Das Linux-Referenzprofil mit GCC 14.2.0 und gcov 14.2.0 hat **3.228/5.708 = 56,55221 %** produktive Line-Coverage gemessen und als `coverage/hwm-linux.txt` versioniert. `tack coverage check` muss auf derselben vergleichbaren Umgebung PASS melden.
 - `coverage/current.txt`, Build-Ausgaben, `.gcda`/`.gcno` und ausführbare Dateien gehören **nicht** in den Git-Commit. Das versionierte HWM und das Testinventar dagegen schon.
-- **Vor GitHub-Push:** Windows-Coverage ist zunächst `NOT RUN`. Sie muss mit der zusätzlichen `id_windows` in `[coverage]` und dem lokalen GCC/gcov **tatsächlich gemessen**, nach Review akzeptiert und als `coverage/hwm-windows.txt` gemeinsam mit der Linux-HWM versioniert werden. Vollständiger Ablauf: [Coverage-Ratchet-Leitfaden](coverage-ratchet.md), Abschnitt 5. Der bestehende GitHub-Workflow auf ARM64/Windows ersetzt die maßgebliche Linux-x86_64-GCC/gcov-Referenzmessung nicht automatisch.
-- **RC0.5-Hinweis:** Der Owner-RC0.4-Testlauf auf Windows schlug vor der Messung mit `coverage_ratchet_test: 2 failures` fehl. Dies waren zwei unportable Unix-Pfaderwartungen im Test; RC0.5 prüft stattdessen plattformnative **und** kanonische Pfade. Der neue Windows-Testlauf und die HWM-Annahme stehen weiterhin aus. Vorher kein Tag oder Push.
+- **Vor GitHub-Push:** Windows wurde unter TDM-GCC/gcov 10.3.0 am 17.11.2026 mit **3192/5827** Zeilen gemessen; dieser vom Owner ausdrücklich zur Festschreibung angeforderte Datensatz liegt nun in `coverage/hwm-windows.txt`. Ein neuer lokaler Windows-Lauf muss gegen diese HWM noch `PASS` liefern. Vollständiger Ablauf: [Coverage-Ratchet-Leitfaden](coverage-ratchet.md), Abschnitt 5. Der bestehende GitHub-Workflow auf ARM64/Windows ersetzt die maßgebliche Linux-x86_64-GCC/gcov-Referenzmessung nicht automatisch.
+- **RC0.5-Hinweis:** Der Owner-RC0.4-Testlauf auf Windows schlug vor der Messung mit `coverage_ratchet_test: 2 failures` fehl. Dies waren zwei unportable Unix-Pfaderwartungen im Test; RC0.5 prüft stattdessen plattformnative **und** kanonische Pfade. Der Windows-RC0.5-Testlauf einschließlich Coverage ist nun gemessen (24 PASS, 1 SKIP); HWM festgeschrieben, die erneute PASS-Prüfung nach Übernahme aber noch ausstehend. Vorher kein Tag oder Push.
 
 ### Lokale Prüfung (Windows, aktuelle `tack.exe`)
 
@@ -20,7 +20,7 @@ tack --config .\tack.ini test release --ci --rebuild -j 32
 tack --config .\tack.ini doctor release --target app
 ```
 
-Für den TinyCC-Debug-Lauf `TACK_CC` vor dem Test entfernen und `tack --config .\tack.ini test debug --ci --rebuild -j 32` ausführen. In Windows-CMD: `set TACK_CC=`. Die Linux-C89-/Coverage-Referenzprüfung muss nach dem Quellcode-Nachtrag ebenfalls **erneut** gemessen und mit der angenommenen Linux-HWM abgeglichen werden. Für Windows ist die eigenständige GCC/gcov-HWM nach dem [Coverage-Leitfaden](coverage-ratchet.md) verpflichtend, bevor Tag und Push erfolgen. `coverage check` setzt dort eine frische Messung voraus; mit einer fehlenden Messung meldet es folgerichtig `NOT RUN/BLOCKED`.
+Für den TinyCC-Debug-Lauf `TACK_CC` vor dem Test entfernen und `tack --config .\tack.ini test debug --ci --rebuild -j 32` ausführen. In Windows-CMD: `set TACK_CC=`. Die Linux-C89-/Coverage-Referenzprüfung wurde auf dem RC0.5-Quellstand erneut gemessen und gegen 3228/5708 bestätigt; bei weiteren Produktionscodeänderungen ist sie erneut auszuführen. Für Windows ist die eigenständige GCC/gcov-HWM nach dem [Coverage-Leitfaden](coverage-ratchet.md) verpflichtend, bevor Tag und Push erfolgen. `coverage check` setzt dort eine frische Messung voraus; mit einer fehlenden Messung meldet es folgerichtig `NOT RUN/BLOCKED`.
 
 ### Git-Commit, Tag und GitHub-Release
 
@@ -43,8 +43,8 @@ git push origin v0.8.4
 - `src/tack.c` reports `tack 0.8.4` and the shipped `tack.ini` matches. Owner-provided Windows RC0.2 runs for GCC/release and TinyCC/debug each compiled 25 tests with 24 PASS, one platform SKIP and zero failures.
 - The Linux reference profile with GCC 14.2.0 and gcov 14.2.0 measured **3,228/5,708 = 56.55221%** production line coverage and has been versioned as `coverage/hwm-linux.txt`. `tack coverage check` must PASS on the same comparable reference environment.
 - Do **not** commit `coverage/current.txt`, build artifacts, `.gcda`/`.gcno` or executables; do version the HWM and test inventory.
-- **Before publishing:** Windows coverage is initially `NOT RUN`; measure it with the platform-specific `id_windows`, explicitly approve the valid result, commit `coverage/hwm-windows.txt` alongside the Linux baseline, then verify both gates. See [coverage acceptance guide](coverage-ratchet.md), section 5. Never copy Linux counts into a Windows baseline. The existing self-hosted GitHub ARM64/Windows workflow does not automatically reproduce the canonical Linux x86_64 GCC/gcov measurement.
-- **RC0.5 note:** The owner-provided RC0.4 Windows run failed with `coverage_ratchet_test: 2 failures` before gcov collection. Two Unix-only expected paths in the test were corrected in RC0.5; native and canonical paths are both checked. Fresh Windows test and HWM acceptance remain pending; do not tag or push beforehand.
+- **Before publishing:** The owner measured Windows coverage at **3192/5827** with TDM-GCC/gcov 10.3.0 on 2026-11-17. This owner-approved record is now versioned in `coverage/hwm-windows.txt` alongside Linux; a new local Windows check must still PASS before pushing. See [coverage acceptance guide](coverage-ratchet.md), section 5. Never copy Linux counts into a Windows baseline. The existing self-hosted GitHub ARM64/Windows workflow does not automatically reproduce the canonical Linux x86_64 GCC/gcov measurement.
+- **RC0.5 note:** The owner-provided RC0.4 Windows run failed with `coverage_ratchet_test: 2 failures` before gcov collection. Two Unix-only expected paths in the test were corrected in RC0.5; native and canonical paths are both checked. The RC0.5 Windows tests and measurement completed (24 PASS, one SKIP), and the HWM is now versioned; the first new Windows PASS against the recorded baseline is still required before tagging/pushing.
 
 ### Local verification (Windows, current `tack.exe`)
 
@@ -54,7 +54,7 @@ tack --config .\tack.ini test release --ci --rebuild -j 32
 tack --config .\tack.ini doctor release --target app
 ```
 
-For TinyCC debug, clear `TACK_CC` first (`set TACK_CC=` in CMD) and run `tack --config .\tack.ini test debug --ci --rebuild -j 32`. Revalidate Linux reference coverage after the production code change and follow the [Windows HWM steps](coverage-ratchet.md) before tagging or pushing. `coverage check` requires a fresh local measurement on that machine; with no current measurement, `NOT RUN/BLOCKED` is expected.
+For TinyCC debug, clear `TACK_CC` first (`set TACK_CC=` in CMD) and run `tack --config .\tack.ini test debug --ci --rebuild -j 32`. Linux reference coverage was revalidated on RC0.5 at 3228/5708; revalidate after any further production change and follow the [Windows HWM steps](coverage-ratchet.md) before tagging or pushing. `coverage check` requires a fresh local measurement on that machine; with no current measurement, `NOT RUN/BLOCKED` is expected.
 
 ### Git commit, tag and GitHub Release
 
