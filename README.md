@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.8.5, finaler lokaler Release-Kandidat)
+# tack — Tiny ANSI-C Kit (v0.8.5)
 
 ---
 
