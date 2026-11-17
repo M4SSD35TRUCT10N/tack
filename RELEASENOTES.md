@@ -9,12 +9,14 @@
 > `v0.8.4` wurde als eigenständiges CLI-Werkzeug zur Veröffentlichung freigegeben. Die Integration in weitere Fremdprojekte (z. B. ft2-clone oder nuklear) ist weiterhin nicht als getestet zu betrachten. Tag und GitHub-Release sind erst nach dem Push nachzuweisen.
 
 ### v0.8.4 (vom Owner zur Veröffentlichung freigegeben)
+- RC0.5 korrigiert zwei Windows-falsche Pfaderwartungen im `coverage_ratchet_test`, ohne Testfälle zu entfernen: native Windows-/POSIX-Pfade und kanonische `build/`-Ablage werden geprüft, mit konkreter Pfaddiagnose. Linux GCC Release und Linux GCC/gcov bestehen; erneute Windows-HWM-Messung steht aus.
+- Windows-Coverage-Nachkorrektur vor Veröffentlichung: Der GCC-Testlauf kompiliert instrumentierte `.o` zuerst unter `build/tests/coverage/obj/` und linkt dann die Programme. Fehlende `.gcno` werden sofort erkannt; die zuvor im Root abgelegten `.gcno`/`.gcda` gehören nicht mehr zum Ablauf. Eine angefangene oder fehlgeschlagene neue Messung verwirft `coverage/current.txt`, nicht aber angenommene HWMs.
 - Repariert den strengen GCC-Windows-Build von `incremental_link_test.c`, ohne POSIX-Testlogik zu entfernen.
 - Unterscheidet ausgeführte Tests von echten Plattform-SKIPs in CI-Summary, TAP und JUnit.
 - Ergänzt `tack ratchet tests` mit versioniertem, prüfbarem Testquelleninventar und expliziter Owner-Annahme.
 - Ergänzt `test coverage` und `coverage check/accept` mit GCC/gcov-Messung, Produktionsquellenfilter und versionierter High-Water-Mark pro Plattform.
 - Die tatsächliche Linux-GCC/gcov-Referenz-Coverage wurde nach Owner-Entscheidung als `coverage/hwm-linux.txt` angenommen; die Messung des finalen Quellstands ist zu dokumentieren und `coverage check` muss PASS liefern.
-- Die Windows-Abnahme von RC0.2 ergab sowohl mit GCC/Release als auch TinyCC/Debug 24 PASS, 1 SKIP, 0 FAIL bei 25 Testquellen. Windows-Coverage ist nicht gemessen und wird nicht als PASS ausgewiesen.
+- Die Windows-Abnahme von RC0.2 ergab sowohl mit GCC/Release als auch TinyCC/Debug 24 PASS, 1 SKIP, 0 FAIL bei 25 Testquellen. Windows-Coverage ist noch nicht gemessen; `id_windows` unterstützt die separate Messung und HWM-Abnahme, die vor dem GitHub-Push erforderlich ist.
 
 ### v0.8.3-dev (Entwicklungskandidat, nicht freigegeben)
 - Repariert veraltete `build_and_run_tests()`- und `cmd_doctor()`-Aufrufe in den Regressionstests.
@@ -208,6 +210,8 @@
 > `v0.8.4` has been approved for publication as a standalone CLI. Integration with additional third-party projects (e.g. ft2-clone or nuklear) has not been verified. Git tag and GitHub Release are still pending the push.
 
 ### v0.8.4 (owner-approved for publication)
+- RC0.5 fixes two incorrect Windows path expectations in `coverage_ratchet_test` without removing assertions: native Windows/POSIX paths and canonical `build/` locations are checked with specific path diagnostics. Linux GCC release and GCC/gcov pass; renewed Windows HWM measurement remains pending.
+- Pre-publication Windows gcov correction: instrumented test translation units compile to explicit objects beneath `build/tests/coverage/obj/` before linking. Reject missing `.gcno` immediately; prevent root-level notes/data and invalidate stale `coverage/current.txt` on a new run without touching accepted HWMs.
 - Fixes strict GCC-on-Windows compilation of `incremental_link_test.c` without removing its POSIX testing behavior.
 - Separates actually executed tests from platform SKIPs in CI summaries, TAP and JUnit reports.
 - Adds `tack ratchet tests` with a versioned test-source inventory and explicit owner acceptance.

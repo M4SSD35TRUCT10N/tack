@@ -3,6 +3,9 @@
 ## Deutsch
 
 ### v0.8.4 (zur GitHub-Veröffentlichung freigegeben)
+- **RC0.5, vor dem GitHub-Tag:** Zwei falsche Unix-Pfad-Erwartungen im `coverage_ratchet_test` ließen Windows-GCC Release/Coverage vor der eigentlichen gcov-Auswertung abbrechen. Die Regression prüft jetzt native Windows-/POSIX-Pfade **und** deren kanonische `build/`-Position; aussagekräftige Ist-/Soll-Diagnosen ergänzt. Das Testinventar wurde für den erweiterten Teststand aktualisiert, ohne eine Coverage-HWM abzusenken. Windows-GCC- und Windows-Coverage-Abnahme von RC0.5 noch ausstehend.
+- Windows-Coverage-Fix vor Tag: Testquellen werden zuerst in `build/tests/coverage/obj/` zu `.o`/`.gcno` kompiliert und danach separat gelinkt. `gcov` liest nur die neue Objektablage; fehlende Notizen führen zu FAIL. Die vorherige `coverage/current.txt` wird vor jeder neuen Messung invalidiert, angenommene HWMs bleiben erhalten.
+- GitHub-Vorbereitung: rückwärtskompatible `id_windows` für getrennte Linux-/Windows-HWM sowie genaue Windows-Abnahmeschritte (Messung und Owner-Abnahme noch ausstehend).
 
 - RC0.2: Testinventar mit kanonischen Windows-Pfaden und LF-/CRLF-Fingerprints; echter Testinhalt bleibt ratchet-geschützt.
 - POSIX-only-Testhelfer für Windows/GCC strikt mit Präprozessor-Guards abgetrennt; Plattform-SKIP (77) wird nicht als PASS gezählt.
@@ -30,6 +33,9 @@
 ## English
 
 ### v0.8.4 (approved for GitHub publication)
+- **Pre-tag RC0.5:** Correct two Unix-only path expectations in `coverage_ratchet_test` that caused Windows GCC release and coverage runs to abort before gcov collection. Assert native Windows/POSIX paths **and** canonical `build/` locations, with actionable actual/expected diagnostics. Update the versioned test inventory for the reviewed changes without lowering any coverage HWM. RC0.5 Windows GCC and coverage acceptance remain pending.
+- Pre-tag Windows gcov correction: compile instrumented tests to explicit objects/notes under `build/tests/coverage/obj/` before linking; collect only from that directory. Missing notes fail closed, and stale `coverage/current.txt` is invalidated before a new run without changing accepted HWMs.
+- Publishing preparation: backwards-compatible platform-specific `id_windows` and documented Windows measurement/acceptance; no Windows HWM is claimed before an actual run.
 
 - RC0.2: Canonical Windows paths and LF/CRLF test fingerprints; meaningful test content remains ratchet-protected.
 - Fully guarded POSIX-only test helpers for Windows/GCC; platform SKIP (77) no longer counts as PASS.

@@ -8,7 +8,7 @@
 
 ### 0.8-Status
 `v0.8.0-dev` ist als CI-Grundlagenblock abgeschlossen.
-`v0.8.4` ist zur Veröffentlichung freigegeben und umfasst die v0.8.2/v0.8.3-Entwicklungsschritte. Linux-GCC/gcov-Referenz-HWM und Windows/GCC-Release- sowie TinyCC-Debug-Tests sind ownerbestätigt. Windows-Coverage und GitHub-Publikation sind noch nicht nachgewiesen; die BA-STD-C89-Gruppennorm bleibt Entwurf.
+`v0.8.4` ist zur Veröffentlichung freigegeben und umfasst die v0.8.2/v0.8.3-Entwicklungsschritte. Linux-GCC/gcov-Referenz-HWM und Windows/GCC-Release- sowie TinyCC-Debug-Tests sind ownerbestätigt. Windows-Coverage ist noch nicht gemessen und muss vor dem GitHub-Push als separates HWM abgenommen werden; die BA-STD-C89-Gruppennorm bleibt Entwurf.
 
 ### Architekturentscheidungen
 - [ADR 0001 – Eröffnung der 0.8-Serie](adr/0001-open-v0.8-series.md)
@@ -48,7 +48,7 @@ Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokume
 
 ### 0.8 status
 `v0.8.0-dev` is complete as the CI foundation block.
-`v0.8.4` is approved for publication, incorporating the v0.8.2/v0.8.3 development steps. The Linux GCC/gcov reference HWM and Windows/GCC release plus TinyCC debug tests have owner approval. Windows coverage and actual GitHub publication remain unverified; the BA-STD-C89 group standard is still a draft.
+`v0.8.4` is approved for publication, incorporating the v0.8.2/v0.8.3 development steps. The Linux GCC/gcov reference HWM and Windows/GCC release plus TinyCC debug tests have owner approval. Windows coverage needs an independently measured HWM before the pending GitHub push; the BA-STD-C89 group standard is still a draft.
 
 ### Architecture decisions
 - [ADR 0001 – Open the 0.8 series](adr/0001-open-v0.8-series.md)

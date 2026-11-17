@@ -6,6 +6,15 @@
 
 ## Deutsch (FAQ)
 
+### Wie nehme ich eine Windows-Coverage-HWM vor dem GitHub-Push an?
+Mit dem Windows-GCC/gcov-Profil messen, `coverage/current.txt` samt Testumfang und `covered/total` prüfen, danach ausdrücklich `tack coverage accept --owner-approve` ausführen und `tack coverage check` sowie den instrumentierten Testlauf wiederholen. Für Windows ist in `tack.ini` zusätzlich `id_windows = windows-...` einzutragen; die bestehende Linux-ID und `coverage/hwm-linux.txt` bleiben erhalten. **Keine Baseline ohne Messung und keinen GitHub-Tag vor beiden bestandenen Referenz-Gates.** Die vollständige CMD-Anleitung steht im [Coverage-Ratchet-Leitfaden](docs/guides/coverage-ratchet.md), Abschnitt 5.
+
+### Warum lagen `.gcno` und `.gcda` im Projekt-Root und Coverage fand 0 von 25 Tests?
+Im älteren Windows-Coverage-Pfad kombinierte ein GCC-Aufruf Kompilieren und Linken; TDM-GCC 10.3.0 legte die Instrumentierungsdateien dadurch am falschen Ort ab. Der korrigierte Runner baut `.o` und `.gcno` unter `build/tests/coverage/obj/`, linkt die `.exe` unter `build/tests/coverage/bin/` und erwartet die `.gcda` ebenfalls im Objektverzeichnis. Fehlende Notizen sind ein Fehler, kein SKIP. Alte Root-Dateien nach Sichtprüfung ausschließlich im Root mit `del /q *.gcda *.gcno *.gcov` entfernen. [Windows-Anleitung](docs/guides/coverage-ratchet.md).
+
+### Warum meldete Windows `coverage_ratchet_test: 2 failures` und keine `coverage/current.txt`?
+RC0.4 verglich zwei durch `path_join()` erzeugte Dateinamen mit fest erwarteten Unix-Trennzeichen. Unter Windows fügt `path_join()` jedoch `\\` ein. Die beiden Fehler betrafen den Testvergleich für `.o` und `.gcno`, **nicht** eine gescheiterte gcov-Messung. RC0.5 prüft beide Pfade mit plattformrichtigen Sollwerten und zusätzlich nach Kanonisierung unter `build/`. Der Test meldet bei Abweichungen nun den konkreten Pfad. Die vorherigen `FAIL`-/`BLOCKED`-Ausgaben innerhalb des Ratchet-Regressionstests sind erwartete Negativfälle; entscheidend ist `coverage_ratchet_test: ok`. Die Windows-HWM darf erst nach einem vollständig gemessenen, geprüften RC0.5-Lauf angenommen werden.
+
 ### Sind `v0.8.0-dev` und `v0.8.1-dev` abgeschlossen?
 Ja. `v0.8.0-dev` ist als kleiner CI-Grundlagenblock abgeschlossen. `v0.8.1-dev` ist als Doc-UX-/Search-/Polishing-Schritt abgeschlossen. Das bedeutet nicht, dass tack insgesamt „fertig“ ist; es heißt nur, dass diese beiden Entwicklungsschritte nicht weiter offen geführt werden. Der nächste Fokus liegt auf Real-World-Ports, Stabilität und weiteren kleineren 0.8.x-Schritten.
 
@@ -334,6 +343,15 @@ Nein. Beide Befehle bleiben allgemeine, nicht destruktive Scaffold-Werkzeuge. Ih
 `tack ratchet tests` prüft das versionierte Inventar der `_test.c`-Quellen. Ein Fingerprint kann Änderungen erkennen, aber nicht die Aussagekraft einer Assertion beurteilen; Änderungen benötigen Owner-Review. `tack test coverage --ci --rebuild` instrumentiert mit GCC/gcov und erzeugt eine echte `coverage/current.txt`. `tack coverage check` verlangt eine akzeptierte HWM. Die erste Linux-GCC/gcov-Referenzmessung wurde nach ausdrücklicher Owner-Abnahme als HWM versioniert; neue oder höhere Messungen bleiben weiterhin abnahmepflichtig. Windows-Coverage benötigt ein gesondertes Messprofil und eine eigene akzeptierte HWM. Siehe [Leitfaden](docs/guides/coverage-ratchet.md).
 
 ## English (FAQ)
+
+### How do I accept a Windows coverage HWM before pushing to GitHub?
+Use the verified Windows GCC/gcov profile, inspect `coverage/current.txt` and its executed tests/covered lines, explicitly run `tack coverage accept --owner-approve`, then rerun `coverage check` and the instrumented suite. Configure `id_windows = windows-...` alongside the Linux `id`; keep the Linux HWM unchanged. **No measured baseline means no acceptance, and no release tag before both required platform gates pass.** See section 5 of the [coverage ratchet guide](docs/guides/coverage-ratchet.md) for exact CMD commands.
+
+### Why did `.gcno` and `.gcda` appear in the repository root, with 0 of 25 tests found?
+The old Windows coverage command compiled and linked in one GCC invocation; TDM-GCC 10.3.0 misplaced instrumentation files. The corrected runner compiles objects and `.gcno` under `build/tests/coverage/obj/`, links executables under `build/tests/coverage/bin/`, and expects runtime `.gcda` beside objects. Missing notes are errors, not skips. After inspection, remove old **root-level** generated files using `del /q *.gcda *.gcno *.gcov`. See the [Windows coverage guide](docs/guides/coverage-ratchet.md).
+
+### Why did Windows report `coverage_ratchet_test: 2 failures` with no `coverage/current.txt`?
+RC0.4 compared two paths returned by `path_join()` against fixed Unix-only expectations. On Windows, `path_join()` inserts `\\`, so the `.o` and `.gcno` checks failed before gcov collection. RC0.5 checks the native Windows/POSIX spelling **and** the canonical `build/` location; it reports actual and expected paths on failure. Expected `FAIL`/`BLOCKED` lines inside negative ratchet cases are not failed suite gates; `coverage_ratchet_test: ok` must be present. Do not accept a Windows HWM until a complete RC0.5 measurement passes review.
 
 ### Are `v0.8.0-dev` and `v0.8.1-dev` complete?
 Yes. `v0.8.0-dev` is complete as the small CI foundation block. `v0.8.1-dev` is complete as the doc UX/search/polish step. This does not mean tack as a whole is “finished”; it means these two development steps are no longer open. The next focus is real-world ports, stability, and further small 0.8.x steps.

@@ -129,7 +129,8 @@ static char *g_config_bom_template = 0; /* owned */
 static char *g_config_bom_css = 0;      /* owned */
 static char *g_config_sbom_format = 0;       /* owned */
 static char *g_config_sbom_spec_version = 0; /* owned */
-static char *g_coverage_profile_id = 0; /* owned [coverage] id */
+static char *g_coverage_profile_id = 0; /* owned [coverage] fallback id */
+static char *g_coverage_profile_id_windows = 0; /* optional Windows coverage id */
 static char *g_config_sbom_output = 0;       /* owned */
 
 static const char *g_cc_default = "tcc";
@@ -3781,6 +3782,10 @@ static int ini_load_file(const char *path) {
           free(g_coverage_profile_id);
           tack_check_len("[coverage] id", val, 150);
           g_coverage_profile_id = xstrdup(val);
+        } else if (strieq(key, "id_windows")) {
+          free(g_coverage_profile_id_windows);
+          tack_check_len("[coverage] id_windows", val, 150);
+          g_coverage_profile_id_windows = xstrdup(val);
         }
         continue;
       }
@@ -4318,6 +4323,7 @@ static void config_reset(void) {
   free(g_config_sbom_format); g_config_sbom_format = 0;
   free(g_config_sbom_spec_version); g_config_sbom_spec_version = 0;
   free(g_coverage_profile_id); g_coverage_profile_id = 0;
+  free(g_coverage_profile_id_windows); g_coverage_profile_id_windows = 0;
   free(g_config_sbom_output); g_config_sbom_output = 0;
 
   free(g_config_doc_template); g_config_doc_template = 0;
@@ -4409,6 +4415,7 @@ static void config_free(void) {
   free(g_config_sbom_format); g_config_sbom_format = 0;
   free(g_config_sbom_spec_version); g_config_sbom_spec_version = 0;
   free(g_coverage_profile_id); g_coverage_profile_id = 0;
+  free(g_coverage_profile_id_windows); g_coverage_profile_id_windows = 0;
   free(g_config_sbom_output); g_config_sbom_output = 0;
 
   cc_cache_reset();
@@ -5134,6 +5141,24 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
 /* --------------------------- tests --------------------------- */
 
 static const char *cov_os_name(void);
+/* Keep GCC gcov notes and runtime data beside an explicit object under
+ * build/, independent of GCC's platform-specific single-step link behavior. */
+static void test_coverage_artifact_paths(const char *objdir, const char *test_base,
+                                         char *obj_path, size_t obj_cap,
+                                         char *gcno_path, size_t gcno_cap) {
+  char stem[512], filename[512];
+  char *dot;
+  tack_copy(stem, sizeof(stem), test_base);
+  dot = strrchr(stem, '.');
+  if (dot) *dot = '\0';
+  tack_copy(filename, sizeof(filename), stem);
+  tack_cat(filename, sizeof(filename), ".o");
+  path_join(obj_path, obj_cap, objdir, filename);
+  tack_copy(filename, sizeof(filename), stem);
+  tack_cat(filename, sizeof(filename), ".gcno");
+  path_join(gcno_path, gcno_cap, objdir, filename);
+}
+
 static int build_and_run_tests(const char *target_name, Profile p, int verbose, int force, int strict, TestRunStats *stats) {
   StrVec tests;
   int i;
@@ -5142,6 +5167,7 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
 
   char tests_root[512];
   char tests_bin[512];
+  char tests_obj[512];
 
   const char *inc_common[4];
 
@@ -5171,6 +5197,14 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
   path_join(tests_bin, sizeof(tests_bin), tests_root, "bin");
   if (p == PROF_COVERAGE && file_exists(tests_bin) && rm_rf(tests_bin) != 0) { sv_free(&tests); return 1; }
   ensure_dir(tests_bin);
+  /* GCC may place gcov notes in the working directory when compiling and
+   * linking a .c file in one step on Windows. Compile an explicit object
+   * under build/ first; both .gcno and runtime .gcda belong beside it. */
+  path_join(tests_obj, sizeof(tests_obj), tests_root, "obj");
+  if (p == PROF_COVERAGE) {
+    if (file_exists(tests_obj) && rm_rf(tests_obj) != 0) { sv_free(&tests); return 1; }
+    ensure_dir(tests_obj);
+  }
 
   inc_common[0] = g_inc_dir;
   inc_common[1] = g_tests_dir;
@@ -5210,8 +5244,15 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
     if (force || !file_exists(out_exe) || file_mtime(src) > file_mtime(out_exe)) {
       Argv av;
       int rc;
+      char obj_path[1024];
+      char gcno_path[1024];
       if (stats) stats->compiled++;
       compiled_now = 1;
+
+      if (p == PROF_COVERAGE) {
+        test_coverage_artifact_paths(tests_obj, base, obj_path, sizeof(obj_path),
+                                     gcno_path, sizeof(gcno_path));
+      }
 
       av_init(&av);
 
@@ -5231,14 +5272,39 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
         }
       }
 
-      av_push(&av, "-o");
-      av_push(&av, out_exe);
+      if (p == PROF_COVERAGE) {
+        av_push(&av, "-c");
+        av_push(&av, "-o");
+        av_push(&av, obj_path);
+      } else {
+        av_push(&av, "-o");
+        av_push(&av, out_exe);
+      }
       av_push(&av, src);
 
       av_terminate(&av);
 
       rc = run_argv_wait(av.a, verbose);
       av_free(&av);
+
+      if (rc == 0 && p == PROF_COVERAGE) {
+        Argv linkav;
+        if (!file_exists(gcno_path)) {
+          fprintf(stderr, "tack: coverage: GCC did not write notes under build/: %s\n", gcno_path);
+          rc = 1;
+        }
+        if (rc == 0) {
+          av_init(&linkav);
+          av_push(&linkav, cc);
+          av_push(&linkav, "-o");
+          av_push(&linkav, out_exe);
+          av_push(&linkav, obj_path);
+          av_push_list(&linkav, test_ov.ldflags);
+          av_terminate(&linkav);
+          rc = run_argv_wait(linkav.a, verbose);
+          av_free(&linkav);
+        }
+      }
 
       if (rc != 0) {
         if (stats) { stats->failed++; stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped); }
@@ -5324,6 +5390,16 @@ static const char *cov_os_name(void) {
   return "posix";
 #endif
 }
+
+/* The generic id remains compatible with existing Linux releases; Windows
+ * may have its own validated GCC/gcov profile in the same tack.ini. */
+static const char *cov_id_for_os(const char *os) {
+  if (streq(os, "windows") && g_coverage_profile_id_windows &&
+      g_coverage_profile_id_windows[0]) return g_coverage_profile_id_windows;
+  return g_coverage_profile_id;
+}
+
+static const char *cov_active_id(void) { return cov_id_for_os(cov_os_name()); }
 
 static const char *cov_baseline_path(void) {
 #ifdef _WIN32
@@ -5551,7 +5627,7 @@ static int cov_write_current(CovSet *v, TestRunStats *stats) {
   f = fopen("coverage/current.txt", "wb");
   if (!f) return 1;
   fprintf(f, "tack-coverage-v1\nprofile=%s\nos=%s\ncompiler=%s\n",
-          g_coverage_profile_id ? g_coverage_profile_id : "UNCONFIGURED",
+          cov_active_id() ? cov_active_id() : "UNCONFIGURED",
           cov_os_name(), get_cc());
   fprintf(f, "covered=%lu\ntotal=%lu\nsources_hash=%08lx\nsource_count=%d\nsource_state=%08lx\ntests_state=%08lx\nflags_state=%08lx\n",
           covered, total, cov_source_digest(v), v->count, source_state, tests_state, flags_state);
@@ -5651,6 +5727,10 @@ static int cov_check_current(void) {
     fprintf(stderr, "tack: coverage: NOT RUN, missing valid current measurement\n"); return 2;
   }
   if (!cov_fresh(&cur)) return 2;
+  if (!cov_active_id() || !streq(cur.profile, cov_active_id()) || !streq(cur.os, cov_os_name())) {
+    fprintf(stderr, "tack: coverage: BLOCKED current measurement does not match configured platform profile\n");
+    return 2;
+  }
   if (cov_read_record(cov_baseline_path(), &hwm) != 0) {
     fprintf(stderr, "tack: coverage: BLOCKED no accepted HWM at %s\n", cov_baseline_path()); return 2;
   }
@@ -5665,7 +5745,7 @@ static int cov_accept_current(void) {
     fprintf(stderr, "tack: coverage: NOT RUN, cannot accept an absent measurement\n"); return 2;
   }
   if (!cov_fresh(&cur) || cov_test_inventory(0) != 0) return 2;
-  if (!g_coverage_profile_id || !streq(cur.profile, g_coverage_profile_id) || !streq(cur.os, cov_os_name())) {
+  if (!cov_active_id() || !streq(cur.profile, cov_active_id()) || !streq(cur.os, cov_os_name())) {
     fprintf(stderr, "tack: coverage: BLOCKED profile mismatch\n"); return 2;
   }
   if (file_exists(dest) && cov_read_record(dest, &hwm) != 0) {
@@ -5722,12 +5802,25 @@ static int cov_generate_gcov(Profile p, TestRunStats *stats) {
     sv_free(&testfiles);
   }
   sv_init(&notes); cov_set_init(&data);
-  tack_snprintf(notes_dir, sizeof(notes_dir), "%s/tests/%s/bin", g_build_dir, profile_name(p));
+  tack_snprintf(notes_dir, sizeof(notes_dir), "%s/tests/%s/obj", g_build_dir, profile_name(p));
   scan_dir_recursive_suffix(&notes, notes_dir, ".gcno");
   sv_sort_unique(&notes);
-  if (notes.count < stats->total) {
-    fprintf(stderr, "tack: coverage: BLOCKED incomplete gcno test inventory (%d of %d)\n", notes.count, stats->total);
+  if (notes.count != stats->total) {
+    fprintf(stderr, "tack: coverage: BLOCKED invalid gcno test inventory (%d of %d)\n", notes.count, stats->total);
     sv_free(&notes); return 2;
+  }
+  /* Each instrumented test was executed. Require its matching runtime data;
+   * gcov can otherwise succeed after silently assuming zero execution. */
+  for (i = 0; i < notes.count; i++) {
+    char data_path[2048];
+    size_t len = strlen(notes.items[i]);
+    if (len < 5u || len >= sizeof(data_path)) { sv_free(&notes); return 2; }
+    tack_copy(data_path, sizeof(data_path), notes.items[i]);
+    strcpy(data_path + len - 5u, ".gcda");
+    if (!file_exists(data_path)) {
+      fprintf(stderr, "tack: coverage: BLOCKED missing runtime data: %s\n", data_path);
+      sv_free(&notes); return 2;
+    }
   }
 #ifdef _WIN32
   if (_chdir(work) != 0) { sv_free(&notes); return 1; }
@@ -10966,12 +11059,18 @@ int main(int argc, char **argv) {
         fprintf(stderr, "tack: test: unknown target: %s\n", target_name);
         events_close(); junit_close(); tap_close(); tv_free(&tv); config_free(); return 2;
       }
-      if ((g_coverage_profile_id || file_exists("coverage/test-inventory.txt")) && cov_test_inventory(0) != 0) {
+      if ((cov_active_id() || file_exists("coverage/test-inventory.txt")) && cov_test_inventory(0) != 0) {
         events_close(); junit_close(); tap_close(); tv_free(&tv); config_free(); return 2;
       }
       if (p == PROF_COVERAGE) set_active_compiler_target(target_name, p);
-      if (p == PROF_COVERAGE && (compiler_policy_auto_detect(get_cc()) != COMPILER_POLICY_GCC || compiler_policy_for_cc(get_cc()) != COMPILER_POLICY_GCC || !streq(target_name, default_target_name()) || !g_coverage_profile_id || strncmp(g_coverage_profile_id, cov_os_name(), strlen(cov_os_name())) != 0)) {
+      if (p == PROF_COVERAGE && (compiler_policy_auto_detect(get_cc()) != COMPILER_POLICY_GCC || compiler_policy_for_cc(get_cc()) != COMPILER_POLICY_GCC || !streq(target_name, default_target_name()) || !cov_active_id() || strncmp(cov_active_id(), cov_os_name(), strlen(cov_os_name())) != 0)) {
         fprintf(stderr, "tack: coverage: BLOCKED GCC and [coverage] id required\n");
+        events_close(); junit_close(); tap_close(); tv_free(&tv); config_free(); return 2;
+      }
+      /* An interrupted run must never leave an earlier current.txt looking
+       * like evidence from the failed attempt. Accepted HWMs are untouched. */
+      if (p == PROF_COVERAGE && file_exists("coverage/current.txt") && remove("coverage/current.txt") != 0) {
+        fprintf(stderr, "tack: coverage: cannot clear stale current measurement\n");
         events_close(); junit_close(); tap_close(); tv_free(&tv); config_free(); return 2;
       }
       rc = build_and_run_tests(target_name, p, verbose, force || p == PROF_COVERAGE, strict, &stats);

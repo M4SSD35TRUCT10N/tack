@@ -3,7 +3,7 @@ tests/ci_summary_output_test.c	3099232d
 tests/compiler_profile_flags_test.c	eb95fccd
 tests/compiler_selection_policy_test.c	43c60eee
 tests/compiler_target_profile_selection_test.c	a539dfeb
-tests/coverage_ratchet_test.c	aa09bd6d
+tests/coverage_ratchet_test.c	f15851ee
 tests/doc_css_relative_path_test.c	30cef6fe
 tests/doc_grouped_navigation_test.c	8e778317
 tests/doc_inline_link_rewrite_test.c	2961163c
