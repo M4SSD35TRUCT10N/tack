@@ -77,7 +77,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.8.4"
+#define TACK_VERSION "0.8.5"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -10158,7 +10158,7 @@ static char *fmt_replace_all_alloc(const char *s, const char *needle, const char
     const char *hit = strstr(p, needle);
     if (!hit) {
       strcpy(w, p);
-      break;
+      return out;
     }
     memcpy(w, p, (size_t)(hit - p));
     w += (hit - p);
@@ -10166,6 +10166,9 @@ static char *fmt_replace_all_alloc(const char *s, const char *needle, const char
     w += rl;
     p = hit + nl;
   }
+  /* A replacement at the end of a token has no trailing strcpy().
+   * Always terminate it before a later expansion pass calls strlen(). */
+  *w = '\0';
   return out;
 }
 
@@ -10182,6 +10185,121 @@ static char *fmt_expand_token(const char *tok, const char *file, const char *roo
   free(s4);
   return s5;
 }
+
+/* Build a Windows command line with exact CRT argument boundaries for the
+ * external formatter only.  The general tack build runner is unchanged.
+ * CreateProcessA receives one fully terminated, mutable command line. */
+#ifdef _WIN32
+static char *fmt_windows_quote_cmd_arg(const char *arg) {
+  size_t n, i, used;
+  int quote = 0;
+  char *out;
+
+  if (!arg) tack_die("fmt: null spawn argument");
+  n = strlen(arg);
+  if (n > 16000u) tack_die("fmt: Windows spawn argument too long");
+  for (i = 0u; i < n; i++) {
+    if (isspace((unsigned char)arg[i]) || arg[i] == '"') { quote = 1; break; }
+  }
+  if (!quote && n != 0u) return xstrdup(arg);
+
+  out = (char*)xmalloc(n * 2u + 3u);
+  used = 0u;
+  out[used++] = '"';
+  i = 0u;
+  while (i < n) {
+    size_t start = i, slashes, j, copies;
+    while (i < n && arg[i] == '\\') i++;
+    slashes = i - start;
+    if (i == n) copies = slashes * 2u;
+    else if (arg[i] == '"') copies = slashes * 2u + 1u;
+    else copies = slashes;
+    for (j = 0u; j < copies; j++) out[used++] = '\\';
+    if (i == n) break;
+    out[used++] = arg[i++];
+  }
+  out[used++] = '"';
+  out[used] = '\0';
+  return out;
+}
+#endif
+
+#ifdef _WIN32
+/* Win32 does not accept an argv array: construct the command line explicitly.
+ * _spawnvp on some Windows CRTs corrupts or splits formatter path arguments
+ * even after per-argument quoting.  This function is formatter-only. */
+static int fmt_run_win32(char **argv, int verbose) {
+  StrVec quoted;
+  STARTUPINFOA startup;
+  PROCESS_INFORMATION child;
+  DWORD wait_result, child_exit, win_error;
+  char *cmdline;
+  size_t used, n, pos;
+  int i, ok;
+
+  if (!argv || !argv[0] || !argv[0][0]) return 1;
+  sv_init(&quoted);
+  used = 0u;
+  for (i = 0; argv[i]; i++) {
+    char *q = fmt_windows_quote_cmd_arg(argv[i]);
+    n = strlen(q);
+    if (used > 32766u || (i && used == 32766u) ||
+        n > 32766u - used - (i ? 1u : 0u)) {
+      free(q);
+      sv_free(&quoted);
+      tack_die("fmt: Windows command line too long");
+    }
+    used += n + (i ? 1u : 0u);
+    sv_push_own(&quoted, q);
+  }
+
+  cmdline = (char*)xmalloc(used + 1u);
+  pos = 0u;
+  for (i = 0; i < quoted.count; i++) {
+    n = strlen(quoted.items[i]);
+    if (i) cmdline[pos++] = ' ';
+    memcpy(cmdline + pos, quoted.items[i], n);
+    pos += n;
+  }
+  cmdline[pos] = '\0';
+
+  if (verbose) print_argv(argv);
+  memset(&startup, 0, sizeof(startup));
+  memset(&child, 0, sizeof(child));
+  startup.cb = sizeof(startup);
+  ok = CreateProcessA(NULL, cmdline, NULL, NULL, FALSE, 0,
+                      NULL, NULL, &startup, &child) != 0;
+  if (!ok) {
+    win_error = GetLastError();
+    fprintf(stderr, "tack: fmt: CreateProcess failed (winerr=%lu): %s\n",
+            (unsigned long)win_error, argv[0]);
+    free(cmdline);
+    sv_free(&quoted);
+    return 1;
+  }
+
+  free(cmdline);
+  sv_free(&quoted);
+  wait_result = WaitForSingleObject(child.hProcess, INFINITE);
+  if (wait_result != WAIT_OBJECT_0) {
+    fprintf(stderr, "tack: fmt: formatter process wait failed (winerr=%lu)\n",
+            (unsigned long)GetLastError());
+    CloseHandle(child.hThread);
+    CloseHandle(child.hProcess);
+    return 1;
+  }
+  if (!GetExitCodeProcess(child.hProcess, &child_exit)) {
+    fprintf(stderr, "tack: fmt: formatter exit status unavailable (winerr=%lu)\n",
+            (unsigned long)GetLastError());
+    CloseHandle(child.hThread);
+    CloseHandle(child.hProcess);
+    return 1;
+  }
+  CloseHandle(child.hThread);
+  CloseHandle(child.hProcess);
+  return child_exit == 0u ? 0 : 1;
+}
+#endif
 
 static void tack_getcwd(char *out, size_t cap) {
 #ifdef _WIN32
@@ -10213,7 +10331,8 @@ static int fmt_exec_cmd(const char *cmd, const char *file, const char *root, con
   }
 
   av_init(&av);
-  for (i = 0; i < argv_own.count; i++) av_push(&av, argv_own.items[i]);
+  for (i = 0; i < argv_own.count; i++)
+    av_push(&av, argv_own.items[i]);
   av_terminate(&av);
 
 #ifdef _WIN32
@@ -10231,7 +10350,11 @@ static int fmt_exec_cmd(const char *cmd, const char *file, const char *root, con
 #endif
   }
 
+#ifdef _WIN32
+  rc = fmt_run_win32(av.a, verbose);
+#else
   rc = run_argv_wait(av.a, verbose);
+#endif
 
   if (workdir && workdir[0]) {
 #ifdef _WIN32

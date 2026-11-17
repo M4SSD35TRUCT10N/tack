@@ -4,7 +4,34 @@
 
 ---
 
-## Deutsch (Release Notes)
+## Deutsch
+### v0.8.5 finaler lokaler Release-Kandidat (HWM freigegeben, Veröffentlichung ausstehend)
+- Windows RC0.7 vollständig bestätigt: GCC Release 25 PASS/1 SKIP, TinyCC Debug 24 PASS/2 SKIP, Ratchet/Docs PASS, echter clang-format-E2E mit Leerzeichen und Exitcodes 0/2/0/0/1/0 PASS.
+- Linux GCC/Clang Strict C89, Release 25 PASS/1 SKIP, Ratchet/Docs/Formatter E2E PASS. Owner hat Windows 3577/5906 (60,56553 %) und Linux 3505/5710 (61,38354 %) zur HWM-Annahme freigegeben; Linux CLI-Annahme und Check PASS, Windows Post-Adoption-Check noch offen.
+- Historische RC0.4–RC0.6-Prüfstände nach `docs/releases/archive/0.8.5/` verschoben. `docs/releases/0.8.5.md` ist der kanonische Bericht. Kein GitHub-Push/Merge/Tag ohne separate Freigabe.
+
+
+### v0.8.5 RC0.7 (Release-Kandidat, NICHT FREIGEGEBEN)
+- Korrekturen seit v0.8.4: Formatter-INI-Parser und externe Windows-Formatter-Argumentübergabe einschließlich `CreateProcessA` und abschließender NUL-Terminierung. `clang-format` bleibt optional.
+- Owner-Nachweis aus RC0.6: Windows GCC Release 25 PASS/1 SKIP, TinyCC Debug 24 PASS/2 SKIP, isolierter Formatter-E2E mit Leerzeichen und unveränderten Originaldateien bei `--check` PASS.
+- RC0.7 setzt die Versionsnummer auf 0.8.5; dokumentierte Fähigkeiten und Einschränkungen DE/EN abgeglichen. **Nicht veröffentlicht**; RC0.7-Linux-GCC/Clang, Release, Docs, Ratchet und Formatter-E2E PASS, Linux gcov 3505/5710 mit HWM BLOCKED. Windows-RC0.7-Gates und kontrollierte HWM-Annahme stehen aus.
+
+### v0.8.5-dev RC0.6 (Formatter-Token-Terminierung, NICHT FREIGEGEBEN)
+- Owner RC0.5 Windows GCC/TCC: `fmt_ini_parser_test` FAIL bei tatsächlichem Kindprozess mit abschließendem Backslash; TCC zudem eingebettetes Quote. Je 13 PASS, 1 FAIL, 12 NOT RUN; kein gültiger Windows-Coverage-Datensatz.
+- Die Root-Cause ist die fehlende NUL-Terminierung in `fmt_replace_all_alloc` nach einem Platzhalter am Tokenende. Formatter-only, keine zusätzlichen Features oder Abhängigkeiten; sechs zusätzliche plattformübergreifende Regressionen, bisherige Windows-Child-Tests erhalten.
+- Linux GCC/Clang C89 PASS, GCC Release 25 PASS/1 SKIP, Formatter E2E PASS, gcov 3505/5710 (61,38354 %) gemessen und HWM BLOCKED. Windows RC0.6 nicht getestet, HWMs unverändert. Status und CMD-Abnahme siehe `docs/releases/archive/0.8.5/0.8.5-dev-RC0.6-validation.md`.
+
+### v0.8.5-dev RC0.5 (Windows-Formatter-Prozessstart, NICHT FREIGEGEBEN)
+- Owner-RC0.4: Windows GCC Release **26 kompiliert, 25 PASS, 1 SKIP**; TinyCC Debug **26 kompiliert, 24 PASS, 2 SKIP**; Test-Ratchet und `tack doc --strict` PASS. GCC/gcov: **3459/5859 (59,03738 %)**, `coverage check` korrekt **BLOCKED**, nicht FAIL der funktionalen Tests.
+- Tatsächlicher Windows-Formatter-E2E bleibt RC0.4-**FAIL**: LIST 0; CHECK_BEFORE 1 (statt 2); ORIGINAL_UNCHANGED 0; FORMAT 1 (statt 0); CHANGED 0 (statt 1); CHECK_AFTER 1 (statt 0). Dateinamen werden nicht mehr gespalten, enthalten aber beschädigte Suffixe. `clang-format 23.1.5` installiert. Das RC0.4-Quoting vor `_spawnvp` reicht nicht.
+- Enger C89-Fixkandidat: **nur Formatter** nutzt unter Windows `CreateProcessA` mit selbst aufgebauter, begrenzter, NUL-terminierter Win32-Kommandozeile und echtem Wait/Exitcode; allgemeiner tack-Build-Runner bleibt unverändert. Keine Shell, keine neue Tool-Abhängigkeit. `fmt_ini_parser_test` erweitert um **drei echte Windows-Kindprozesse** mit Leerzeichen im Executable-Pfad und Leerzeichen/Quotes/abschließendem Backslash im Argument; bestehende fünf Quote-Assertions bleiben erhalten.
+- Linux GCC und Clang Strict C89 BUILD PASS; GCC-Release: **26 kompiliert, 25 PASS, 1 SKIP**; Linux Formatter E2E in Ordner mit Leerzeichen PASS; Coverage frisch **3470/5709 (60,78122 %)**, HWM-Gate weiterhin **BLOCKED** bis Owner-Freigabe. Beide angenommenen HWM-Dateien unverändert.
+- Windows RC0.5-Tests **NICHT AUSGEFÜHRT**. Git-SSH-Probe `ssh -T git@github.com` inzwischen PASS, `git fetch` noch nicht erfolgreich wiederholt. Programmversion weiter **0.8.4**; kein Git-Push, Merge oder Tag. Siehe `docs/releases/archive/0.8.5/0.8.5-dev-RC0.5-validation.md`. (Release Notes)
+
+### v0.8.5-dev RC0.4 (Windows-Formatter-E2E-Fixkandidat, NICHT FREIGEGEBEN)
+- Der reale RC0.3-Windows-Test deckte die Aufspaltung von Leerzeichen enthaltenden Argumentpfaden beim Formatterprozess auf. Nur dessen Windows-CRT-Argumentquoting wurde korrigiert, mit neuen C89-Regressionen.
+- Linux GCC Release: 25 PASS, 1 SKIP; Linux externe Formatter-E2E: 0/2/0/0; neue Coverage 3470/5709, HWM-Übernahme BLOCKED. Beide angenommene HWMs unverändert.
+- Windows RC0.4 E2E, TinyCC und GCC/gcov, Test-Ratchet-Owner-Review, Versionssprung und GitHub-Freigabe bleiben offen.
 
 ### v0.8.5-dev RC0.3 (Windows-HWM und externe Linux-Formatter-Prüfung, NICHT FREIGEGEBEN)
 - Windows: TDM-GCC Release/TinyCC Debug 25 PASS, 1 SKIP; gemessene und angenommene HWM 3434/5827 (58,93256 %), erneuter Coverage-Gate PASS.
@@ -217,7 +244,35 @@
 
 ---
 
-## English (Release Notes)
+## English
+### v0.8.5 final local release candidate (HWMs approved, publication pending)
+- Owner Windows RC0.7: GCC release 25 PASS/1 SKIP, TinyCC debug 24 PASS/2 SKIP, ratchet/docs PASS, real clang-format E2E with spaces and 0/2/0/0/1/0 exit codes PASS.
+- Linux GCC/Clang strict C89, release 25 PASS/1 SKIP, ratchet/docs/formatter E2E PASS. Owner approved independent Windows 3577/5906 (60.56553%) and Linux 3505/5710 (61.38354%) HWMs. Linux CLI acceptance/check PASS; Windows post-adoption rerun pending.
+- Historical RC0.4–RC0.6 records archived under `docs/releases/archive/0.8.5/`. Canonical report is `docs/releases/0.8.5.md`. No GitHub push/merge/tag without separate approval.
+
+
+### v0.8.5 RC0.7 (release candidate, NOT RELEASED)
+- Fixes since v0.8.4: formatter INI parser and Windows external formatter argument passing, including `CreateProcessA` and final NUL termination. `clang-format` remains optional.
+- Owner's RC0.6 evidence: Windows GCC release 25 PASS/1 SKIP, TinyCC debug 24 PASS/2 SKIP; isolated formatter E2E with spaced paths and original files unchanged by `--check` PASS.
+- RC0.7 promotes the version to 0.8.5 and aligns actual functionality and limitations in DE/EN. **Not published**; RC0.7 Linux GCC/Clang, release, docs, ratchet and formatter E2E PASS, Linux gcov 3505/5710 with HWM BLOCKED. Windows RC0.7 gates and controlled HWM approvals remain outstanding.
+
+### v0.8.5-dev RC0.6 (formatter token NUL termination, NOT RELEASED)
+- Real RC0.5 Windows GCC/TCC child-process tests failed on a trailing backslash; TinyCC also failed on an embedded quote. Both suites stopped with 13 PASS/1 FAIL/12 NOT RUN; gcov had no valid current measurement.
+- `fmt_replace_all_alloc` omitted the terminating NUL when the replacement occurred at the end of a token. RC0.6 fixes only that path, preserving the RC0.5 `CreateProcessA` formatter runner. Added six portable regressions; existing assertions unchanged.
+- Linux strict C89, GCC Release 25 PASS/1 SKIP, docs, and isolated formatter E2E pass. Linux coverage 3505/5710 (61.38354%) is measured but HWM BLOCKED. Separate accepted HWMs unchanged; Windows RC0.6 NOT RUN. See `docs/releases/archive/0.8.5/0.8.5-dev-RC0.6-validation.md`.
+
+### v0.8.5-dev RC0.5 (Windows formatter process launch, NOT RELEASED)
+- Owner RC0.4 Windows: GCC release **26 compiled, 25 PASS, 1 SKIP**; TinyCC debug **26 compiled, 24 PASS, 2 SKIP**; inventory ratchet and docs PASS. GCC/gcov **3459/5859 (59.03738%)**, coverage HWM check correctly **BLOCKED** (not a functional-test failure).
+- Real Windows formatter still **FAIL** on RC0.4: LIST 0; first CHECK 1 (expected 2); original unchanged 0; FORMAT 1 (expected 0); no file change; final CHECK 1 (expected 0). The file paths carry corrupted suffixes rather than split fragments. `clang-format 23.1.5` installed. CRT `_spawnvp` quoting alone was insufficient.
+- Narrow C89 candidate: Windows external **formatter only** now launches via `CreateProcessA`, with a fully bounded, NUL-terminated command line, wait and exit-code verification. General tack build process launcher untouched. No shell or new dependencies. Existing five Windows quoting assertions retained; three actual child-process probes added for space-containing executable/argument paths, trailing backslash and embedded quote.
+- Linux GCC and Clang strict C89 builds PASS, GCC release **26 compiled, 25 PASS, 1 SKIP**, external formatter E2E PASS, Linux coverage **3470/5709 (60.78122%)** measured, higher HWM **BLOCKED** until owner acceptance. Accepted Windows/Linux HWMs byte-identical to RC0.4.
+- Windows RC0.5 **NOT RUN**, SSH authentication probe successful but Git fetch not reverified. Binary version **0.8.4**, no push/merge/tag. See `docs/releases/archive/0.8.5/0.8.5-dev-RC0.5-validation.md`. (Release Notes)
+
+### v0.8.5-dev RC0.4 (Windows formatter E2E fix candidate, NOT RELEASED)
+- Actual Windows RC0.3 formatter processes split file/directory arguments containing spaces. RC0.4 fixes only Windows CRT child argument quoting in the formatter path, with C89 regressions.
+- Linux GCC release: 25 PASS, one SKIP; real Linux formatter E2E exit codes 0/2/0/0; coverage 3470/5709, HWM acceptance BLOCKED. Both existing accepted HWM files unchanged.
+- Windows RC0.4 E2E, TinyCC and GCC/gcov, owner review of test inventory, version promotion and GitHub release acceptance remain pending.
+
 
 ### v0.8.5-dev RC0.3 (Windows HWM and external Linux formatter check, NOT RELEASED)
 - Windows TDM-GCC release/TinyCC debug: 25 PASS, one SKIP; measured and accepted HWM 3434/5827 (58.93256%), fresh coverage gate PASS.

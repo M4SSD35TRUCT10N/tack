@@ -1,4 +1,4 @@
-# tack FAQ / FAQ (DE/EN) — v0.8.4
+# tack FAQ / FAQ (DE/EN) — v0.8.5 (finaler lokaler Kandidat)
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md) • [Docs](docs/README.md)
 
@@ -6,12 +6,15 @@
 
 ## Deutsch (FAQ)
 
+### Was ist der Status von tack 0.8.5 RC0.7?
+Das Binary meldet `0.8.5`. Owner Windows RC0.7: GCC Release 25 PASS/1 SKIP, TinyCC Debug 24 PASS/2 SKIP, Formatter E2E mit Leerzeichen PASS; Linux C89/Release/Docs/Ratchet/Formatter E2E PASS. Die neuen HWMs Windows 3577/5906 und Linux 3505/5710 sind vom Owner freigegeben; Linux-CLI-Annahme und Check PASS, Windows-Check mit der neuen HWM steht aus. Keine GitHub-Publikation ohne separate Owner-Freigabe. Siehe [0.8.5-Abschlussbericht](docs/releases/0.8.5.md).
+
 ### Ist die erhöhte Windows-HWM für 0.8.5-dev bereits angenommen?
 Ja. TDM-GCC/gcov 10.3.0 maß 3434/5827 (58,93256 %) bei 26 Tests (25 PASS, 1 SKIP). Der Owner nahm die HWM mit `coverage accept --owner-approve` an; eine anschließende neue Coverage-Messung und `coverage check` meldeten jeweils PASS. Die Linux-HWM 3228/5708 wurde nicht verändert; 3470/5708 ist ein offener höherer Kandidat. Für externe Formatter-Befehle siehe [Integrationsprüfung](docs/guides/formatter-external-validation.md).
 
 
 ### Warum meldet `tack fmt --list --strict` mit einer gültigen `[fmt "c"]`-Regel `missing cmd`?
-Der Fehler bestand in **0.8.4**: `[fmt]` und `[fmt "NAME"]` waren versehentlich in den `[sbom]`-Zweig verschachtelt. In **0.8.5-dev RC0.2** ist das korrigiert und mit einem C89-Test für `rules`, `include`, `cmd`, `fmt --list --strict` sowie Negativfälle abgesichert. Dazu muss `tack.exe` aus dem neuen Quellstand gebaut werden. `check_cmd`, `diff_cmd`, `env.*` und `fail_fast=no` sind weiterhin nur eingeschränkt beziehungsweise nicht ausführungswirksam. Windows GCC Release/TinyCC Debug/GCC-Coverage wurden vom Owner mit 25 PASS, 1 SKIP und neuer HWM 3434/5827 bestätigt. Die externe Formatter-Ausführung besteht unter Linux; ein Windows-Formatter-E2E fehlt; siehe [Schlüsselreferenz](docs/reference/tack-ini.md).
+Der Fehler bestand in **0.8.4**: `[fmt]` und `[fmt "NAME"]` waren versehentlich in den `[sbom]`-Zweig verschachtelt. In **0.8.5-dev RC0.2** ist das korrigiert und mit einem C89-Test für `rules`, `include`, `cmd`, `fmt --list --strict` sowie Negativfälle abgesichert. Dazu muss `tack.exe` aus dem neuen Quellstand gebaut werden. `check_cmd`, `diff_cmd`, `env.*` und `fail_fast=no` sind weiterhin nur eingeschränkt beziehungsweise nicht ausführungswirksam. Windows GCC Release/TinyCC Debug/GCC-Coverage wurden vom Owner mit 25 PASS, 1 SKIP und neuer HWM 3434/5827 bestätigt. Die externe Formatter-Ausführung besteht nach Owner-RC0.6-Logs auch unter Windows mit `clang-format` und Pfaden mit Leerzeichen; RC0.7 ist noch erneut abzunehmen; siehe [Schlüsselreferenz](docs/reference/tack-ini.md).
 
 ### Wo finde ich die komplette `tack.ini`-Konfiguration und die Compilerfunktionen aus 0.8.2-dev?
 Die **README** erläutert die profilierten Compiler direkt im Hauptteil. Der [Praxisleitfaden](docs/guides/tack-ini.md) führt vom Minimalprojekt zu Debug/Release, mehreren Targets, Formatter und Coverage. Die [Schlüsselreferenz](docs/reference/tack-ini.md) führt die im C89-Parser tatsächlich akzeptierten Felder auf, einschließlich solcher, die noch keinen wirksamen Ausführungspfad besitzen. So sind Referenz und Entwicklungsversprechen sauber getrennt.
@@ -359,12 +362,15 @@ Eine vollständige Erst-Messung ohne versionierte HWM endet erwartbar mit `BLOCK
 
 ## English (FAQ)
 
+### What is the status of tack 0.8.5 RC0.7?
+The executable reports `0.8.5`. Owner Windows RC0.7 GCC release 25 PASS/1 SKIP, TinyCC debug 24 PASS/2 SKIP, and real formatter E2E with spaces PASS; Linux C89/release/docs/ratchet/formatter E2E PASS. Owner-approved higher HWMs: Windows 3577/5906 and Linux 3505/5710. Linux CLI acceptance/check PASS; Windows post-adoption check pending. No GitHub publication without separate owner approval. See [final record](docs/releases/0.8.5.md).
+
 ### Has the improved Windows coverage HWM been accepted for 0.8.5-dev?
 Yes. TDM-GCC/gcov 10.3.0 measured 3434/5827 (58.93256%) with 26 tests (25 PASS, one SKIP). The owner accepted the new HWM; subsequent fresh instrumented coverage and `coverage check` both passed. The Linux HWM 3228/5708 is untouched; the 3470/5708 improvement is still a candidate. See the [external formatter check](docs/guides/formatter-external-validation.md).
 
 
 ### Why does a valid `[fmt "c"]` rule fail with `missing cmd` under `tack fmt --list --strict`?
-The **0.8.4 parser defect** nested `[fmt]` handling under `[sbom]`. It is fixed in **0.8.5-dev RC0.2**, with a C89 test verifying `rules`, `include`, `cmd`, the `fmt --list --strict` CLI, and invalid-key rejection. Rebuild the executable from the new source. `check_cmd`, `diff_cmd`, `env.*` and `fail_fast = no` still have limited or no execution semantics; see the [key reference](docs/reference/tack-ini.md). Windows GCC release/TinyCC debug/GCC coverage pass with the owner-approved HWM 3434/5827. Linux external formatter E2E passes; Windows external formatter E2E remains NOT RUN.
+The **0.8.4 parser defect** nested `[fmt]` handling under `[sbom]`. It is fixed in **0.8.5-dev RC0.2**, with a C89 test verifying `rules`, `include`, `cmd`, the `fmt --list --strict` CLI, and invalid-key rejection. Rebuild the executable from the new source. `check_cmd`, `diff_cmd`, `env.*` and `fail_fast = no` still have limited or no execution semantics; see the [key reference](docs/reference/tack-ini.md). Windows GCC release/TinyCC debug/GCC coverage pass with the owner-approved HWM 3434/5827. Linux external formatter E2E passes; the owner confirmed Windows external formatter E2E on RC0.6, but RC0.7 requires a fresh rerun.
 
 ### Where are the complete `tack.ini` options and v0.8.2-dev compiler profile features explained?
 The **README** now introduces per-target/profile compiler selection in its main English body. The [practical walkthrough](docs/guides/tack-ini.md) covers single-target setup, Debug/Release, multi-targets, formatters and coverage. The [key reference](docs/reference/tack-ini.md) distinguishes fields actually parsed by the C89 implementation from fields with active execution semantics.

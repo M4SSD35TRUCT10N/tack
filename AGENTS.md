@@ -8,7 +8,7 @@
 
 **Agenten:** Codex und Claude Code folgen demselben Vertrag. `CLAUDE.md` verweist ausschließlich hierher. Architektur, Lizenz und Release-Status werden vom Owner freigegeben.
 
-**Lieferung:** Vollständiges Quellen-ZIP, Änderungsprotokoll, Conventional-Commit-Nachricht, SHA-256-Prüfung und für jedes Gate PASS/FAIL/NOT RUN. Windows-Abnahme erfolgt erst durch Owner-Logs. tack v0.8.4 ist zur Veröffentlichung freigegeben. Die Linux-GCC/gcov-Referenz-HWM ist vom Owner angenommen; Windows/GCC Release und TinyCC Debug sind ownergeprüft. Windows-Coverage wurde für 0.8.4 vom Owner gemessen (3192/5827) und nach Versionierung der HWM erneut mit PASS geprüft. v0.8.5-dev RC0.2 ändert den C89-Parser; Windows-/Coverage-Abnahme dafür ist noch offen.
+**Lieferung:** Vollständiges Quellen-ZIP, Änderungsprotokoll, Conventional-Commit-Nachricht, SHA-256-Prüfung und für jedes Gate PASS/FAIL/NOT RUN. Windows-Abnahme nur anhand von Owner-Logs. tack 0.8.5: RC0.7-GCC/TinyCC/Formatter-E2E durch Owner bestanden, Linux-Referenz ebenfalls bestanden. Owner hat die HWM-Anhebungen Windows 3577/5906 und Linux 3505/5710 freigegeben; Linux-CLI-Annahme/Check PASS, Windows-Check mit der neuen HWM noch ausstehend. Lokaler Abschlusskandidat, **nicht veröffentlicht**. Kein Push, Merge oder Tag ohne separate ausdrückliche Owner-Freigabe. Siehe `docs/releases/0.8.5.md`.
 
 ## English
 
@@ -18,4 +18,4 @@
 
 **Agents:** Codex and Claude Code have equal authority under this contract. `CLAUDE.md` only points here. Architecture, licensing and release status require owner approval.
 
-**Delivery:** Complete source ZIP, change log, Conventional Commit message, SHA-256 verification and PASS/FAIL/NOT RUN for each gate. Owner-provided logs are required for Windows acceptance. tack v0.8.4 is approved for publication. The Linux GCC/gcov reference HWM is owner-accepted and Windows/GCC release and TinyCC debug test suites are owner-validated. Owner-measured Windows coverage for 0.8.4 was 3192/5827 and passed again after HWM versioning. v0.8.5-dev RC0.2 changes the C89 parser; Windows and coverage acceptance for this revision remain pending.
+**Delivery:** Complete source ZIP, changelog, Conventional Commit message, SHA-256 verification and actual PASS/FAIL/NOT RUN gate evidence. Windows gates require owner logs. v0.8.5 RC0.7 GCC/TinyCC/real formatter E2E passed on Windows; Linux reference passed. Owner approved increased Windows 3577/5906 and Linux 3505/5710 HWMs; Linux CLI acceptance/check PASS, Windows post-adoption check pending. Final local candidate, **not published**. No push, merge, or tag without separate explicit owner approval. See `docs/releases/0.8.5.md`.

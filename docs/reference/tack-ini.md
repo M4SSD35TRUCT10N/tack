@@ -1,8 +1,10 @@
 # tack.ini: Schlüsselreferenz / Configuration key reference
 
-> **Implementierungsstand:** `src/tack.c` aus tack 0.8.4 (dokumentiert für 0.8.5-dev). Diese Liste stammt aus dem realen INI-Parser `ini_load_file` und der Formatter-Ausführung. **Der Parserfehler aus 0.8.4 ist in 0.8.5-dev RC0.2 korrigiert und durch einen C89-Regressionstest abgedeckt; die Windows-GCC-Parser- und Coverage-Abnahme ist nachgewiesen; die externe Windows-Formatterausführung ist noch offen.** Nicht alle eingelesenen Schlüssel haben Ausführungswirkung.
+> **Aktueller Stand (0.8.5 RC0.7, nicht freigegeben):** Der Windows-Formatter-E2E wurde auf RC0.6 durch den Owner nachgewiesen, einschließlich `--check` und Pfaden mit Leerzeichen. Die darunterstehende historische RC0.2-Lage ist nicht der aktuelle Abnahmestand. RC0.7 muss erneut geprüft werden; HWM- und GitHub-Freigaben stehen aus.
+
+> **Implementierungsstand:** `src/tack.c` in 0.8.5 RC0.7 (Release-Kandidat). Diese Referenz folgt dem realen INI-Parser und der Formatter-Ausführung. Der 0.8.4-Parserfehler wurde in RC0.2 korrigiert; der Owner hat den externen Windows-Formatter in RC0.6 mit `clang-format` nachgewiesen. **RC0.7 ist noch nicht plattformübergreifend abgenommen; nicht alle eingelesenen Schlüssel besitzen Ausführungswirkung.**
 >
-> **Implementation scope:** `src/tack.c` from tack 0.8.4, documented during 0.8.5-dev. This is derived from `ini_load_file` and formatter execution. **The misplaced `[sbom]` brace found in 0.8.4 is fixed in 0.8.5-dev RC0.2 and covered by a C89 regression test. Windows GCC parser and coverage validation pass, but Windows external formatter execution remains pending; not every accepted key has runtime semantics.**
+> **Implementation scope:** `src/tack.c` from 0.8.5 RC0.7 (release candidate), based on the actual INI parser and formatter execution. The 0.8.4 parser defect was fixed in RC0.2; the owner verified real Windows external formatter E2E on RC0.6 using `clang-format`. **RC0.7 still needs fresh platform acceptance; not every accepted key has runtime semantics.**
 
 ---
 

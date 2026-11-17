@@ -1,4 +1,5 @@
 # Test- und Coverage-Ratchet / Test and coverage ratchets
+**v0.8.5 owner-approved HWM update (2026-11-17):** The independent current baselines are Linux GCC/gcov 14.2.0 **3505/5710** and Windows TDM-GCC/gcov 10.3.0 **3577/5906**. Linux `coverage accept --owner-approve`, `coverage check` and `test coverage` pass on the final candidate. Windows must rerun `coverage check` and `test coverage` after replacing its baseline. Earlier v0.8.4 examples below are historical and do not supersede the current baseline files. No GitHub publication is authorized.
 
 **Stand / status:** v0.8.4, Owner-Freigabe zur GitHub-Publikation / owner-approved for GitHub publication (push/tag pending).
 

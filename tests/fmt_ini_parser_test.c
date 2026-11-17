@@ -6,6 +6,26 @@ static int fmt_expect(int condition, const char *what) {
   return 1;
 }
 
+/* Verify @FILE@ expansion through the same path used for formatter argv.
+ * In particular, tokens ending in a placeholder must be NUL-terminated. */
+static int fmt_expect_expansion(const char *token, const char *file,
+                                const char *expected, const char *what) {
+  char *result = fmt_expand_token(token, file, 0, 0, 0);
+  int failed = fmt_expect(result != 0 && streq(result, expected), what);
+  free(result);
+  return failed;
+}
+
+#ifdef _WIN32
+static int fmt_expect_windows_cmd_quote(const char *arg, const char *expected,
+                                          const char *what) {
+  char *actual = fmt_windows_quote_cmd_arg(arg);
+  int failed = fmt_expect(streq(actual, expected), what);
+  free(actual);
+  return failed;
+}
+#endif
+
 static int fmt_write_fixture(const char *path, const char *body) {
   FILE *f = fopen(path, "wb");
   if (!f) return 1;
@@ -13,7 +33,7 @@ static int fmt_write_fixture(const char *path, const char *body) {
   return fclose(f) != 0;
 }
 
-int main(void) {
+int main(int argc, char **argv) {
   const char *good = "build/test-fmt-ini-parser/good.ini";
   const char *bad = "build/test-fmt-ini-parser/bad.ini";
   const char *invalid = "build/test-fmt-ini-parser/invalid.ini";
@@ -23,6 +43,82 @@ int main(void) {
   TargetVec targets;
   StrVec selected, candidates, files;
   int failures = 0;
+
+#ifdef _WIN32
+  /* A real child process checks the exact argv after CreateProcess, not
+   * merely the quoted command-line string assembled by the parent. */
+  if (argc >= 2 && streq(argv[1], "--fmt-child-probe")) {
+    if (argc != 3) return 3;
+    return streq(argv[2], "C:\\fmt proof\\nested file.c") ||
+           streq(argv[2], "C:\\fmt proof\\tail\\") ||
+           streq(argv[2], "C:\\fmt proof\\quoted\"file.c") ? 0 : 4;
+  }
+#else
+  (void)argc;
+  (void)argv;
+#endif
+
+  /* End-of-token placeholders previously left the allocated string without
+   * a terminating NUL; the subsequent expansion pass read garbage suffixes. */
+  failures += fmt_expect_expansion("@FILE@", "C:\\format proof\\tail\\",
+                                   "C:\\format proof\\tail\\",
+                                   "terminate trailing backslash file expansion");
+  failures += fmt_expect_expansion("@FILE@", "C:\\format proof\\quoted\"file.c",
+                                   "C:\\format proof\\quoted\"file.c",
+                                   "terminate embedded quote file expansion");
+  failures += fmt_expect_expansion("prefix/@FILE@", "nested file.c",
+                                   "prefix/nested file.c",
+                                   "terminate file expansion with prefix");
+  failures += fmt_expect_expansion("@FILE@.tmp", "nested file.c",
+                                   "nested file.c.tmp",
+                                   "preserve suffix after expansion");
+  failures += fmt_expect_expansion("@FILE@@FILE@", "file.c",
+                                   "file.cfile.c",
+                                   "terminate repeated file expansion");
+  failures += fmt_expect_expansion("@FILE@", "", "",
+                                   "terminate empty file expansion");
+
+  /* Windows must preserve a single argv item when Windows paths contain
+   * spaces, quotes, or a trailing backslash. */
+#ifdef _WIN32
+  failures += fmt_expect_windows_cmd_quote("plain.c", "plain.c", "plain spawn arg");
+  failures += fmt_expect_windows_cmd_quote("", "\"\"", "empty spawn arg");
+  failures += fmt_expect_windows_cmd_quote("C:\\with spaces\\file.c",
+                                             "\"C:\\with spaces\\file.c\"",
+                                             "Windows path with spaces");
+  failures += fmt_expect_windows_cmd_quote("quoted\"file",
+                                             "\"quoted\\\"file\"",
+                                             "embedded quote escape");
+  failures += fmt_expect_windows_cmd_quote("C:\\with spaces\\",
+                                             "\"C:\\with spaces\\\\\"",
+                                             "trailing slash escape");
+  {
+    char self[MAX_PATH];
+    DWORD sl = GetModuleFileNameA(NULL, self, (DWORD)sizeof(self));
+    const char *child = "build/test-fmt-ini-parser/space dir/fmt child probe.exe";
+    const char *command = "\"build/test-fmt-ini-parser/space dir/fmt child probe.exe\" --fmt-child-probe @FILE@";
+    if (!sl || sl >= (DWORD)sizeof(self)) {
+      failures += fmt_expect(0, "query child executable path");
+    } else {
+      ensure_dir_recursive("build/test-fmt-ini-parser/space dir");
+      if (!CopyFileA(self, child, FALSE)) {
+        failures += fmt_expect(0, "copy child executable to spaced path");
+      } else {
+        failures += fmt_expect(fmt_exec_cmd(command, "C:\\fmt proof\\nested file.c",
+                                             0, 0, 0, 0, 0) == 0,
+                               "spawn child with spaced executable and file path");
+        failures += fmt_expect(fmt_exec_cmd(command, "C:\\fmt proof\\tail\\",
+                                             0, 0, 0, 0, 0) == 0,
+                               "spawn child with trailing backslash");
+        failures += fmt_expect(fmt_exec_cmd(command, "C:\\fmt proof\\quoted\"file.c",
+                                             0, 0, 0, 0, 0) == 0,
+                               "spawn child with embedded quote");
+        if (!DeleteFileA(child))
+          failures += fmt_expect(0, "remove child executable fixture");
+      }
+    }
+  }
+#endif
 
   ensure_dir_recursive("build/test-fmt-ini-parser");
   fmt_cfg_init();

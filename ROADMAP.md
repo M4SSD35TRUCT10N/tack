@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.8.4
+# tack ROADMAP (DE/EN) — v0.8.5 finaler lokaler Kandidat
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)** · **[Docs](docs/README.md)**
 
@@ -6,10 +6,10 @@ Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASE
 
 ## Deutsch (Roadmap)
 
-### Aktueller 0.8.5-dev-Stand (RC0.3)
-- Windows GCC Release/TinyCC Debug/GCC-Coverage sind vom Owner mit 25 PASS, 1 SKIP und neuer HWM 3434/5827 (58,93256 %) erfolgreich geprüft.
-- Externer Formatter-End-to-End-Lauf unter Linux erfolgreich; entsprechende Windows-Prüfung noch offen.
-- Linux-Coverage 3470/5708 (60,79187 %) gemessen, aber die höhere HWM noch nicht angenommen. Versionsanhebung und neues Release später nach erneuten Gates.
+### Aktueller 0.8.5-Stand (HWM vom Owner freigegeben, GitHub-Publikation ausstehend)
+- RC0.6-Windows-Owner-Abnahme: GCC Release 25 PASS/1 SKIP, TinyCC Debug 24 PASS/2 SKIP; realer `clang-format`-E2E mit Leerzeichen und korrekten Exitcodes PASS; `git fetch` erfolgreich.
+- RC0.7 setzt die Programmversion auf 0.8.5; Windows GCC Release/TinyCC Debug/Formatter E2E und Linux C89/Release/Ratchet/Docs/Formatter E2E wurden erfolgreich geprüft.
+- Die getrennten höheren HWMs Windows 3577/5906 und Linux 3505/5710 sind vom Owner genehmigt. Linux CLI-Annahme/Check PASS, Windows Post-Adoption-Check offen; GitHub-Publikation separat genehmigungspflichtig.
 
 
 ### Abgeschlossener Stand: v0.8.1-dev
@@ -175,11 +175,11 @@ v0.8.2 erweitert die deklarative Compiler- und Policy-Wahl pro Targetprofil. v0.
 
 Testinventar und Coverage-Gates sind implementiert. Die Windows/GCC-Release- und TinyCC-Debug-Suites wurden vom Owner mit je 24 PASS / 1 SKIP / 0 FAIL geprüft. Die Linux-GCC/gcov-Referenz-HWM ist real gemessen und angenommen. Windows-Coverage ist nun separat gemessen (3192/5827) und als HWM festgeschrieben; bestätigender Windows-Gate-PASS nach Übernahme steht noch aus. Die BA-STD-C89-Gruppenmigration benötigt eine eigene Normabnahme. Siehe [Coverage-Leitfaden](docs/guides/coverage-ratchet.md).
 
-### Vorgesehen: v0.8.5 – verständliche Konfiguration
+### v0.8.5 – Konfiguration und Formatter (RC0.7 zur Abnahme)
 
-- Dokumentationsmeilenstein: Compiler-/Policy-Profile aus 0.8.2-dev prominent im README erklären; `docs/guides/tack-ini.md` und `docs/reference/tack-ini.md` für Beispiele und sämtliche Parser-Schlüssel.
-- Keine versteckten Versprechen: durch falsch geklammerte `[sbom]`-Verzweigung derzeit unerreichbare Formatter-Schlüssel explizit kennzeichnen; C89-Fix plus Regressionstest ist eigenes Release-Gate.
-- Für die eigentliche Versionserhöhung und Release-Freigabe getrennte Windows-/Linux-Test- und HWM-Checks wiederholen; das reine Dokumentationspaket ändert vorerst `src/tack.c` nicht.
+- Compiler-/Policy-Profile aus 0.8.2-dev im README und unter `docs/guides/tack-ini.md` / `docs/reference/tack-ini.md` dokumentiert.
+- Historischen `[sbom]`-/`[fmt]`-Parserfehler und nachgewiesene externe Windows-Formatter-Probleme unter RC0.2 bis RC0.6 korrigiert und mit C89-Tests abgesichert.
+- RC0.7 trägt die Version 0.8.5, ist aber weiterhin nicht veröffentlicht. Finale Windows-/Linux-Tests, Owner-HWM-Annahmen und GitHub-Freigabe stehen noch aus.
 
 ### Vorgesehen: v0.8.6 – testbare Qualität ≥90 %
 
@@ -190,10 +190,10 @@ Testinventar und Coverage-Gates sind implementiert. Die Windows/GCC-Release- und
 
 ## English (Roadmap)
 
-### Current 0.8.5-dev status (RC0.3)
-- Windows GCC release/TinyCC debug/GCC coverage passed in the owner log with 25 PASS, one SKIP and accepted 3434/5827 (58.93256%) HWM.
-- External formatter end-to-end verified on Linux; Windows external execution remains pending.
-- Linux 3470/5708 (60.79187%) improvement measured but not yet accepted as HWM. Version promotion/release subject to fresh gates.
+### Current 0.8.5 status (owner-approved HWMs, not published)
+- Owner RC0.6 Windows GCC release 25 PASS/1 SKIP, TinyCC debug 24 PASS/2 SKIP; real `clang-format` E2E with spaces and expected exit codes PASS; `git fetch` successful.
+- RC0.7 promotes the program version to 0.8.5; Windows GCC release/TinyCC debug/formatter E2E and Linux C89/release/ratchet/docs/formatter E2E have passed.
+- Higher independent HWMs Windows 3577/5906 and Linux 3505/5710 are owner-approved. Linux CLI acceptance/check PASS, Windows post-adoption check pending; separate GitHub publication approval required.
 
 
 ### Completed state: v0.8.1-dev
@@ -358,11 +358,11 @@ v0.8.2 adds declarative compiler and policy selection per target profile. v0.8.3
 
 Versioned test inventory and measured coverage gates are implemented. The owner validated Windows/GCC release and TinyCC debug suites (each 24 PASS / 1 SKIP / 0 FAIL); the measured Linux GCC/gcov reference HWM has been accepted. Windows coverage has now been measured (3192/5827) and versioned as a separate HWM; fresh Windows gate PASS after adopting it remains pending. Group-wide BA-STD-C89 ratification remains independent. See the [coverage guide](docs/guides/coverage-ratchet.md).
 
-### Planned: v0.8.5 – approachable configuration
+### v0.8.5 – configuration and formatter (RC0.7 pending acceptance)
 
-- Prominently explain the v0.8.2-dev compiler/program-policy profile split in README; add a real-world [INI guide](docs/guides/tack-ini.md) and a complete [parser key reference](docs/reference/tack-ini.md).
-- Fix misplaced `[sbom]` branch so `[fmt]` and explicit rule keys are active; C89 parser/CLI regression test added in 0.8.5-dev RC0.2 (Linux PASS).
-- Remaining gates: Windows compiler/tests and fresh Windows/Linux coverage approval, external formatter end-to-end validation, and eventual version bump; no new release claimed.
+- Compiler/program-policy profiles from 0.8.2-dev are covered by README and the [INI guide](docs/guides/tack-ini.md) and [key reference](docs/reference/tack-ini.md).
+- Historical `[sbom]`/`[fmt]` parser and real Windows external-formatter defects corrected in RC0.2 through RC0.6, with C89 regression coverage.
+- RC0.7 reports version 0.8.5 but is not published. Fresh Windows/Linux gates, owner HWM approvals and explicit GitHub release authorization remain outstanding.
 
 ### Planned: v0.8.6 – evidence-backed coverage ≥90%
 

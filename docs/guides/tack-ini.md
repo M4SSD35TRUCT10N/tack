@@ -168,6 +168,8 @@ output = build/sbom.cdx.json
 
 ## 7. Formatter-Regeln: Parserkorrektur in 0.8.5-dev RC0.2
 
+**Aktueller Stand 0.8.5 RC0.7 (nicht freigegeben):** Der externe Windows-Formatter-E2E mit `clang-format 23.1.5` und Dateinamen mit Leerzeichen bestand auf RC0.6 laut Owner-Protokoll. RC0.7 enthält die Versionsanhebung und benötigt eine erneute Abnahme. Historische RC0.3-Hinweise unten beschreiben den damaligen Prüfstand, nicht den heutigen.
+
 **Entwicklungsstand 0.8.5-dev RC0.3 (noch kein Release):** Der in 0.8.4 vorhandene `[sbom]`-Klammerfehler ist korrigiert. `[fmt]` und `[fmt "NAME"]` werden unabhängig eingelesen. Ein C89-Regressionstest überprüft alle Regelwerte, den CLI-Aufruf `fmt --list --strict` sowie gültige und ungültige Konfigurationen. Windows-GCC Release, Debug und Coverage sind vom Owner erfolgreich geprüft; die externe Linux-Formatterausführung ist nachgewiesen. Nur das externe Windows-Formatter-E2E-Gate steht noch aus. Die folgende Konfiguration funktioniert deshalb als Parser-/Auswahlbeispiel, aber wird noch nicht als plattformübergreifend freigegebener Formatter-Lauf beworben.
 
 ```ini
@@ -358,6 +360,8 @@ output = build/sbom.cdx.json
 ```
 
 DOC generates offline-readable HTML; BOM describes build inputs; SBOM is a **build-input SBOM**, not a package resolver. The SBOM `output` setting affects a single-target export; `--all-targets` writes separate per-target files. Configured missing DOC/BOM templates or CSS fail rather than silently falling back.
+
+**Current 0.8.5 RC0.7 status (NOT RELEASED):** The owner-provided RC0.6 log confirms real Windows `clang-format 23.1.5` E2E with spaced paths. RC0.7 promotes the program version and needs a fresh acceptance run. Historical RC0.3 notes below refer to that earlier stage, not the current one.
 
 **0.8.5-dev RC0.3 development status (not released):** The `[sbom]` nesting defect in 0.8.4 is fixed; `[fmt]` and `[fmt "NAME"]` are parsed independently. A strict C89 regression test verifies formatter keys, `fmt --list --strict` and rejection of malformed keys/modes. Owner-provided Windows GCC release, TinyCC debug and GCC coverage pass; real external formatter execution is verified on Linux, while the Windows external E2E gate remains NOT RUN. The example below is now valid for parsing and selection but not yet certified as a cross-platform formatter execution gate.
 

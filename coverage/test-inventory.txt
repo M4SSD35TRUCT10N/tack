@@ -11,7 +11,7 @@ tests/doc_js_search_test.c	23ab3848
 tests/doc_markdown_ux_test.c	3b09ed1c
 tests/docs_bilingual_contract_test.c	637f8669
 tests/events_jsonl_output_test.c	76c7aff4
-tests/fmt_ini_parser_test.c	c7d4442a
+tests/fmt_ini_parser_test.c	7f6df63f
 tests/functional_smoke_test.c	be6f01b0
 tests/help_doctor_output_test.c	23c75b68
 tests/incremental_link_test.c	a608c026

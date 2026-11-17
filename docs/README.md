@@ -5,10 +5,14 @@
 ---
 
 ## Deutsch
+**Stand 17.11.2026:** [v0.8.5 Abschlussdokument](releases/0.8.5.md). Windows RC0.7 und Linux-Referenz grün; beide höheren Coverage-HWMs vom Owner freigegeben, Linux-Check nach CLI-Annahme PASS. Windows-Check mit neuer HWM und GitHub-Veröffentlichung stehen noch aus. Die folgenden RC0.7-Angaben dokumentieren den Stand *vor* der HWM-Freigabe.
+
 
 ### 0.8-Status
 `v0.8.0-dev` ist als CI-Grundlagenblock abgeschlossen.
-`v0.8.4` ist zur Veröffentlichung freigegeben und umfasst die v0.8.2/v0.8.3-Entwicklungsschritte. Linux-GCC/gcov-Referenz-HWM und Windows/GCC-Release- sowie TinyCC-Debug-Tests sind ownerbestätigt. Windows-Coverage wurde vom Owner mit 3192/5827 gemessen, als eigene HWM versioniert und anschließend mit vollständigem Testlauf auf PASS geprüft. Der nächste Dokumentationsmeilenstein ist v0.8.5-dev; die BA-STD-C89-Gruppennorm bleibt Entwurf.
+`v0.8.4` ist zur Veröffentlichung freigegeben und umfasst die v0.8.2/v0.8.3-Entwicklungsschritte. Linux-GCC/gcov-Referenz-HWM und Windows/GCC-Release- sowie TinyCC-Debug-Tests sind ownerbestätigt. Windows-Coverage wurde vom Owner mit 3192/5827 gemessen, als eigene HWM versioniert und anschließend mit vollständigem Testlauf auf PASS geprüft. Für v0.8.5 liegt RC0.7 mit Versionsanhebung als **nicht freigegebener Kandidat** vor; die Windows-RC0.6-Gates wurden vom Owner bestätigt. Neue Windows-/Linux-HWMs und GitHub-Freigabe stehen noch aus. Die BA-STD-C89-Gruppennorm bleibt Entwurf.
+
+- [v0.8.5 RC0.7: Release-Prüfstand und Windows-CMD-Abnahme](releases/0.8.5-rc0.7-validation.md)
 
 ### Architekturentscheidungen
 - [ADR 0001 – Eröffnung der 0.8-Serie](adr/0001-open-v0.8-series.md)
@@ -45,17 +49,21 @@
 - [0.8.3-dev: BA-STD-C89-Kandidat](releases/0.8.3-dev.md)
 - [0.8.4: Test- und Coverage-Ratchet](releases/0.8.4.md)
 - [Windows-HWM: Abnahmenachweis 0.8.4](releases/0.8.4-windows-hwm.md)
-- [0.8.5-dev: Dokumentation und Formatter-Validierung](releases/0.8.5-dev.md)
+- [0.8.5-dev: Dokumentation und Formatter-Validierung](releases/archive/0.8.5/0.8.5-dev.md)
 
 Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokumentgruppen in Navigation und Index behandelt.
 
 ---
 
 ## English
+**As of 2026-11-17:** [v0.8.5 final record](releases/0.8.5.md). Windows RC0.7 and Linux reference passed; both higher coverage HWMs owner-approved, Linux post-acceptance check PASS. Windows HWM post-adoption check and GitHub publication remain pending. RC0.7 text below records the earlier state.
+
 
 ### 0.8 status
 `v0.8.0-dev` is complete as the CI foundation block.
-`v0.8.4` is approved for publication, incorporating the v0.8.2/v0.8.3 development steps. The Linux GCC/gcov reference HWM and Windows/GCC release plus TinyCC debug tests have owner approval. Windows coverage has been owner-measured at 3192/5827, versioned as its own HWM and verified by a fresh full PASS run. The next documentation milestone is v0.8.5-dev; the BA-STD-C89 group standard remains a draft.
+`v0.8.4` is approved for publication, incorporating the v0.8.2/v0.8.3 development steps. The Linux GCC/gcov reference HWM and Windows/GCC release plus TinyCC debug tests have owner approval. Windows coverage has been owner-measured at 3192/5827, versioned as its own HWM and verified by a fresh full PASS run. v0.8.5 RC0.7 is an **unapproved release candidate** with the promoted executable version. The owner confirmed RC0.6 Windows gates; fresh RC0.7 Windows/Linux gates and separate HWM/ GitHub approvals remain pending. The BA-STD-C89 group standard remains a draft.
+
+- [v0.8.5 RC0.7: release gates and Windows CMD acceptance](releases/0.8.5-rc0.7-validation.md)
 
 ### Architecture decisions
 - [ADR 0001 – Open the 0.8 series](adr/0001-open-v0.8-series.md)
@@ -92,6 +100,6 @@ Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokume
 - [0.8.3-dev: BA-STD-C89 candidate](releases/0.8.3-dev.md)
 - [0.8.4: test and coverage ratchets](releases/0.8.4.md)
 - [Windows HWM: 0.8.4 acceptance evidence](releases/0.8.4-windows-hwm.md)
-- [0.8.5-dev: documentation and formatter verification](releases/0.8.5-dev.md)
+- [0.8.5-dev: documentation and formatter verification](releases/archive/0.8.5/0.8.5-dev.md)
 
 Subdirectories below `docs/` are treated by `tack doc` as separate document groups in navigation and index.
