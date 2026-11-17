@@ -42,6 +42,46 @@ Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und
 - **Kein Package Manager** (kein Resolver/Registry/Lockfile).  
 - Kein IDE‑Projektgenerator wie CMake (bewusst).
 
+## Konfiguration auf einen Blick: die Fähigkeiten seit v0.8.2-dev
+
+Seit **v0.8.2-dev** kann tack **pro Target und Profil** nicht nur unterschiedliche Compilerflags, sondern auch das **Compilerprogramm** und dessen **Policy** deklarativ auswählen. Damit lässt sich z. B. dasselbe C89-Projekt in Debug mit TinyCC und in Release mit GCC bauen, ohne separate Build-Skripte.
+
+```ini
+[project]
+default_target = app
+compiler = tcc
+compiler_policy = auto
+
+[target "app"]
+src = src
+bin = hello
+core = no
+
+[target "app".debug]
+compiler = tcc
+compiler_policy = tcc
+
+[target "app".release]
+compiler = gcc
+compiler_policy = auto
+cflags = -std=c89;-pedantic-errors;-Wextra;-Werror
+```
+
+```bat
+tack --config .\tack.ini doctor debug --target app
+tack --config .\tack.ini doctor release --target app
+tack --config .\tack.ini build release --target app --rebuild -j 1
+```
+
+Die Priorität für das **Compilerprogramm** ist `TACK_CC` → `[target "NAME".PROFILE] compiler` → `[project] compiler` → eingebautes `tcc`. Die **Policy** (`auto|tcc|gcc|clang|generic`) ist eine getrennte Entscheidung über eingebaute Compilerflags. `doctor` zeigt die tatsächlich gewählten Einstellungen. Bei Compilerwechsel im selben Profil `--rebuild` verwenden.
+
+Weitere heute verfügbare Konfigurationsbausteine sind deklarative Multi-Targets und Shared Core, Debug-/Release-/Coverage-Overrides, sichere Pfade, Formatter-Regeln, DOC/BOM/SBOM, CI-Berichte sowie getrennte Linux-/Windows-Coverage-HWMs. Die Bedienung steht **nicht nur in historischen Versionsdateien**, sondern direkt hier und in den folgenden zwei praktischen Nachschlagewerken:
+
+- **[tack.ini-Schritt-für-Schritt-Leitfaden](docs/guides/tack-ini.md):** vom Minimalprojekt über Multi-Targets bis zu Formatter- und Coverage-Profilen.
+- **[Vollständige Konfigurationsreferenz](docs/reference/tack-ini.md):** alle tatsächlich unterstützten Sektionen und Schlüssel, inklusive Grenzen der Implementierung.
+
+**Wichtige Fallen:** `compiler` gehört in `[project]` oder in eine **profilierte** Target-Sektion, nicht in `[target "app"]`. Ein leeres `cflags =` löscht geerbte Flags nicht zuverlässig. Wichtiger 0.8.4-Befund: Durch einen Parser-Klammerfehler sind die `[fmt]`-Schlüssel derzeit **insgesamt nicht wirksam**; die Referenz kennzeichnet diesen Release-Blocker und weitere unvollständige Felder ausdrücklich.
+
 ## Spezifikationen und Architekturentscheidungen
 
 Ab der 0.8-Serie werden größere Richtungsentscheidungen zusätzlich in `docs/` festgehalten:
@@ -649,6 +689,46 @@ It targets projects that intentionally want to **avoid Make/CMake/Ninja** while 
 ### What tack is not
 - **not** a package manager (no resolver/registry/lockfile),
 - **not** an IDE project generator like CMake (intentionally).
+
+## Configuration in practice: capabilities added since v0.8.2-dev
+
+Since **v0.8.2-dev**, tack can select both the **compiler program** and its built-in **policy per target and profile**, not just different flags. A typical project can use TinyCC for debug and GCC for release without a second build system:
+
+```ini
+[project]
+default_target = app
+compiler = tcc
+compiler_policy = auto
+
+[target "app"]
+src = src
+bin = hello
+core = no
+
+[target "app".debug]
+compiler = tcc
+compiler_policy = tcc
+
+[target "app".release]
+compiler = gcc
+compiler_policy = auto
+cflags = -std=c89;-pedantic-errors;-Wextra;-Werror
+```
+
+```sh
+tack --config ./tack.ini doctor debug --target app
+tack --config ./tack.ini doctor release --target app
+tack --config ./tack.ini build release --target app --rebuild -j 1
+```
+
+Compiler program precedence is `TACK_CC` → `[target "NAME".PROFILE] compiler` → `[project] compiler` → built-in `tcc`. The **policy** (`auto|tcc|gcc|clang|generic`) separately controls toolchain-aware built-in flags. `doctor` displays the effective selection. Use `--rebuild` when changing compilers within a profile.
+
+Other currently available configuration features include declarative multi-target builds, shared core, Debug/Release/Coverage overrides, path safety, formatter orchestration, DOC/BOM/SBOM, CI reports and distinct Linux/Windows coverage ratchets. These features now have prominent documentation beyond historical release notes:
+
+- **[Practical tack.ini walkthrough](docs/guides/tack-ini.md):** minimal project, profile compilers, multiple targets, formatters and coverage.
+- **[Complete configuration reference](docs/reference/tack-ini.md):** actually supported sections/keys and documented implementation limits.
+
+**Common traps:** `compiler` belongs in `[project]` or a **profiled** target section, not the base `[target "app"]`; empty `cflags =` does not reliably erase inherited flags; a parser brace defect currently makes **all explicit `[fmt]` keys ineffective** in 0.8.4; the reference documents this release blocker and additional inert fields.
 
 ## Specifications and architecture decisions
 

@@ -6,6 +6,13 @@
 
 ## Deutsch (FAQ)
 
+### Warum meldet `tack fmt --list --strict` mit einer gültigen `[fmt "c"]`-Regel `missing cmd`?
+Das ist ein bestätigter **0.8.4-Parserfehler**: Der `[fmt]`-Schlüsselzweig befindet sich durch eine falsch platzierte Klammer innerhalb von `[sbom]` und wird nicht ausgeführt. Auch `cmd`, `include` und `rules` werden deshalb nicht übernommen. Die [Schlüsselreferenz](docs/reference/tack-ini.md) markiert diese Konfiguration als derzeit nicht funktionsfähig. Reparatur mit C89-Regressionstest ist vor der Veröffentlichung der 0.8.5-Formatter-Anleitung erforderlich.
+
+### Wo finde ich die komplette `tack.ini`-Konfiguration und die Compilerfunktionen aus 0.8.2-dev?
+Die **README** erläutert die profilierten Compiler direkt im Hauptteil. Der [Praxisleitfaden](docs/guides/tack-ini.md) führt vom Minimalprojekt zu Debug/Release, mehreren Targets, Formatter und Coverage. Die [Schlüsselreferenz](docs/reference/tack-ini.md) führt die im C89-Parser tatsächlich akzeptierten Felder auf, einschließlich solcher, die noch keinen wirksamen Ausführungspfad besitzen. So sind Referenz und Entwicklungsversprechen sauber getrennt.
+
+
 ### Wie nehme ich eine Windows-Coverage-HWM vor dem GitHub-Push an?
 Mit dem Windows-GCC/gcov-Profil messen, `coverage/current.txt` samt Testumfang und `covered/total` prüfen, danach ausdrücklich `tack coverage accept --owner-approve` ausführen und `tack coverage check` sowie den instrumentierten Testlauf wiederholen. Für Windows ist in `tack.ini` zusätzlich `id_windows = windows-...` einzutragen; die bestehende Linux-ID und `coverage/hwm-linux.txt` bleiben erhalten. **Keine Baseline ohne Messung und keinen GitHub-Tag vor beiden bestandenen Referenz-Gates.** Die vollständige CMD-Anleitung steht im [Coverage-Ratchet-Leitfaden](docs/guides/coverage-ratchet.md), Abschnitt 5.
 
@@ -347,6 +354,12 @@ Nein. Beide Befehle bleiben allgemeine, nicht destruktive Scaffold-Werkzeuge. Ih
 Eine vollständige Erst-Messung ohne versionierte HWM endet erwartbar mit `BLOCKED no accepted HWM`, auch wenn alle Tests bestanden sind. Nach fachlicher Owner-Abnahme enthält `coverage/hwm-windows.txt` die unveränderten Windows-Messwerte; `coverage/current.txt` ist dagegen nur lokal. `coverage check` meldet PASS bei gleichem vergleichbarem Verhältnis, FAIL bei einer Regression und BLOCKED bei einer Verbesserung ohne zugleich angehobene HWM oder bei veralteten/inkompatiblen Messdaten. Linux und Windows besitzen getrennte Profile: **3192/5827 (54,77947 %) unter Windows** ist nicht gegen **3228/5708 (56,55221 %) unter Linux** auszuspielen. Nach Übernahme der HWM noch einmal lokal `coverage check` und `test coverage` ausführen. [Verbindliche Zustandsmatrix](docs/guides/coverage-ratchet.md) und [Windows-Abnahmenachweis](docs/releases/0.8.4-windows-hwm.md).
 
 ## English (FAQ)
+
+### Why does a valid `[fmt "c"]` rule fail with `missing cmd` under `tack fmt --list --strict`?
+A confirmed **0.8.4 parser defect** places the `[fmt]` key handler inside an unreachable `[sbom]` conditional. Consequently `rules`, `include` and `cmd` are not read into the effective formatter configuration. The [key reference](docs/reference/tack-ini.md) marks these settings as currently ineffective. Repair and a new C89 regression test are required before the formatter guide can be released as operational in v0.8.5.
+
+### Where are the complete `tack.ini` options and v0.8.2-dev compiler profile features explained?
+The **README** now introduces per-target/profile compiler selection in its main English body. The [practical walkthrough](docs/guides/tack-ini.md) covers single-target setup, Debug/Release, multi-targets, formatters and coverage. The [key reference](docs/reference/tack-ini.md) distinguishes fields actually parsed by the C89 implementation from fields with active execution semantics.
 
 ### How do I accept a Windows coverage HWM before pushing to GitHub?
 Use the verified Windows GCC/gcov profile, inspect `coverage/current.txt` and its executed tests/covered lines, explicitly run `tack coverage accept --owner-approve`, then rerun `coverage check` and the instrumented suite. Configure `id_windows = windows-...` alongside the Linux `id`; keep the Linux HWM unchanged. **No measured baseline means no acceptance, and no release tag before both required platform gates pass.** See section 5 of the [coverage ratchet guide](docs/guides/coverage-ratchet.md) for exact CMD commands.

@@ -8,6 +8,11 @@
 
 > `v0.8.4` wurde als eigenständiges CLI-Werkzeug zur Veröffentlichung freigegeben. Die Integration in weitere Fremdprojekte (z. B. ft2-clone oder nuklear) ist weiterhin nicht als getestet zu betrachten. Tag und GitHub-Release sind erst nach dem Push nachzuweisen.
 
+### v0.8.5-dev (Dokumentationskandidat, NICHT FREIGEGEBEN)
+- Die README erklärt Compilerprogramme und Compiler-Policy je Targetprofil (seit v0.8.2-dev) jetzt im Hauptteil.
+- `docs/guides/tack-ini.md` und `docs/reference/tack-ini.md` dokumentieren praktische Konfigurationen, Parser-Schlüssel und Einschränkungen.
+- Der separate 0.8.6-Plan definiert messbare Coverage-Ziele; `TACK_VERSION` und der Produktionscode bleiben bis zur nächsten Plattformabnahme bei 0.8.4.
+
 ### v0.8.4 (vom Owner zur Veröffentlichung freigegeben)
 - **RC0.6 Windows-HWM:** Vom Owner am 17.11.2026 mit TDM-GCC/gcov 10.3.0 tatsächlich gemessen: 3192/5827 ausführbare Produktionszeilen (54,77947 %). Die Messung ist als `coverage/hwm-windows.txt` festgeschrieben. Linux 3228/5708 unverändert. Bestätigenden `coverage check` und vollständigen instrumentierten Windows-Lauf gegen diese HWM vor GitHub-Push erneut ausführen.
 - RC0.5 korrigiert zwei Windows-falsche Pfaderwartungen im `coverage_ratchet_test`, ohne Testfälle zu entfernen: native Windows-/POSIX-Pfade und kanonische `build/`-Ablage werden geprüft, mit konkreter Pfaddiagnose. Linux GCC Release und Linux GCC/gcov bestehen; die Windows-HWM-Messung erfolgte anschließend im RC0.5-Owner-Lauf (siehe RC0.6 oben).
@@ -209,6 +214,11 @@
 ## English (Release Notes)
 
 > `v0.8.4` has been approved for publication as a standalone CLI. Integration with additional third-party projects (e.g. ft2-clone or nuklear) has not been verified. Git tag and GitHub Release are still pending the push.
+
+### v0.8.5-dev (documentation candidate, NOT RELEASED)
+- README prominently explains the per-target/profile compiler program and policy introduced in v0.8.2-dev.
+- Bilingual INI walkthrough and key reference document validated configuration patterns and parsed-only or unsupported fields.
+- A separate v0.8.6 plan defines measurable coverage goals; production source and runtime version remain 0.8.4 pending the next platform gate.
 
 ### v0.8.4 (owner-approved for publication)
 - **RC0.6 Windows HWM:** Owner measured 3192/5827 executable production lines (54.77947%) under TDM-GCC/gcov 10.3.0 on 2026-11-17. Versioned unchanged in `coverage/hwm-windows.txt`; Linux remains 3228/5708. Re-run Windows `coverage check` and the full instrumented suite against this baseline before pushing to GitHub.

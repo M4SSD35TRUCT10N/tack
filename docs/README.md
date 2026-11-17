@@ -8,7 +8,7 @@
 
 ### 0.8-Status
 `v0.8.0-dev` ist als CI-Grundlagenblock abgeschlossen.
-`v0.8.4` ist zur Veröffentlichung freigegeben und umfasst die v0.8.2/v0.8.3-Entwicklungsschritte. Linux-GCC/gcov-Referenz-HWM und Windows/GCC-Release- sowie TinyCC-Debug-Tests sind ownerbestätigt. Windows-Coverage ist noch nicht gemessen und muss vor dem GitHub-Push als separates HWM abgenommen werden; die BA-STD-C89-Gruppennorm bleibt Entwurf.
+`v0.8.4` ist zur Veröffentlichung freigegeben und umfasst die v0.8.2/v0.8.3-Entwicklungsschritte. Linux-GCC/gcov-Referenz-HWM und Windows/GCC-Release- sowie TinyCC-Debug-Tests sind ownerbestätigt. Windows-Coverage wurde vom Owner mit 3192/5827 gemessen, als eigene HWM versioniert und anschließend mit vollständigem Testlauf auf PASS geprüft. Der nächste Dokumentationsmeilenstein ist v0.8.5-dev; die BA-STD-C89-Gruppennorm bleibt Entwurf.
 
 ### Architekturentscheidungen
 - [ADR 0001 – Eröffnung der 0.8-Serie](adr/0001-open-v0.8-series.md)
@@ -28,6 +28,9 @@
 - [SPEC 0011 – Test- und Coverage-Ratchets](specs/0011-ba-std-c89-ratchet-adoption.md)
 
 ### Leitfäden
+- [tack.ini: Praxiseinstieg, Compilerprofile, Targets und Coverage](guides/tack-ini.md)
+- [tack.ini: vollständige Schlüsselreferenz](reference/tack-ini.md)
+- [v0.8.6: Coverage-Ziele und Testmatrix (Plan)](plans/0.8.6-coverage.md)
 - [GitHub self-hosted runners – Workflow-Starter](guides/github-self-hosted-runners.md)
 - [GitHub self-hosted runner installation unter Windows x64](guides/github-runner-install-windows.md)
 - [GitHub self-hosted runner installation unter Linux ARM64](guides/github-runner-install-linux-arm64.md)
@@ -40,6 +43,7 @@
 - [0.8.3-dev: BA-STD-C89-Kandidat](releases/0.8.3-dev.md)
 - [0.8.4: Test- und Coverage-Ratchet](releases/0.8.4.md)
 - [Windows-HWM: Abnahmenachweis 0.8.4](releases/0.8.4-windows-hwm.md)
+- [0.8.5-dev: Dokumentationsmeilenstein](releases/0.8.5-dev.md)
 
 Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokumentgruppen in Navigation und Index behandelt.
 
@@ -49,7 +53,7 @@ Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokume
 
 ### 0.8 status
 `v0.8.0-dev` is complete as the CI foundation block.
-`v0.8.4` is approved for publication, incorporating the v0.8.2/v0.8.3 development steps. The Linux GCC/gcov reference HWM and Windows/GCC release plus TinyCC debug tests have owner approval. Windows coverage needs an independently measured HWM before the pending GitHub push; the BA-STD-C89 group standard is still a draft.
+`v0.8.4` is approved for publication, incorporating the v0.8.2/v0.8.3 development steps. The Linux GCC/gcov reference HWM and Windows/GCC release plus TinyCC debug tests have owner approval. Windows coverage has been owner-measured at 3192/5827, versioned as its own HWM and verified by a fresh full PASS run. The next documentation milestone is v0.8.5-dev; the BA-STD-C89 group standard remains a draft.
 
 ### Architecture decisions
 - [ADR 0001 – Open the 0.8 series](adr/0001-open-v0.8-series.md)
@@ -69,6 +73,9 @@ Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokume
 - [SPEC 0011 – Test and coverage ratchets](specs/0011-ba-std-c89-ratchet-adoption.md)
 
 ### Guides
+- [tack.ini: guided configuration walkthrough](guides/tack-ini.md)
+- [tack.ini: complete key reference](reference/tack-ini.md)
+- [v0.8.6: coverage targets and traceability plan](plans/0.8.6-coverage.md)
 - [GitHub self-hosted runners – workflow starter](guides/github-self-hosted-runners.md)
 - [GitHub self-hosted runner installation on Windows x64](guides/github-runner-install-windows.md)
 - [GitHub self-hosted runner installation on Linux ARM64](guides/github-runner-install-linux-arm64.md)
@@ -81,5 +88,6 @@ Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokume
 - [0.8.3-dev: BA-STD-C89 candidate](releases/0.8.3-dev.md)
 - [0.8.4: test and coverage ratchets](releases/0.8.4.md)
 - [Windows HWM: 0.8.4 acceptance evidence](releases/0.8.4-windows-hwm.md)
+- [0.8.5-dev: documentation milestone](releases/0.8.5-dev.md)
 
 Subdirectories below `docs/` are treated by `tack doc` as separate document groups in navigation and index.

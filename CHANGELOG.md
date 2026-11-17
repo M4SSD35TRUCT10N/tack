@@ -2,6 +2,13 @@
 
 ## Deutsch
 
+### v0.8.5-dev RC0.1 (Dokumentation, NICHT FREIGEGEBEN)
+- Compilerprogramm und Compiler-Policy je Targetprofil (seit 0.8.2-dev) jetzt direkt im README-Hauptteil erklärt.
+- Bilinguale INI-Anleitung und Parser-Schlüsselreferenz mit nachvollziehbaren Beispielen ergänzt.
+- Bei der Beispielvalidierung entdeckt: `[fmt]`/`[fmt "NAME"]`-Schlüsselzweige sind durch falsch verschachtelten `[sbom]`-Block unerreichbar. Release-Blocker für 0.8.5, kein stiller Codefix in diesem Dokumentations-Meilenstein.
+- Separate Planungsgrundlage für 0.8.6 mit 90-%-Line-Coverage pro Plattform und unabhängiger Anforderungsabdeckung; bestehende HWMs und Testinventar nicht verändert.
+
+
 ### v0.8.4 (zur GitHub-Veröffentlichung freigegeben)
 - **RC0.6:** Echte Owner-Messung Windows/TDM-GCC/gcov 10.3.0 mit **3192/5827 (54,77947 %)** in `coverage/hwm-windows.txt` festgeschrieben. Getrennte Linux-HWM 3228/5708 bleibt unverändert. HWM-Zustandsregeln DE/EN und Abnahmenachweis ergänzt; finaler Windows-Coverage-PASS vor GitHub-Push noch erforderlich.
 - **RC0.5, vor dem GitHub-Tag:** Zwei falsche Unix-Pfad-Erwartungen im `coverage_ratchet_test` ließen Windows-GCC Release/Coverage vor der eigentlichen gcov-Auswertung abbrechen. Die Regression prüft jetzt native Windows-/POSIX-Pfade **und** deren kanonische `build/`-Position; aussagekräftige Ist-/Soll-Diagnosen ergänzt. Das Testinventar wurde für den erweiterten Teststand aktualisiert, ohne eine Coverage-HWM abzusenken. Die spätere RC0.5-Windows-Abnahme ist unter RC0.6 dokumentiert; bestätigender Windows-PASS nach der HWM-Übernahme steht aus.
@@ -32,6 +39,13 @@
 - Abgeschlossener Basisstand. Details in [RELEASENOTES.md](RELEASENOTES.md).
 
 ## English
+
+### v0.8.5-dev RC0.1 (documentation, NOT RELEASED)
+- README now explains the per-target/profile compiler-program and compiler-policy split added in 0.8.2-dev.
+- Added bilingual INI walkthrough and complete parser key reference, including tested examples.
+- Reproduced a pre-existing 0.8.4 defect: `[fmt]`/`[fmt "NAME"]` key handlers are unreachable due to a nested `[sbom]` branch. This is a 0.8.5 release blocker; no silent C89 fix in the documentation milestone.
+- Planned separate 0.8.6 quality targets (90% line coverage per platform and independent requirements coverage); accepted HWMs and test inventory remain unchanged.
+
 
 ### v0.8.4 (approved for GitHub publication)
 - **RC0.6:** Version the owner-measured Windows TDM-GCC/gcov 10.3.0 HWM of **3192/5827 (54.77947%)** in `coverage/hwm-windows.txt`; preserve separate Linux HWM 3228/5708. Document HWM states and evidence in DE/EN. New Windows PASS after baseline installation remains required before GitHub push.

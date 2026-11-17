@@ -169,6 +169,19 @@ v0.8.2 erweitert die deklarative Compiler- und Policy-Wahl pro Targetprofil. v0.
 
 Testinventar und Coverage-Gates sind implementiert. Die Windows/GCC-Release- und TinyCC-Debug-Suites wurden vom Owner mit je 24 PASS / 1 SKIP / 0 FAIL geprüft. Die Linux-GCC/gcov-Referenz-HWM ist real gemessen und angenommen. Windows-Coverage ist nun separat gemessen (3192/5827) und als HWM festgeschrieben; bestätigender Windows-Gate-PASS nach Übernahme steht noch aus. Die BA-STD-C89-Gruppenmigration benötigt eine eigene Normabnahme. Siehe [Coverage-Leitfaden](docs/guides/coverage-ratchet.md).
 
+### Vorgesehen: v0.8.5 – verständliche Konfiguration
+
+- Dokumentationsmeilenstein: Compiler-/Policy-Profile aus 0.8.2-dev prominent im README erklären; `docs/guides/tack-ini.md` und `docs/reference/tack-ini.md` für Beispiele und sämtliche Parser-Schlüssel.
+- Keine versteckten Versprechen: durch falsch geklammerte `[sbom]`-Verzweigung derzeit unerreichbare Formatter-Schlüssel explizit kennzeichnen; C89-Fix plus Regressionstest ist eigenes Release-Gate.
+- Für die eigentliche Versionserhöhung und Release-Freigabe getrennte Windows-/Linux-Test- und HWM-Checks wiederholen; das reine Dokumentationspaket ändert vorerst `src/tack.c` nicht.
+
+### Vorgesehen: v0.8.6 – testbare Qualität ≥90 %
+
+- **Line-Coverage ≥90 %** unter eigenständigen Windows- und Linux-GCC/gcov-Profilen, ohne bestehende HWMs zu senken.
+- Vollständiges versioniertes Testinventar sowie eine reviewed Anforderungs-/Funktions-Testmatrix (Ziel ≥90 % belegte Anforderungen, alle kritischen Sicherheitsregeln getestet).
+- Branch-Coverage erst messen und separat baseline-bilden; nicht mit Anzahl bestandenener Tests gleichsetzen.
+- Risikobasierte zusätzliche Negativ- und CLI-E2E-Tests, jeweils ein Meilenstein und eine echte Ratchet-Messung. Siehe [Plan](docs/plans/0.8.6-coverage.md).
+
 ## English (Roadmap)
 
 ### Completed state: v0.8.1-dev
@@ -332,3 +345,17 @@ v0.8.2 adds declarative compiler and policy selection per target profile. v0.8.3
 ### Completed development step: v0.8.4 (approved for publication)
 
 Versioned test inventory and measured coverage gates are implemented. The owner validated Windows/GCC release and TinyCC debug suites (each 24 PASS / 1 SKIP / 0 FAIL); the measured Linux GCC/gcov reference HWM has been accepted. Windows coverage has now been measured (3192/5827) and versioned as a separate HWM; fresh Windows gate PASS after adopting it remains pending. Group-wide BA-STD-C89 ratification remains independent. See the [coverage guide](docs/guides/coverage-ratchet.md).
+
+### Planned: v0.8.5 – approachable configuration
+
+- Prominently explain the v0.8.2-dev compiler/program-policy profile split in README; add a real-world [INI guide](docs/guides/tack-ini.md) and a complete [parser key reference](docs/reference/tack-ini.md).
+- Mark formatter keys currently unreachable due to a misplaced `[sbom]` brace; a separate C89 fix and regression test are release gates.
+- Keep source code unchanged during the documentation candidate; a future version bump and release require fresh independent platform coverage gates.
+
+### Planned: v0.8.6 – evidence-backed coverage ≥90%
+
+- **≥90% production executable line coverage** for separate Linux and Windows GCC/gcov profiles without lowering accepted HWMs.
+- Complete versioned test inventory and reviewed traceability matrix covering ≥90% of defined testable requirements, with all critical security cases covered.
+- Measure branch coverage separately; successful test count is not a code or requirements coverage ratio.
+- Risk-prioritized negative and CLI E2E tests, one milestone and real measured ratchet increase at a time. See the [plan](docs/plans/0.8.6-coverage.md).
+
