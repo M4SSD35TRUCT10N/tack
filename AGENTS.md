@@ -8,7 +8,7 @@
 
 **Agenten:** Codex und Claude Code folgen demselben Vertrag. `CLAUDE.md` verweist ausschließlich hierher. Architektur, Lizenz und Release-Status werden vom Owner freigegeben.
 
-**Lieferung:** Vollständiges Quellen-ZIP, Änderungsprotokoll, Conventional-Commit-Nachricht, SHA-256-Prüfung und für jedes Gate PASS/FAIL/NOT RUN. Windows-Abnahme erfolgt erst durch Owner-Logs. Der aktuelle v0.8.3-dev-Stand ist nicht freigegeben; Coverage-Baseline und High-Water-Gate stehen aus.
+**Lieferung:** Vollständiges Quellen-ZIP, Änderungsprotokoll, Conventional-Commit-Nachricht, SHA-256-Prüfung und für jedes Gate PASS/FAIL/NOT RUN. Windows-Abnahme erfolgt erst durch Owner-Logs. Der aktuelle v0.8.4-dev-Stand ist nicht freigegeben; die gemessene Coverage-Baseline wartet auf HWM- und Windows-Abnahme.
 
 ## English
 
@@ -18,4 +18,4 @@
 
 **Agents:** Codex and Claude Code have equal authority under this contract. `CLAUDE.md` only points here. Architecture, licensing and release status require owner approval.
 
-**Delivery:** Complete source ZIP, change log, Conventional Commit message, SHA-256 verification and PASS/FAIL/NOT RUN for each gate. Owner-provided logs are required for Windows acceptance. Current v0.8.3-dev is not released; coverage baseline and high-water gate remain open.
+**Delivery:** Complete source ZIP, change log, Conventional Commit message, SHA-256 verification and PASS/FAIL/NOT RUN for each gate. Owner-provided logs are required for Windows acceptance. Current v0.8.4-dev is not released; the coverage candidate is measured but the HWM and Windows gates remain unapproved.

@@ -1,4 +1,4 @@
-# tack ROADMAP (DE/EN) — v0.8.3-dev
+# tack ROADMAP (DE/EN) — v0.8.4-dev
 
 Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASENOTES.md)** · **[Docs](docs/README.md)**
 
@@ -165,6 +165,10 @@ v0.8.2 erweitert die deklarative Compiler- und Policy-Wahl pro Targetprofil. v0.
 
 ---
 
+### Laufender Entwicklungsschritt: v0.8.4-dev (nicht freigegeben)
+
+Testinventar- und gemessene Coverage-Ratchets sind implementiert, aber ohne angenommene High-Water-Baseline und Windows/TDM-GCC-Abnahme noch nicht freigegeben. Die geplante spätere BA-STD-C89-Migration braucht ein getrenntes Owner-Gate. Siehe [Coverage-Leitfaden](docs/guides/coverage-ratchet.md).
+
 ## English (Roadmap)
 
 ### Completed state: v0.8.1-dev
@@ -324,3 +328,7 @@ Back: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASEN
 ### Active development step: v0.8.2 / v0.8.3 (not released)
 
 v0.8.2 adds declarative compiler and policy selection per target profile. v0.8.3 aligns the repository with BA-STD-C89, fixes stale test signatures and restores bilingual documentation structure. Linux/GCC test runs do not replace Windows and TinyCC acceptance. The coverage baseline and high-water gate must not be invented or marked complete. Work on unrelated projects remains independent.
+
+### Active development step: v0.8.4-dev (not released)
+
+Versioned test inventory and measured coverage gates are implemented, but not yet accepted without an owner-approved high-water baseline and Windows/TDM-GCC verification. The later BA-STD-C89 repository migration has a separate owner gate. See the [coverage guide](docs/guides/coverage-ratchet.md).

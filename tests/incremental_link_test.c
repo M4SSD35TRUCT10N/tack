@@ -6,6 +6,7 @@
 extern int setenv(const char *name, const char *value, int overwrite);
 #endif
 
+#ifndef _WIN32
 static int write_text_file(const char *path, const char *text) {
   FILE *f;
   if (!path || !text) return 1;
@@ -80,7 +81,6 @@ static int discover_default_target(TargetVec *tv, const Target **out) {
   return 0;
 }
 
-#ifndef _WIN32
 static int write_cc_wrapper(const char *path) {
   return write_text_file(
     path,
@@ -101,6 +101,7 @@ static int write_cc_wrapper(const char *path) {
 #endif
 
 int main(void) {
+#ifndef _WIN32
   int failures = 0;
   char cwd[1024];
   const char *tmpdir = "build/test-incremental-link";
@@ -110,15 +111,16 @@ int main(void) {
   char result[64];
   char *runv[2];
   const char *real_cc;
+#endif
 
 #ifdef _WIN32
   puts("incremental_link_test: skipped (non-POSIX wrapper test)");
-  return 0;
+  return 77;
 #else
   real_cc = get_cc();
   if (!fmt_exe_in_path(real_cc)) {
     puts("incremental_link_test: skipped (compiler not found)");
-    return 0;
+    return 77;
   }
 
   if (get_cwd_local(cwd, sizeof(cwd)) != 0) {

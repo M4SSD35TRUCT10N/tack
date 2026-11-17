@@ -1,4 +1,4 @@
-# tack FAQ / FAQ (DE/EN) — v0.8.3-dev
+# tack FAQ / FAQ (DE/EN) — v0.8.4-dev
 
 **Backlinks:** [README](README.md) • [Roadmap](ROADMAP.md) • [Release Notes](RELEASENOTES.md) • [Docs](docs/README.md)
 
@@ -329,6 +329,10 @@ Nein. Beide Befehle bleiben allgemeine, nicht destruktive Scaffold-Werkzeuge. Ih
 
 ---
 
+### Was ist neu in v0.8.4-dev beim Test- und Coverage-Ratchet?
+
+`tack ratchet tests` prüft das versionierte Inventar der `_test.c`-Quellen. Ein Fingerprint kann Änderungen erkennen, aber nicht die Aussagekraft einer Assertion beurteilen; Änderungen benötigen Owner-Review. `tack test coverage --ci --rebuild` instrumentiert mit GCC/gcov und erzeugt eine echte `coverage/current.txt`. `tack coverage check` verlangt eine akzeptierte HWM. Die erste Messung wird nicht automatisch freigegeben. Der Vergleich ist pro Plattform und Messprofil getrennt. Siehe [Leitfaden](docs/guides/coverage-ratchet.md).
+
 ## English (FAQ)
 
 ### Are `v0.8.0-dev` and `v0.8.1-dev` complete?
@@ -644,3 +648,8 @@ For example, set `[project] compiler = tcc` and `[target "app".release] compiler
 ### Do `tack init` and `tack new` generate all BA-STD-C89 files?
 
 No. Both remain generic, non-destructive scaffold commands. Their `tack.ini` includes optional profile compiler examples. A BA-STD-C89 agent contract, coverage ratchet and project-specific specifications require deliberate project decisions; see the [guide](docs/guides/init-new-and-ba-std-c89.md).
+
+### What changed in v0.8.4-dev for test and coverage ratchets?
+
+`tack ratchet tests` validates a versioned inventory of `_test.c` source files. Fingerprints can detect changes but cannot judge the strength of assertions; owner review is still required. `tack test coverage --ci --rebuild` instruments tests using GCC/gcov and writes an actual `coverage/current.txt`. `tack coverage check` requires an accepted HWM. The first measurement is not automatically released; profiles and platform baselines are separate. See the [guide](docs/guides/coverage-ratchet.md).
+

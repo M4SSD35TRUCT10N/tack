@@ -105,3 +105,10 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# Generated coverage measurement is not an owner-approved baseline.
+/coverage/current.txt
+/coverage/hwm.pending.tmp
+*.gcda
+*.gcno
+*.gcov

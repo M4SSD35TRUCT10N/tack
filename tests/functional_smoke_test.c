@@ -303,7 +303,8 @@ int main(void) {
       failures++;
     }
   } else {
-    puts("compiler not found; skipping build/run/cache/tests");
+    fprintf(stderr, "functional_smoke_test: FAIL missing compiler for build/run/cache/tests\n");
+    failures++;
   }
 
   tv_free(&tv);

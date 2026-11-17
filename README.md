@@ -1,4 +1,4 @@
-# tack — Tiny ANSI-C Kit (v0.8.3-dev, NICHT FREIGEGEBEN / NOT RELEASED)
+# tack — Tiny ANSI-C Kit (v0.8.4-dev, NICHT FREIGEGEBEN / NOT RELEASED)
 
 ---
 
@@ -7,7 +7,7 @@
 
 # Deutsch
 
-`v0.8.0-dev` (CI-Grundlagen) und `v0.8.1-dev` (DOC-UX und Suche) sind abgeschlossene Entwicklungsschritte. `v0.8.2-dev` und `v0.8.3-dev` sind weiterhin nicht freigegeben.
+`v0.8.0-dev` (CI-Grundlagen) und `v0.8.1-dev` (DOC-UX und Suche) sind abgeschlossene Entwicklungsschritte. `v0.8.2-dev`, `v0.8.3-dev` und `v0.8.4-dev` sind weiterhin nicht freigegeben.
 
 `tack` ist ein **Build- und Projekt-Werkzeug in einer einzigen C-Datei** (C89/ANSI‑C).
 Es ist für Projekte gedacht, die **ohne Make/CMake/Ninja** auskommen sollen und trotzdem:
@@ -599,11 +599,19 @@ Die Repositorystruktur enthält den gemeinsamen Agentenvertrag `AGENTS.md`, den 
 
 `tack init` und `tack new` erzeugen weiterhin ein **generisches, nicht destruktives** Projektgerüst. Die erzeugte `tack.ini` enthält jetzt kommentierte Beispiele für Profilcompiler. BA-STD-C89-spezifische Agenten-, Sicherheits- und Coverage-Regeln werden nicht ungefragt in fremde Projekte kopiert; siehe [Scaffolding-Leitfaden](docs/guides/init-new-and-ba-std-c89.md).
 
+## v0.8.4-dev: Test- und Coverage-Ratchet (nicht freigegeben)
+
+Der Windows-GCC-Kompilierfehler in `tests/incremental_link_test.c` ist durch vollständige POSIX-Guards behoben. Bewusste Plattform-SKIPs werden nun in CI, TAP und JUnit getrennt von PASS ausgewiesen. `tack ratchet tests` überprüft das versionierte Testquelleninventar; Änderungen brauchen Code-Review und ausdrücklich `--owner-approve`. Der Hash ist ein Änderungen-Melder, kein Ersatz für eine semantische Prüfung von Assertions.
+
+`[target "app".coverage]` definiert einen instrumentierten GCC-Lauf unabhängig von Debug/Release. `tack test coverage --ci --rebuild` misst `src/` und `include/` ohne Testheader, führt doppelte Header-Zeilen zusammen und schreibt `coverage/current.txt`; `tack coverage check` vergleicht mit einer **zuvor tatsächlich gemessenen und vom Owner akzeptierten** HWM. Höhere Messungen sind bis `tack coverage accept --owner-approve` noch nicht angenommen; Regressionen und inkompatible Messprofile blockieren. Windows benötigt ein gesondertes, zur dortigen gcc/gcov-Version passendes `[coverage] id` und eine eigene Baseline.
+
+**Abnahmegrenze:** Linux/GCC-Debug und Release laufen mit 24 PASS und einem ausdrücklich gemeldeten Windows-only-SKIP; die erste GCC/gcov-Messung ist ein **Kandidat**, keine angenommene HWM. Windows/TDM-GCC-Nachtest und Owner-Freigabe sind offen. Siehe [Anleitung](docs/guides/coverage-ratchet.md), [SPEC 0011](docs/specs/0011-ba-std-c89-ratchet-adoption.md) und [Versionsbericht](docs/releases/0.8.4-dev.md).
+
 ---
 
 # English
 
-`v0.8.0-dev` (CI foundations) and `v0.8.1-dev` (DOC UX and search) are completed development steps. `v0.8.2-dev` and `v0.8.3-dev` are not yet released.
+`v0.8.0-dev` (CI foundations) and `v0.8.1-dev` (DOC UX and search) are completed development steps. `v0.8.2-dev`, `v0.8.3-dev`, and `v0.8.4-dev` are not yet released.
 
 `tack` is a **single‑file build & project tool written in C** (C89/ANSI‑C).
 It targets projects that intentionally want to **avoid Make/CMake/Ninja** while still having:
@@ -1158,3 +1166,12 @@ cflags = -std=c89;-pedantic-errors;-Wextra;-Werror
 The repository includes the provider-neutral `AGENTS.md` contract, short `CLAUDE.md` pointer, and shared test header `include/tests/tack_test_embed.h`. Compiler profiles remain declarative in `tack.ini`. This correction round fixes outdated test calls and restores clearly separated DE/EN documentation. Linux/GCC debug and release tests have run; Windows, TinyCC and coverage high-water acceptance remain open. See the [release record](docs/releases/0.8.3-dev.md) and [SPEC 0011](docs/specs/0011-ba-std-c89-ratchet-adoption.md).
 
 `tack init` and `tack new` still generate a **generic, non-destructive** scaffold. The generated `tack.ini` now includes commented profile compiler examples. BA-STD-C89 agent, security and coverage policies are not copied into unrelated projects without consent; see the [scaffolding guide](docs/guides/init-new-and-ba-std-c89.md).
+
+## v0.8.4-dev: Test and coverage ratchets (not released)
+
+The Windows GCC compilation error in `tests/incremental_link_test.c` is fixed by guarding all POSIX-specific helpers. Intentional platform SKIPs are now reported separately from PASS in CI, TAP and JUnit. `tack ratchet tests` checks a versioned source-test inventory; accepting a change requires code review plus explicit `--owner-approve`. Fingerprints detect changes but cannot prove that assertions retain their meaning.
+
+`[target "app".coverage]` selects a separately instrumented GCC test run. `tack test coverage --ci --rebuild` measures production `src/` and `include/` excluding test headers, merges duplicate header lines and writes `coverage/current.txt`. `tack coverage check` compares against a **previously measured, owner-accepted** high-water mark. Improvements remain pending until `tack coverage accept --owner-approve`; regressions and incompatible profiles are blocked. Windows needs a separate `[coverage] id` matching its actual gcc/gcov versions and a separate accepted baseline.
+
+**Acceptance boundary:** Linux/GCC debug and release have 24 PASS and one explicit Windows-only SKIP. The first GCC/gcov measurement is a **candidate**, not an accepted high-water baseline. Windows/TDM-GCC rerun and owner acceptance remain outstanding. See the [guide](docs/guides/coverage-ratchet.md), [SPEC 0011](docs/specs/0011-ba-std-c89-ratchet-adoption.md) and [release record](docs/releases/0.8.4-dev.md).
+

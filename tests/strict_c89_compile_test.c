@@ -4,15 +4,22 @@ int main(void) {
   char out_obj[512];
   const char *argv[12];
   int i = 0;
-  const char *cc = get_cc();
+  const char *cc;
+
+  if (config_auto_load() != 0) {
+    fprintf(stderr, "strict_c89_compile_test: failed to load config\n");
+    return 1;
+  }
+  set_active_compiler_target(default_target_name(), PROF_RELEASE);
+  cc = get_cc();
 
   if (!fmt_exe_in_path(cc)) {
     puts("strict_c89_compile_test: skipped (compiler not found)");
-    return 0;
+    return 77;
   }
   if (compiler_name_is_tcc(cc)) {
     puts("strict_c89_compile_test: skipped (tcc path)");
-    return 0;
+    return 77;
   }
 
   ensure_dir("build");

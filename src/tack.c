@@ -1,6 +1,6 @@
 
 /* tack.c - Tiny ANSI-C Kit
- * v0.8.1-dev
+ * v0.8.4-dev
  *
  * Adds:
  * - Runtime config via tack.ini (data-only)
@@ -77,7 +77,7 @@
   #define STAT_ST struct stat
 #endif
 
-#define TACK_VERSION "0.8.3-dev"
+#define TACK_VERSION "0.8.4-dev"
 
 /* Hard limits for untrusted inputs (fail-fast) */
 #define TACK_MAX_LINE        8192
@@ -129,6 +129,7 @@ static char *g_config_bom_template = 0; /* owned */
 static char *g_config_bom_css = 0;      /* owned */
 static char *g_config_sbom_format = 0;       /* owned */
 static char *g_config_sbom_spec_version = 0; /* owned */
+static char *g_coverage_profile_id = 0; /* owned [coverage] id */
 static char *g_config_sbom_output = 0;       /* owned */
 
 static const char *g_cc_default = "tcc";
@@ -194,8 +195,8 @@ static const char *g_warn_flags_tcc_default[] = { "-Wno-unsupported", 0 };
 static const char *g_warn_flags_tcc_strict[] = { "-Wunsupported", 0 };
 
 /* Profiles */
-typedef enum { PROF_DEBUG = 0, PROF_RELEASE = 1 } Profile;
-static const char *profile_name(Profile p) { return (p == PROF_RELEASE) ? "release" : "debug"; }
+typedef enum { PROF_DEBUG = 0, PROF_RELEASE = 1, PROF_COVERAGE = 2 } Profile;
+static const char *profile_name(Profile p) { return (p == PROF_COVERAGE) ? "coverage" : ((p == PROF_RELEASE) ? "release" : "debug"); }
 /* Active command target/profile. The default (unset) preserves v0.8.1 behavior. */
 static const char *g_active_compiler_target = 0;
 static Profile g_active_compiler_profile = PROF_DEBUG;
@@ -367,7 +368,9 @@ static void junit_write_report(Profile p, const TestRunStats *stats, unsigned lo
       xml_write_string(f, it->file);
     }
     fputs("\">\n", f);
-    if (strcmp(it->status, "passed") != 0) {
+    if (strcmp(it->status, "skipped") == 0) {
+      fputs("      <skipped message=\"not applicable\"/>\n", f);
+    } else if (strcmp(it->status, "passed") != 0) {
       fputs("      <failure message=\"", f);
       xml_write_string(f, (it->message && it->message[0]) ? it->message : "test failed");
       fputs("\">", f);
@@ -470,9 +473,10 @@ static void tap_write_test_result(int index, const char *name, const char *statu
   FILE *f = g_tap_report;
   if (!f) return;
   fprintf(f, "%s %d - %s\n",
-          (status && strcmp(status, "passed") == 0) ? "ok" : "not ok",
+          (status && (strcmp(status, "passed") == 0 || strcmp(status, "skipped") == 0)) ? "ok" : "not ok",
           index,
           name ? name : "");
+  if (status && strcmp(status, "skipped") == 0) fputs("# SKIP not applicable to this platform or compiler\n", f);
   if (file && file[0]) fprintf(f, "# file: %s\n", file);
   fprintf(f, "# compiled: %s\n", compiled ? "true" : "false");
   fprintf(f, "# duration_ms: %lu\n", duration_ms);
@@ -3631,7 +3635,7 @@ static int ini_load_file(const char *path) {
   FILE *f;
   char line[TACK_MAX_LINE];
 
-  enum { SEC_NONE = 0, SEC_PROJECT = 1, SEC_TARGET = 2, SEC_TARGET_PROFILE = 3, SEC_DOC = 4, SEC_BOM = 5, SEC_SBOM = 6, SEC_FMT = 7, SEC_FMT_RULE = 8 } sec = SEC_NONE;
+  enum { SEC_NONE = 0, SEC_PROJECT = 1, SEC_TARGET = 2, SEC_TARGET_PROFILE = 3, SEC_DOC = 4, SEC_BOM = 5, SEC_SBOM = 6, SEC_FMT = 7, SEC_FMT_RULE = 8, SEC_COVERAGE = 9 } sec = SEC_NONE;
   IniTargetCfg *cur_t = 0;
   IniProfileCfg *cur_tp = 0;
   FmtRuleCfg *cur_fr = 0;
@@ -3675,6 +3679,7 @@ static int ini_load_file(const char *path) {
       if (strieq(s, "doc")) { sec = SEC_DOC; continue; }
       if (strieq(s, "bom")) { sec = SEC_BOM; continue; }
       if (strieq(s, "sbom")) { sec = SEC_SBOM; continue; }
+      if (strieq(s, "coverage")) { sec = SEC_COVERAGE; continue; }
       if (strieq(s, "fmt")) { sec = SEC_FMT; continue; }
 
       /* [fmt "NAME"] */
@@ -3733,12 +3738,14 @@ static int ini_load_file(const char *path) {
           if (*after == '.') {
             if (strieq(after + 1, "debug")) { has_profile = 1; prof = PROF_DEBUG; }
             else if (strieq(after + 1, "release")) { has_profile = 1; prof = PROF_RELEASE; }
+            else if (strieq(after + 1, "coverage")) { has_profile = 1; prof = PROF_COVERAGE; }
             else continue;
           }
         } else {
           const char *suffix = 0;
           if (striendswith(p, ".debug")) { suffix = ".debug"; prof = PROF_DEBUG; has_profile = 1; }
           else if (striendswith(p, ".release")) { suffix = ".release"; prof = PROF_RELEASE; has_profile = 1; }
+          else if (striendswith(p, ".coverage")) { suffix = ".coverage"; prof = PROF_COVERAGE; has_profile = 1; }
           tn = strlen(p);
           if (suffix && tn > strlen(suffix)) tn -= strlen(suffix);
           if (tn > TACK_MAX_NAME) tack_die("target name too long");
@@ -3768,6 +3775,15 @@ static int ini_load_file(const char *path) {
     {
       char *key = trim(s);
       char *val = trim(eq + 1);
+
+      if (sec == SEC_COVERAGE) {
+        if (strieq(key, "id")) {
+          free(g_coverage_profile_id);
+          tack_check_len("[coverage] id", val, 150);
+          g_coverage_profile_id = xstrdup(val);
+        }
+        continue;
+      }
 
       if (sec == SEC_PROJECT) {
         if (strieq(key, "default_target")) {
@@ -4301,6 +4317,7 @@ static void config_reset(void) {
   free(g_config_bom_css); g_config_bom_css = 0;
   free(g_config_sbom_format); g_config_sbom_format = 0;
   free(g_config_sbom_spec_version); g_config_sbom_spec_version = 0;
+  free(g_coverage_profile_id); g_coverage_profile_id = 0;
   free(g_config_sbom_output); g_config_sbom_output = 0;
 
   free(g_config_doc_template); g_config_doc_template = 0;
@@ -4391,6 +4408,7 @@ static void config_free(void) {
   free(g_config_bom_css); g_config_bom_css = 0;
   free(g_config_sbom_format); g_config_sbom_format = 0;
   free(g_config_sbom_spec_version); g_config_sbom_spec_version = 0;
+  free(g_coverage_profile_id); g_coverage_profile_id = 0;
   free(g_config_sbom_output); g_config_sbom_output = 0;
 
   cc_cache_reset();
@@ -5115,6 +5133,7 @@ static int build_one_target(const Target *t, Profile p, int verbose, int why, in
 
 /* --------------------------- tests --------------------------- */
 
+static const char *cov_os_name(void);
 static int build_and_run_tests(const char *target_name, Profile p, int verbose, int force, int strict, TestRunStats *stats) {
   StrVec tests;
   int i;
@@ -5150,6 +5169,7 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
   path_join(tests_root, sizeof(tests_root), tests_root, profile_name(p));
   ensure_dir(tests_root);
   path_join(tests_bin, sizeof(tests_bin), tests_root, "bin");
+  if (p == PROF_COVERAGE && file_exists(tests_bin) && rm_rf(tests_bin) != 0) { sv_free(&tests); return 1; }
   ensure_dir(tests_bin);
 
   inc_common[0] = g_inc_dir;
@@ -5241,6 +5261,18 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
       runv[0] = out_exe;
       runv[1] = 0;
       run_rc = run_argv_wait(runv, verbose);
+      if (run_rc == 77 && p == PROF_COVERAGE && !((!strcmp(base, "path_join_test.c") && !strcmp(cov_os_name(), "linux")) || (!strcmp(base, "incremental_link_test.c") && !strcmp(cov_os_name(), "windows")))) {
+        fprintf(stderr, "tack: coverage: BLOCKED unexpected skipped test: %s\n", base);
+        if (stats) { stats->failed++; stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped); }
+        sv_free(&tests); return 1;
+      }
+      if (run_rc == 77) {
+        if (stats) stats->skipped++;
+        events_write_test_finished(base, "skipped", compiled_now, tack_elapsed_ms(test_start_ms));
+        tap_write_test_result(i + 1, base, "skipped", src, compiled_now, tack_elapsed_ms(test_start_ms));
+        if (junit_cases_push(base, src, "skipped", "not applicable", compiled_now, tack_elapsed_ms(test_start_ms)) != 0) { sv_free(&tests); return 1; }
+        continue;
+      }
       if (run_rc != 0) {
         if (stats) { stats->failed++; stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped); }
         events_write_test_finished(base, "failed", compiled_now, tack_elapsed_ms(test_start_ms));
@@ -5268,6 +5300,525 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
   return 0;
 }
 
+/* v0.8.4-dev: measured gcov line ratchet; no third-party runtime. */
+#define COV_MAX_SOURCES 256
+#define COV_MAX_LINES 500000ul
+#define COV_SKIP_TEST 77
+
+typedef struct {
+  char name[512];
+  unsigned char *bits;
+  unsigned long cap;
+} CovSource;
+typedef struct {
+  CovSource src[COV_MAX_SOURCES];
+  int count;
+} CovSet;
+
+static const char *cov_os_name(void) {
+#ifdef _WIN32
+  return "windows";
+#elif defined(__linux__)
+  return "linux";
+#else
+  return "posix";
+#endif
+}
+
+static const char *cov_baseline_path(void) {
+#ifdef _WIN32
+  return "coverage/hwm-windows.txt";
+#elif defined(__linux__)
+  return "coverage/hwm-linux.txt";
+#else
+  return "coverage/hwm-posix.txt";
+#endif
+}
+
+static void cov_set_init(CovSet *v) { memset(v, 0, sizeof(*v)); }
+static void cov_set_free(CovSet *v) {
+  int i;
+  for (i = 0; i < v->count; i++) free(v->src[i].bits);
+  v->count = 0;
+}
+
+static CovSource *cov_get_src(CovSet *v, const char *path) {
+  int i;
+  CovSource *s;
+  for (i = 0; i < v->count; i++) if (streq(v->src[i].name, path)) return &v->src[i];
+  if (v->count == COV_MAX_SOURCES || strlen(path) >= sizeof(v->src[0].name)) return 0;
+  s = &v->src[v->count++];
+  memset(s, 0, sizeof(*s));
+  strcpy(s->name, path); /* size checked above */
+  return s;
+}
+
+static int cov_mark(CovSource *s, unsigned long line, int covered) {
+  unsigned char *p;
+  unsigned long next;
+  if (line == 0ul || line > COV_MAX_LINES) return 1;
+  if (line >= s->cap) {
+    next = s->cap ? s->cap : 1024ul;
+    while (next <= line) next *= 2ul;
+    if (next > COV_MAX_LINES + 1ul) next = COV_MAX_LINES + 1ul;
+    p = (unsigned char*)realloc(s->bits, (size_t)next);
+    if (!p) return 1;
+    memset(p + s->cap, 0, (size_t)(next - s->cap));
+    s->bits = p;
+    s->cap = next;
+  }
+  s->bits[line] |= (unsigned char)(1u | (covered ? 2u : 0u));
+  return 0;
+}
+
+static int cov_relative_source(char *out, size_t cap, const char *raw, const char *root) {
+  char tmp[2048];
+  const char *p;
+  size_t i, rn;
+  if (!raw || strlen(raw) >= sizeof(tmp)) return 1;
+  strcpy(tmp, raw);
+  for (i = 0; tmp[i]; i++) if (tmp[i] == '\\') tmp[i] = '/';
+  p = tmp;
+  rn = strlen(root);
+  if (strncmp(p, root, rn) == 0 && p[rn] == '/') p += rn + 1;
+  if (strlen(p) >= cap || strstr(p, "../") || strstr(p, "/../") || strstr(p, "..\\")) return 1;
+  strcpy(out, p);
+  return 0;
+}
+
+static int cov_is_production(const char *path) {
+  if (strncmp(path, "src/", 4) == 0) return 1;
+  if (strncmp(path, "include/", 8) == 0 && strncmp(path, "include/tests/", 14) != 0) return 1;
+  return 0;
+}
+
+static int cov_read_gcov(const char *path, const char *root, CovSet *v) {
+  FILE *f;
+  char line[16384];
+  char source[512] = "";
+  CovSource *entry = 0;
+  f = fopen(path, "rb");
+  if (!f) return 1;
+  while (fgets(line, sizeof(line), f)) {
+    char *a, *b, *end;
+    unsigned long n;
+    int covered;
+    if (!strchr(line, '\n') && !feof(f)) { fclose(f); return 1; }
+    if ((a = strstr(line, ":Source:")) != 0) {
+      char *lead = line;
+      while (*lead == ' ' || *lead == '\t') lead++;
+      if (*lead != '-') a = 0;
+    }
+    if (a) {
+      size_t len = strlen(a + 8);
+      while (len && ((a + 8)[len - 1] == '\r' || (a + 8)[len - 1] == '\n')) len--;
+      (a + 8)[len] = '\0';
+      if (cov_relative_source(source, sizeof(source), a + 8, root) != 0) { fclose(f); return 1; }
+      if (cov_is_production(source)) {
+        entry = cov_get_src(v, source);
+        if (!entry) { fclose(f); return 1; }
+      } else entry = 0;
+      continue;
+    }
+    if (!entry) continue;
+    a = strchr(line, ':');
+    if (!a) continue;
+    b = strchr(a + 1, ':');
+    if (!b) continue;
+    n = strtoul(a + 1, &end, 10);
+    if (end == a + 1 || n == 0ul) continue;
+    if (line[0] == '-' || (line[0] != '#' && line[0] != '=' && !isdigit((unsigned char)line[0]) && line[0] != ' ')) continue;
+    /* '#####' and '=====' indicate executable but uncovered. */
+    a = line;
+    while (*a == ' ' || *a == '\t') a++;
+    if (*a == '-') continue;
+    covered = isdigit((unsigned char)*a) ? (strtoul(a, &end, 10) > 0ul) : 0;
+    if (cov_mark(entry, n, covered) != 0) { fclose(f); return 1; }
+  }
+  if (ferror(f)) { fclose(f); return 1; }
+  fclose(f);
+  return 0;
+}
+
+static int cov_source_order(const void *a, const void *b) {
+  const CovSource *x = (const CovSource*)a;
+  const CovSource *y = (const CovSource*)b;
+  return strcmp(x->name, y->name);
+}
+
+static int cov_validate_source_scope(CovSet *v) {
+  StrVec names;
+  int i, j, missing = 0;
+  sv_init(&names);
+  scan_dir_recursive_suffix(&names, "src", ".c");
+  scan_dir_recursive_suffix(&names, "src", ".h");
+  scan_dir_recursive_suffix(&names, "include", ".h");
+  sv_sort_unique(&names);
+  for (i = 0; i < names.count; i++) {
+    const char *n = names.items[i];
+    int found = 0;
+    if (!cov_is_production(n)) continue;
+    for (j = 0; j < v->count; j++) if (streq(v->src[j].name, n)) { found = 1; break; }
+    if (!found) { fprintf(stderr, "tack: coverage: production source not instrumented: %s\n", n); missing = 1; }
+  }
+  sv_free(&names);
+  return missing;
+}
+
+static unsigned long cov_source_digest(const CovSet *v) {
+  int i;
+  unsigned long hash = 2166136261ul;
+  for (i = 0; i < v->count; i++) {
+    const unsigned char *p = (const unsigned char*)v->src[i].name;
+    while (*p) { hash = ((hash ^ (unsigned long)*p++) * 16777619ul) & 0xfffffffful; }
+    hash = ((hash ^ 10ul) * 16777619ul) & 0xfffffffful;
+  }
+  return hash;
+}
+
+static int cov_count_lines(const CovSet *v, unsigned long *covered, unsigned long *total) {
+  int i;
+  unsigned long j;
+  *covered = *total = 0ul;
+  for (i = 0; i < v->count; i++) {
+    for (j = 1ul; j < v->src[i].cap; j++) {
+      if (v->src[i].bits[j] & 1u) {
+        (*total)++;
+        if (v->src[i].bits[j] & 2u) (*covered)++;
+      }
+    }
+  }
+  return *total ? 0 : 1;
+}
+
+/* The manifest is a source/line-set definition, never a surrogate for measured coverage. */
+/* Fingerprint current production and test bytes to reject stale measurements. */
+static int cov_workspace_state(int tests_only, unsigned long *out) {
+  StrVec names;
+  int i;
+  unsigned long state = 2166136261ul;
+  sv_init(&names);
+  if (tests_only) scan_dir_recursive_suffix(&names, g_tests_dir, "_test.c");
+  else {
+    scan_dir_recursive_suffix(&names, "src", ".c");
+    scan_dir_recursive_suffix(&names, "src", ".h");
+    scan_dir_recursive_suffix(&names, "include", ".h");
+  }
+  sv_sort_unique(&names);
+  if (names.count == 0) { sv_free(&names); return 1; }
+  for (i = 0; i < names.count; i++) {
+    const unsigned char *p;
+    unsigned long h;
+    unsigned char word[4];
+    if (!tests_only && !cov_is_production(names.items[i])) continue;
+    if (file_hash32_fnv1a(names.items[i], &h) != 0) { sv_free(&names); return 1; }
+    p = (const unsigned char*)names.items[i];
+    state = fnv1a_update(state, p, strlen(names.items[i]));
+    word[0] = (unsigned char)((h >> 24) & 255ul);
+    word[1] = (unsigned char)((h >> 16) & 255ul);
+    word[2] = (unsigned char)((h >> 8) & 255ul);
+    word[3] = (unsigned char)(h & 255ul);
+    state = fnv1a_update(state, word, 4u);
+  }
+  sv_free(&names);
+  *out = state & 0xfffffffful;
+  return 0;
+}
+
+static unsigned long cov_flags_digest(const char *target, Profile p) {
+  EffectiveOverride ov;
+  const char * const *tokens;
+  unsigned long hash = 2166136261ul;
+  int i;
+  get_effective_override(target, p, &ov);
+  tokens = ov.cflags;
+  if (tokens) {
+    for (i = 0; tokens[i]; i++) {
+      const unsigned char *s = (const unsigned char*)tokens[i];
+      hash = fnv1a_update(hash, s, strlen(tokens[i]));
+      hash = fnv1a_update(hash, (const unsigned char*)"\n", 1u);
+    }
+  }
+  return hash & 0xfffffffful;
+}
+static int cov_write_current(CovSet *v, TestRunStats *stats) {
+  FILE *f;
+  unsigned long covered, total, source_state, tests_state, flags_state;
+  if (cov_workspace_state(0, &source_state) != 0 || cov_workspace_state(1, &tests_state) != 0) return 1;
+  flags_state = cov_flags_digest(default_target_name(), PROF_COVERAGE);
+  if (cov_count_lines(v, &covered, &total) != 0) return 1;
+  ensure_dir_recursive("coverage");
+  f = fopen("coverage/current.txt", "wb");
+  if (!f) return 1;
+  fprintf(f, "tack-coverage-v1\nprofile=%s\nos=%s\ncompiler=%s\n",
+          g_coverage_profile_id ? g_coverage_profile_id : "UNCONFIGURED",
+          cov_os_name(), get_cc());
+  fprintf(f, "covered=%lu\ntotal=%lu\nsources_hash=%08lx\nsource_count=%d\nsource_state=%08lx\ntests_state=%08lx\nflags_state=%08lx\n",
+          covered, total, cov_source_digest(v), v->count, source_state, tests_state, flags_state);
+  fprintf(f, "tests_total=%d\ntests_passed=%d\ntests_skipped=%d\n", stats->total, stats->passed, stats->skipped);
+  if (fclose(f) != 0) return 1;
+  printf("tack: coverage: measured %lu/%lu (%.5f%%), %d sources; coverage/current.txt\n",
+         covered, total, total ? (100.0 * (double)covered / (double)total) : 0.0, v->count);
+  return 0;
+}
+
+typedef struct {
+  char profile[160], os[40], compiler[160];
+  unsigned long covered, total, sources_hash, source_state, tests_state, flags_state;
+  int source_count, tests_total, tests_passed, tests_skipped;
+  int fields;
+} CovRecord;
+
+static int cov_read_record(const char *path, CovRecord *c) {
+  FILE *f;
+  char line[512];
+  memset(c, 0, sizeof(*c));
+  f = fopen(path, "rb");
+  if (!f) return 1;
+  if (!fgets(line, sizeof(line), f) || strncmp(line, "tack-coverage-v1", 16) != 0) { fclose(f); return 1; }
+  while (fgets(line, sizeof(line), f)) {
+    char *eq = strchr(line, '=');
+    char *key, *val, *end;
+    unsigned long n;
+    size_t len;
+    if (!eq) { fclose(f); return 1; }
+    *eq = '\0'; key = line; val = eq + 1;
+    len = strlen(val);
+    while (len && (val[len - 1] == '\r' || val[len - 1] == '\n')) val[--len] = '\0';
+    if (streq(key, "profile")) { if (len >= sizeof(c->profile)) { fclose(f); return 1; } strcpy(c->profile, val); c->fields |= 1; }
+    else if (streq(key, "os")) { if (len >= sizeof(c->os)) { fclose(f); return 1; } strcpy(c->os, val); c->fields |= 2; }
+    else if (streq(key, "compiler")) { if (len >= sizeof(c->compiler)) { fclose(f); return 1; } strcpy(c->compiler, val); c->fields |= 4; }
+    else {
+      n = strtoul(val, &end, streq(key, "sources_hash") || streq(key, "source_state") || streq(key, "tests_state") || streq(key, "flags_state") ? 16 : 10);
+      if (end == val || *end != '\0') { fclose(f); return 1; }
+      if (streq(key, "source_state")) { c->source_state = n; c->fields |= 64; }
+      else if (streq(key, "tests_state")) { c->tests_state = n; c->fields |= 128; }
+      else if (streq(key, "flags_state")) { c->flags_state = n; c->fields |= 256; }
+      else if (streq(key, "covered")) { c->covered = n; c->fields |= 8; }
+      else if (streq(key, "total")) { c->total = n; c->fields |= 16; }
+      else if (streq(key, "sources_hash")) { c->sources_hash = n; c->fields |= 32; }
+      else if (streq(key, "source_count")) c->source_count = (int)n;
+      else if (streq(key, "tests_total")) c->tests_total = (int)n;
+      else if (streq(key, "tests_passed")) c->tests_passed = (int)n;
+      else if (streq(key, "tests_skipped")) c->tests_skipped = (int)n;
+      else { fclose(f); return 1; }
+    }
+  }
+  if (ferror(f)) { fclose(f); return 1; }
+  fclose(f);
+  if ((c->fields & 511) != 511 || c->total == 0ul || c->covered > c->total || !c->profile[0] || !c->os[0]) return 1;
+  return 0;
+}
+
+static int cov_compare(const CovRecord *baseline, const CovRecord *current) {
+  double a, b;
+  if (!streq(baseline->profile, current->profile) ||
+      !streq(baseline->os, current->os) ||
+      !streq(baseline->compiler, current->compiler) ||
+      baseline->sources_hash != current->sources_hash ||
+      baseline->source_count != current->source_count || baseline->flags_state != current->flags_state) {
+    fprintf(stderr, "tack: coverage: BLOCKED incomparable compiler/profile/source scope\n");
+    return 2;
+  }
+  a = (double)current->covered * (double)baseline->total;
+  b = (double)baseline->covered * (double)current->total;
+  if (a < b) {
+    fprintf(stderr, "tack: coverage: FAIL measured ratio below accepted HWM (%lu/%lu < %lu/%lu)\n",
+            current->covered, current->total, baseline->covered, baseline->total);
+    return 1;
+  }
+  if (a > b) {
+    fprintf(stderr, "tack: coverage: BLOCKED improved coverage requires HWM increase in same accepted revision\n");
+    return 2;
+  }
+  printf("tack: coverage: PASS HWM retained: %lu/%lu\n", current->covered, current->total);
+  return 0;
+}
+
+static int cov_fresh(const CovRecord *cur) {
+  unsigned long sources, tests;
+  if (cov_workspace_state(0, &sources) != 0 || cov_workspace_state(1, &tests) != 0) return 0;
+  if (cur->source_state != sources || cur->tests_state != tests || cur->flags_state != cov_flags_digest(default_target_name(), PROF_COVERAGE)) {
+    fprintf(stderr, "tack: coverage: BLOCKED stale measurement after source, test or flags change\n");
+    return 0;
+  }
+  return 1;
+}
+
+static int cov_check_current(void) {
+  CovRecord cur, hwm;
+  if (cov_read_record("coverage/current.txt", &cur) != 0) {
+    fprintf(stderr, "tack: coverage: NOT RUN, missing valid current measurement\n"); return 2;
+  }
+  if (!cov_fresh(&cur)) return 2;
+  if (cov_read_record(cov_baseline_path(), &hwm) != 0) {
+    fprintf(stderr, "tack: coverage: BLOCKED no accepted HWM at %s\n", cov_baseline_path()); return 2;
+  }
+  return cov_compare(&hwm, &cur);
+}
+
+static int cov_test_inventory(int accept);
+static int cov_accept_current(void) {
+  CovRecord cur, hwm;
+  const char *dest = cov_baseline_path();
+  if (cov_read_record("coverage/current.txt", &cur) != 0) {
+    fprintf(stderr, "tack: coverage: NOT RUN, cannot accept an absent measurement\n"); return 2;
+  }
+  if (!cov_fresh(&cur) || cov_test_inventory(0) != 0) return 2;
+  if (!g_coverage_profile_id || !streq(cur.profile, g_coverage_profile_id) || !streq(cur.os, cov_os_name())) {
+    fprintf(stderr, "tack: coverage: BLOCKED profile mismatch\n"); return 2;
+  }
+  if (file_exists(dest) && cov_read_record(dest, &hwm) != 0) {
+    fprintf(stderr, "tack: coverage: BLOCKED invalid existing HWM\n"); return 2;
+  }
+  if (file_exists(dest)) {
+    int rc = cov_compare(&hwm, &cur);
+    if (rc == 1 || (rc == 2 && (!streq(hwm.profile, cur.profile) || hwm.sources_hash != cur.sources_hash || hwm.source_count != cur.source_count || hwm.flags_state != cur.flags_state || !streq(hwm.os, cur.os) || !streq(hwm.compiler, cur.compiler)))) return 2;
+    if (rc == 0) { printf("tack: coverage: unchanged HWM\n"); return 0; }
+  }
+  if (copy_file("coverage/current.txt", "coverage/hwm.pending.tmp") != 0 || rename_replace("coverage/hwm.pending.tmp", dest) != 0) {
+    (void)remove("coverage/hwm.pending.tmp");
+    fprintf(stderr, "tack: coverage: baseline write failed\n"); return 1;
+  }
+  printf("tack: coverage: accepted measured high-water mark: %s\n", dest);
+  return 0;
+}
+
+static int cov_generate_gcov(Profile p, TestRunStats *stats) {
+  StrVec notes, gcovs;
+  CovSet data;
+  char root[2048], work[2048], notes_dir[1024], srcfile[2048];
+  int i, j, err = 0, rc;
+#ifdef _WIN32
+  if (!_getcwd(root, (int)sizeof(root))) return 1;
+#else
+  if (!getcwd(root, sizeof(root))) return 1;
+#endif
+  {
+    size_t k;
+    for (k = 0; root[k]; k++) if (root[k] == '\\') root[k] = '/';
+  }
+  if (!fmt_exe_in_path("gcov")) { fprintf(stderr, "tack: coverage: BLOCKED gcov not found\n"); return 2; }
+  if (strlen(root) + 100u >= sizeof(work)) return 1;
+  tack_snprintf(work, sizeof(work), "%s/build/coverage-gcov", root);
+  if (file_exists(work) && rm_rf(work) != 0) return 1;
+  ensure_dir_recursive(work);
+  {
+    StrVec testfiles;
+    int k;
+    char srcdst[2048], testdst[2048];
+    tack_snprintf(srcdst, sizeof(srcdst), "%s/src", work);
+    tack_snprintf(testdst, sizeof(testdst), "%s/tests", work);
+    ensure_dir_recursive(srcdst);
+    ensure_dir_recursive(testdst);
+    tack_snprintf(srcdst, sizeof(srcdst), "%s/src/tack.c", work);
+    if (copy_file("src/tack.c", srcdst) != 0) return 1;
+    sv_init(&testfiles);
+    scan_dir_recursive_suffix(&testfiles, "tests", "_test.c");
+    for (k = 0; k < testfiles.count; k++) {
+      tack_snprintf(testdst, sizeof(testdst), "%s/tests/%s", work, path_base(testfiles.items[k]));
+      if (copy_file(testfiles.items[k], testdst) != 0) { sv_free(&testfiles); return 1; }
+    }
+    sv_free(&testfiles);
+  }
+  sv_init(&notes); cov_set_init(&data);
+  tack_snprintf(notes_dir, sizeof(notes_dir), "%s/tests/%s/bin", g_build_dir, profile_name(p));
+  scan_dir_recursive_suffix(&notes, notes_dir, ".gcno");
+  sv_sort_unique(&notes);
+  if (notes.count < stats->total) {
+    fprintf(stderr, "tack: coverage: BLOCKED incomplete gcno test inventory (%d of %d)\n", notes.count, stats->total);
+    sv_free(&notes); return 2;
+  }
+#ifdef _WIN32
+  if (_chdir(work) != 0) { sv_free(&notes); return 1; }
+#else
+  if (chdir(work) != 0) { sv_free(&notes); return 1; }
+#endif
+  for (i = 0; i < notes.count; i++) {
+    char gcno[2048], testname[512];
+    const char *bn = path_base(notes.items[i]);
+    size_t len = strlen(bn);
+    Argv av;
+    if (len <= 5 || len >= sizeof(testname)) { err = 1; break; }
+    memcpy(testname, bn, len - 5u); testname[len - 5u] = '\0';
+    tack_snprintf(gcno, sizeof(gcno), "%s/%s", root, notes.items[i]);
+    tack_snprintf(srcfile, sizeof(srcfile), "%s/tests/%s.c", root, testname);
+    if (!file_exists(srcfile)) { err = 1; break; }
+    av_init(&av);
+    av_push(&av, "gcov"); av_push(&av, "-p"); av_push(&av, "-o"); av_push(&av, gcno); av_push(&av, srcfile); av_terminate(&av);
+    rc = run_argv_wait(av.a, 0);
+    av_free(&av);
+    if (rc != 0) { err = 1; break; }
+    sv_init(&gcovs);
+    scan_dir_suffix(&gcovs, ".", ".gcov");
+    for (j = 0; j < gcovs.count; j++) {
+      if (cov_read_gcov(gcovs.items[j], root, &data) != 0) { fprintf(stderr, "tack: coverage: parse FAILED: %s\n", gcovs.items[j]); err = 1; break; }
+      if (remove(gcovs.items[j]) != 0) { fprintf(stderr, "tack: coverage: cleanup FAILED: %s\n", gcovs.items[j]); err = 1; break; }
+    }
+    sv_free(&gcovs);
+    if (err) break;
+  }
+#ifdef _WIN32
+  if (_chdir(root) != 0) err = 1;
+#else
+  if (chdir(root) != 0) err = 1;
+#endif
+  sv_free(&notes);
+  if (!err) {
+    qsort(data.src, (size_t)data.count, sizeof(data.src[0]), cov_source_order);
+    if (cov_validate_source_scope(&data) != 0) { fprintf(stderr, "tack: coverage: source scope missing\n"); err = 1; }
+    else if (cov_write_current(&data, stats) != 0) { fprintf(stderr, "tack: coverage: summary writing failed count=%d\n", data.count); err = 1; }
+  }
+  cov_set_free(&data);
+  if (err) { fprintf(stderr, "tack: coverage: FAIL gcov collection incomplete\n"); return 1; }
+  return cov_check_current();
+}
+
+/* Test ratchet uses a source fingerprint inventory; owner reviews any intentional updates. */
+static int cov_test_inventory(int accept) {
+  const char *path = "coverage/test-inventory.txt";
+  FILE *f;
+  StrVec tests;
+  int i, failed = 0;
+  sv_init(&tests);
+  scan_dir_recursive_suffix(&tests, g_tests_dir, "_test.c");
+  sv_sort_unique(&tests);
+  if (tests.count == 0) { sv_free(&tests); return 2; }
+  if (accept) {
+    ensure_dir_recursive("coverage");
+    f = fopen("coverage/test-inventory.tmp", "wb");
+    if (!f) { sv_free(&tests); return 2; }
+    for (i = 0; i < tests.count; i++) {
+      unsigned long h;
+      if (file_hash32_fnv1a(tests.items[i], &h) != 0) { failed = 1; break; }
+      fprintf(f, "%s\t%08lx\n", tests.items[i], h & 0xfffffffful);
+    }
+    if (fclose(f) != 0) failed = 1;
+    if (!failed && rename_replace("coverage/test-inventory.tmp", path) != 0) failed = 1;
+    if (failed) (void)remove("coverage/test-inventory.tmp");
+    sv_free(&tests);
+    return failed ? 1 : 0;
+  }
+  f = fopen(path, "rb");
+  if (!f) { fprintf(stderr, "tack: test-ratchet: BLOCKED missing inventory\n"); sv_free(&tests); return 2; }
+  for (i = 0; i < tests.count; i++) {
+    char line[1024], expected[1024];
+    unsigned long h;
+    if (file_hash32_fnv1a(tests.items[i], &h) != 0) { failed = 1; break; }
+    if (strlen(tests.items[i]) + 20u >= sizeof(expected)) { failed = 1; break; }
+    sprintf(expected, "%s\t%08lx", tests.items[i], h & 0xfffffffful);
+    if (!fgets(line, sizeof(line), f)) { failed = 1; break; }
+    line[strcspn(line, "\r\n")] = '\0';
+    if (!streq(line, expected)) { fprintf(stderr, "tack: test-ratchet: unexpected source/test change: %s\n", tests.items[i]); failed = 1; break; }
+  }
+  if (!failed) { char extra[2]; if (fgets(extra, sizeof(extra), f)) failed = 1; }
+  if (ferror(f)) failed = 1;
+  fclose(f);
+  sv_free(&tests);
+  if (failed) { fprintf(stderr, "tack: test-ratchet: FAIL inventory mismatch (owner review needed)\n"); return 1; }
+  printf("tack: test-ratchet: PASS versioned source inventory\n");
+  return 0;
+}
 /* --------------------------- commands --------------------------- */
 
 static void print_help(void) {
@@ -5281,9 +5832,11 @@ static void print_help(void) {
   puts("  tack new <name>");
   puts("  tack list");
   puts("  tack fmt  [--check] [--diff] [--list] [--rule NAME] [--target NAME] [--no-defaults] [-v] [--strict] [-- PATH...]");
-  puts("  tack build [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE]");
-  puts("  tack run   [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [-- <args...>]");
-  puts("  tack test  [debug|release] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [--report-tap FILE] [--report-junit FILE]");
+  puts("  tack ratchet tests [--owner-approve]");
+  puts("  tack coverage check | tack coverage accept --owner-approve");
+  puts("  tack build [debug|release|coverage] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE]");
+  puts("  tack run   [debug|release|coverage] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [-- <args...>]");
+  puts("  tack test  [debug|release|coverage] [--target NAME] [-v] [--why|--explain] [--rebuild] [-j N] [--strict] [--no-core] [--ci] [--events-jsonl FILE] [--report-tap FILE] [--report-junit FILE]");
   puts("  tack clean [--cache] [-v]");
   puts("  tack clobber [-v]");
   puts("  tack bom  [debug|release] [--target NAME] [--outdir DIR] [-v] [--strict] [--no-core]");
@@ -5905,6 +6458,14 @@ static const char * const TACK_INIT_DEFAULT_TACK_INI_LINES[] = {
   ";compiler_policy = auto\n",
   ";cflags = -std=c89;-pedantic-errors;-Wextra;-Werror\n",
   "; Select release compiler only when installed; use --rebuild on compiler switch.\n",
+  "; Optional measured GCC/gcov profile (no baseline is generated automatically):\n",
+  ";[target \"app\".coverage]\n",
+  ";compiler = gcc\n",
+  ";compiler_policy = gcc\n",
+  ";cflags = -std=c89;-pedantic-errors;-Wextra;-Werror;--coverage;-O0\n",
+  ";ldflags = --coverage\n",
+  ";[coverage]\n",
+  ";id = linux-gcc-VERSION-gcov-VERSION-coverage-v1\n",
   "\n",
   "[doc]\n",
   "template = templates/tack_template_min.html\n",
@@ -10033,6 +10594,7 @@ static int cmd_fmt(TargetVec *tv, int argc, char **argv, int argi) {
 static Profile parse_profile(int *argi, int argc, char **argv) {
   if (*argi < argc) {
     if (streq(argv[*argi], "release")) { (*argi)++; return PROF_RELEASE; }
+    if (streq(argv[*argi], "coverage")) { (*argi)++; return PROF_COVERAGE; }
     if (streq(argv[*argi], "debug"))   { (*argi)++; return PROF_DEBUG; }
   }
   return PROF_DEBUG;
@@ -10136,6 +10698,24 @@ int main(int argc, char **argv) {
     }
     cmd_doctor(target_name, p);
     tv_free(&tv); config_free(); return 0;
+  }
+  if (streq(cmd, "ratchet")) {
+    int rc;
+    if (argi >= argc || !streq(argv[argi], "tests")) {
+      fprintf(stderr, "usage: tack ratchet tests [--owner-approve]\n"); tv_free(&tv); config_free(); return 2;
+    }
+    argi++;
+    if (argi == argc) rc = cov_test_inventory(0);
+    else if (argi + 1 == argc && streq(argv[argi], "--owner-approve")) rc = cov_test_inventory(1);
+    else { fprintf(stderr, "tack: ratchet: unknown arguments\n"); rc = 2; }
+    tv_free(&tv); config_free(); return rc;
+  }
+  if (streq(cmd, "coverage")) {
+    int rc;
+    if (argi + 1 == argc && streq(argv[argi], "check")) rc = cov_check_current();
+    else if (argi + 2 == argc && streq(argv[argi], "accept") && streq(argv[argi + 1], "--owner-approve")) rc = cov_accept_current();
+    else { fprintf(stderr, "tack: coverage: use check or accept --owner-approve\n"); rc = 2; }
+    tv_free(&tv); config_free(); return rc;
   }
   if (streq(cmd, "init"))    { int rc = cmd_init(); tv_free(&tv); config_free(); return rc; }
   if (streq(cmd, "new"))     {
@@ -10342,7 +10922,16 @@ int main(int argc, char **argv) {
         fprintf(stderr, "tack: test: unknown target: %s\n", target_name);
         events_close(); junit_close(); tap_close(); tv_free(&tv); config_free(); return 2;
       }
-      rc = build_and_run_tests(target_name, p, verbose, force, strict, &stats);
+      if ((g_coverage_profile_id || file_exists("coverage/test-inventory.txt")) && cov_test_inventory(0) != 0) {
+        events_close(); junit_close(); tap_close(); tv_free(&tv); config_free(); return 2;
+      }
+      if (p == PROF_COVERAGE) set_active_compiler_target(target_name, p);
+      if (p == PROF_COVERAGE && (compiler_policy_auto_detect(get_cc()) != COMPILER_POLICY_GCC || compiler_policy_for_cc(get_cc()) != COMPILER_POLICY_GCC || !streq(target_name, default_target_name()) || !g_coverage_profile_id || strncmp(g_coverage_profile_id, cov_os_name(), strlen(cov_os_name())) != 0)) {
+        fprintf(stderr, "tack: coverage: BLOCKED GCC and [coverage] id required\n");
+        events_close(); junit_close(); tap_close(); tv_free(&tv); config_free(); return 2;
+      }
+      rc = build_and_run_tests(target_name, p, verbose, force || p == PROF_COVERAGE, strict, &stats);
+      if (rc == 0 && p == PROF_COVERAGE) rc = cov_generate_gcov(p, &stats);
       duration_ms = tack_elapsed_ms(start_ms);
       events_write_run_finished("test", p, (rc == 0) ? "ok" : "failed", duration_ms);
       junit_write_report(p, &stats, duration_ms);

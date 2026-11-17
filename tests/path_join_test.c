@@ -30,6 +30,6 @@ int main(void) {
   return 0;
 #else
   puts("path_join_test: skipped (non-Windows)");
-  return 0;
+  return 77;
 #endif
 }
