@@ -1,8 +1,8 @@
 # tack.ini: Schlüsselreferenz / Configuration key reference
 
-> **Implementierungsstand:** `src/tack.c` aus tack 0.8.4 (dokumentiert für 0.8.5-dev). Diese Liste stammt aus dem realen INI-Parser `ini_load_file` und der Formatter-Ausführung. **Der Parserfehler aus 0.8.4 ist in 0.8.5-dev RC0.2 korrigiert und durch einen C89-Regressionstest abgedeckt; die tatsächliche Windows-Abnahme steht noch aus.** Nicht alle eingelesenen Schlüssel haben Ausführungswirkung.
+> **Implementierungsstand:** `src/tack.c` aus tack 0.8.4 (dokumentiert für 0.8.5-dev). Diese Liste stammt aus dem realen INI-Parser `ini_load_file` und der Formatter-Ausführung. **Der Parserfehler aus 0.8.4 ist in 0.8.5-dev RC0.2 korrigiert und durch einen C89-Regressionstest abgedeckt; die Windows-GCC-Parser- und Coverage-Abnahme ist nachgewiesen; die externe Windows-Formatterausführung ist noch offen.** Nicht alle eingelesenen Schlüssel haben Ausführungswirkung.
 >
-> **Implementation scope:** `src/tack.c` from tack 0.8.4, documented during 0.8.5-dev. This is derived from `ini_load_file` and formatter execution. **The misplaced `[sbom]` brace found in 0.8.4 is fixed in 0.8.5-dev RC0.2 and covered by a C89 regression test. Windows validation is pending; not every accepted key has runtime semantics.**
+> **Implementation scope:** `src/tack.c` from tack 0.8.4, documented during 0.8.5-dev. This is derived from `ini_load_file` and formatter execution. **The misplaced `[sbom]` brace found in 0.8.4 is fixed in 0.8.5-dev RC0.2 and covered by a C89 regression test. Windows GCC parser and coverage validation pass, but Windows external formatter execution remains pending; not every accepted key has runtime semantics.**
 
 ---
 
@@ -102,7 +102,7 @@ Coverage-HWM-Dateien (`coverage/hwm-linux.txt`, `coverage/hwm-windows.txt`) sind
 | `diff_cmd` | Zeichenfolge | **Eingelesen, derzeit vom Ausführungspfad nicht benutzt** |
 | `env.NAME` | Zeichenfolge | **Eingelesen, derzeit nicht an Kindprozesse übergeben** |
 
-In 0.8.5-dev RC0.2 werden explizite Formatter-INI-Regeln korrekt eingelesen, und `fmt --list --strict` ist im C89-Regressionstest nachgewiesen. Die **interne** `fmt --check`-Implementierung arbeitet mit temporären Kopien und Vergleichen; ein externes Formatter-End-to-End-Gate und die Windows-Abnahme stehen noch aus. `--diff` ist best effort. `fmt --strict` prüft u. a. unbekannte Formatter-Schlüssel und Platzhalter; außerhalb des Formatterbereichs werden unbekannte INI-Schlüssel nicht generell streng zurückgewiesen. Daraus **keine** vollständige Schema-Validierung aller Sektionen ableiten.
+In 0.8.5-dev RC0.2 werden explizite Formatter-INI-Regeln korrekt eingelesen, und `fmt --list --strict` ist im C89-Regressionstest nachgewiesen. Die **interne** `fmt --check`-Implementierung arbeitet mit temporären Kopien und Vergleichen; eine externe Linux-Formatterausführung ist erfolgreich geprüft; das entsprechende Windows-E2E-Gate bleibt offen. `--diff` ist best effort. `fmt --strict` prüft u. a. unbekannte Formatter-Schlüssel und Platzhalter; außerhalb des Formatterbereichs werden unbekannte INI-Schlüssel nicht generell streng zurückgewiesen. Daraus **keine** vollständige Schema-Validierung aller Sektionen ableiten.
 
 ## Klare Nicht-Funktionen
 
@@ -199,7 +199,7 @@ Supported SBOM formats: `tack`, `tack-sbom-1`, `cyclonedx`, `cyclonedx-1.4`, `sp
 | `diff_cmd` | **Parsed, not currently used by execution** |
 | `env.NAME` | **Parsed, not currently forwarded to child processes** |
 
-In 0.8.5-dev RC0.2 the formatter rule keys are parsed, and a C89 regression test verifies `fmt --list --strict` without executing an external formatter. The **internal** `fmt --check` path uses temporary copies; an external formatter end-to-end test and Windows acceptance remain pending. `fmt --diff` is best effort. `fmt --strict` validates configured rules and unknown formatter keys, but should not be mistaken for universal strict schema validation of all INI sections.
+In 0.8.5-dev RC0.2 the formatter rule keys are parsed, and a C89 regression test verifies `fmt --list --strict` without executing an external formatter. The **internal** `fmt --check` path uses temporary copies; Linux external formatter execution has passed; Windows external formatter E2E remains pending. `fmt --diff` is best effort. `fmt --strict` validates configured rules and unknown formatter keys, but should not be mistaken for universal strict schema validation of all INI sections.
 
 ## Not implemented as INI contracts
 

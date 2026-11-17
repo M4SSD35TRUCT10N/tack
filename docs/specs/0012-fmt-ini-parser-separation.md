@@ -4,6 +4,10 @@
 
 ## Deutsch
 
+### RC0.3-Nachprüfung (17.11.2026)
+Windows TDM-GCC 10.3.0 Release/Debug wurden vom Owner mit je 26 kompiliert, 25 PASS und 1 SKIP bestätigt. Die Windows-Coverage-HWM 3434/5827 (58,93256 %) wurde vom Owner nach echtem GCC/gcov-Lauf angenommen und mit erneutem PASS bestätigt. Externe Formatterausführung auf Linux wurde isoliert mit echtem Prozess und Check-vorher/Formatieren/Check-nachher geprüft; Windows externes E2E bleibt NOT RUN. Siehe [Integrationsleitfaden](../guides/formatter-external-validation.md). Die Linux-HWM bleibt unverändert (3228/5708); 3470/5708 ist ein gemessener Kandidat.
+
+
 ### Fehler und Vertragsgrenze
 
 In tack 0.8.4 lagen die Schlüsselbehandlungen von `[fmt]` und `[fmt "NAME"]` innerhalb des Blocks `if (sec == SEC_SBOM)`, also hinter einer gegenseitig ausschließenden Bedingung. Ein gültiger Formatter-INI-Abschnitt wurde daher zwar als Sektion erkannt, seine Schlüssel aber stillschweigend ignoriert. `fmt --list --strict` endete mit `missing cmd`.
@@ -22,6 +26,10 @@ In tack 0.8.4 lagen die Schlüsselbehandlungen von `[fmt]` und `[fmt "NAME"]` in
 `tests/fmt_ini_parser_test.c` prüft vollständiges `[fmt]`-Parsing, getrenntes `[sbom]`, `fmt --list --strict`, Ausschlussmuster, Leerzeichen in Kandidatenpfaden sowie Negativfälle. Linux GCC 14.2.0: Release 26 kompiliert / 25 PASS / 1 SKIP / 0 FAIL. Instrumentierter Linux-GCC/gcov-Kandidat: 3470/5708 (60,79187 %), höhere HWM **nicht angenommen**; Coverage-Gate `BLOCKED improved coverage requires HWM increase`. Windows/TDM-GCC und echte externe Formatterausführung: `NOT RUN`. Kein Release-Tag oder neuer Versionseintrag behauptet.
 
 ## English
+
+### RC0.3 follow-up verification (2026-11-17)
+Owner Windows TDM-GCC 10.3.0 release/debug suites each compiled 26 tests with 25 PASS and one SKIP. Owner accepted measured Windows coverage HWM 3434/5827 (58.93256%) and confirmed PASS in a fresh run. Real external formatter execution passed on Linux with isolated list/check-before/write/check-after; external Windows E2E remains NOT RUN. See [integration guide](../guides/formatter-external-validation.md). Linux accepted HWM remains 3228/5708; the measured 3470/5708 improvement is a candidate.
+
 
 ### Defect and scope
 

@@ -75,14 +75,14 @@ tack --config .\tack.ini build release --target app --rebuild -j 1
 
 Die Priorität für das **Compilerprogramm** ist `TACK_CC` → `[target "NAME".PROFILE] compiler` → `[project] compiler` → eingebautes `tcc`. Die **Policy** (`auto|tcc|gcc|clang|generic`) ist eine getrennte Entscheidung über eingebaute Compilerflags. `doctor` zeigt die tatsächlich gewählten Einstellungen. Bei Compilerwechsel im selben Profil `--rebuild` verwenden.
 
-**Formatter-Hinweis für 0.8.5-dev RC0.2:** Die in 0.8.4 defekte Verarbeitung der `[fmt]`-Sektionen ist korrigiert; die neue C89-Regression prüft `fmt --list --strict`. Externe Formatter-Ausführung und Windows-Abnahme stehen noch aus. `check_cmd`, `diff_cmd` und `env.*` werden zwar eingelesen, aber nicht als zusätzliche Aktionen ausgeführt. Die veröffentlichte Binary-Version bleibt bis zur gesonderten Release-Abnahme 0.8.4.
+**Formatter-Status 0.8.5-dev RC0.3:** Der Parserfehler ist repariert; Owner-Tests unter Windows (GCC Release und TinyCC Debug) bestehen mit 25 PASS, 1 SKIP. Die Owner-HWM 3434/5827 (58,93256 %) wurde nach erneuter Messung bestätigt. Ein echter externer Formatterlauf unter Linux ist für `--list`, `--check` (vorher/nachher) und In-place-Ausführung mit Dateinamen inklusive Leerzeichen geprüft. Die externe Windows-Formatterausführung bleibt separat offen. `check_cmd`, `diff_cmd` und `env.*` besitzen weiterhin keine zusätzliche Ausführungswirkung. Die Binary-Version bleibt bis zur Release-Abnahme 0.8.4.
 
 Weitere heute verfügbare Konfigurationsbausteine sind deklarative Multi-Targets und Shared Core, Debug-/Release-/Coverage-Overrides, sichere Pfade, Formatter-Regeln, DOC/BOM/SBOM, CI-Berichte sowie getrennte Linux-/Windows-Coverage-HWMs. Die Bedienung steht **nicht nur in historischen Versionsdateien**, sondern direkt hier und in den folgenden zwei praktischen Nachschlagewerken:
 
 - **[tack.ini-Schritt-für-Schritt-Leitfaden](docs/guides/tack-ini.md):** vom Minimalprojekt über Multi-Targets bis zu Formatter- und Coverage-Profilen.
 - **[Vollständige Konfigurationsreferenz](docs/reference/tack-ini.md):** alle tatsächlich unterstützten Sektionen und Schlüssel, inklusive Grenzen der Implementierung.
 
-**Wichtige Fallen:** `compiler` gehört in `[project]` oder in eine **profilierte** Target-Sektion, nicht in `[target "app"]`. Ein leeres `cflags =` löscht geerbte Flags nicht zuverlässig. Wichtiger 0.8.4-Befund: Durch einen Parser-Klammerfehler sind die `[fmt]`-Schlüssel derzeit **insgesamt nicht wirksam**; die Referenz kennzeichnet diesen Release-Blocker und weitere unvollständige Felder ausdrücklich.
+**Wichtige Fallen:** `compiler` gehört in `[project]` oder in eine **profilierte** Target-Sektion, nicht in `[target "app"]`. Ein leeres `cflags =` löscht geerbte Flags nicht zuverlässig. Historisch: Unter 0.8.4 war das `[fmt]`-Parsing defekt; unter 0.8.5-dev RC0.3 ist es korrigiert und auf beiden Plattformen getestet. Die Referenz dokumentiert noch nicht ausführbare Zusatzfelder.
 
 ## Spezifikationen und Architekturentscheidungen
 
@@ -730,9 +730,9 @@ Other currently available configuration features include declarative multi-targe
 - **[Practical tack.ini walkthrough](docs/guides/tack-ini.md):** minimal project, profile compilers, multiple targets, formatters and coverage.
 - **[Complete configuration reference](docs/reference/tack-ini.md):** actually supported sections/keys and documented implementation limits.
 
-**Common traps:** `compiler` belongs in `[project]` or a **profiled** target section, not the base `[target "app"]`; empty `cflags =` does not reliably erase inherited flags; the **0.8.4** formatter-section parser defect is fixed in **0.8.5-dev RC0.2** but awaits Windows acceptance; the reference distinguishes parsed fields from operational features.
+**Common traps:** `compiler` belongs in `[project]` or a **profiled** target section, not the base `[target "app"]`; empty `cflags =` does not reliably erase inherited flags; the **0.8.4** formatter parser defect is fixed in **0.8.5-dev RC0.3**, with Windows parser tests passing; the reference distinguishes parsed fields from operational features.
 
-**Formatter note for 0.8.5-dev RC0.2:** The broken `[fmt]` section parsing found in 0.8.4 is fixed, with a C89 regression covering `fmt --list --strict`. External formatter execution and Windows acceptance are pending. `check_cmd`, `diff_cmd`, and `env.*` are parsed but are not performed as additional actions. The published executable version remains 0.8.4 until separate release approval.
+**Formatter status for 0.8.5-dev RC0.3:** The parser fix is validated by owner-provided Windows GCC release/TinyCC debug tests (25 PASS, one platform SKIP) and confirmed Windows HWM 3434/5827. A real external formatter command was exercised on Linux with `--list`, `--check` before/after, in-place formatting and a filename containing spaces. External formatter execution on Windows is still NOT RUN. `check_cmd`, `diff_cmd` and `env.*` have no additional runtime action. The executable remains version 0.8.4 until release approval.
 
 
 ## Specifications and architecture decisions

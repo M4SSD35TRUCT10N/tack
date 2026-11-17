@@ -168,7 +168,7 @@ output = build/sbom.cdx.json
 
 ## 7. Formatter-Regeln: Parserkorrektur in 0.8.5-dev RC0.2
 
-**Entwicklungsstand 0.8.5-dev RC0.2 (noch kein Release):** Der in 0.8.4 vorhandene `[sbom]`-Klammerfehler ist korrigiert. `[fmt]` und `[fmt "NAME"]` werden unabhängig eingelesen. Ein C89-Regressionstest überprüft alle Regelwerte, den CLI-Aufruf `fmt --list --strict` sowie gültige und ungültige Konfigurationen. Die Windows-Abnahme und ein externer Formatter-End-to-End-Lauf stehen noch aus. Die folgende Konfiguration funktioniert deshalb als Parser-/Auswahlbeispiel, aber wird noch nicht als plattformübergreifend freigegebener Formatter-Lauf beworben.
+**Entwicklungsstand 0.8.5-dev RC0.3 (noch kein Release):** Der in 0.8.4 vorhandene `[sbom]`-Klammerfehler ist korrigiert. `[fmt]` und `[fmt "NAME"]` werden unabhängig eingelesen. Ein C89-Regressionstest überprüft alle Regelwerte, den CLI-Aufruf `fmt --list --strict` sowie gültige und ungültige Konfigurationen. Windows-GCC Release, Debug und Coverage sind vom Owner erfolgreich geprüft; die externe Linux-Formatterausführung ist nachgewiesen. Nur das externe Windows-Formatter-E2E-Gate steht noch aus. Die folgende Konfiguration funktioniert deshalb als Parser-/Auswahlbeispiel, aber wird noch nicht als plattformübergreifend freigegebener Formatter-Lauf beworben.
 
 ```ini
 [fmt]
@@ -190,7 +190,7 @@ tack --config .\tack.ini fmt --list --rule c --strict
 tack --config .\tack.ini fmt --check --rule c --strict
 ```
 
-`--list` zeigt die Dateiauswahl ohne Formatterausführung; `--check` arbeitet mit temporären Kopien und soll Originaldateien unverändert lassen. Die externe Formatterausführung ist für RC0.2 noch gesondert abzunehmen. Exitcode 2 kann Formatabweichung *oder* Konfigurations-/Regelfehler bedeuten. `mode=file` benötigt `@FILE@`; `mode=batch` benötigt `@RSP@`. Der Formatter selbst ist eine **optionale externe Abhängigkeit**, kein Buildtool-Zwang.
+`--list` zeigt die Dateiauswahl ohne Formatterausführung; `--check` arbeitet mit temporären Kopien und soll Originaldateien unverändert lassen. Die externe Formatterausführung wurde in RC0.3 auf Linux mit `sed`, temporärer Kopie und Originaldatei erfolgreich geprüft Exitcode 2 kann Formatabweichung *oder* Konfigurations-/Regelfehler bedeuten. `mode=file` benötigt `@FILE@`; `mode=batch` benötigt `@RSP@`. Der Formatter selbst ist eine **optionale externe Abhängigkeit**, kein Buildtool-Zwang.
 
 **Weiter bestehende Implementierungsgrenze:** `check_cmd`, `diff_cmd` und `env.NAME` werden im Code zwar als Felder erkannt, aber nicht als eigene Kommandos beziehungsweise Umgebungsvariablen angewandt. Auch `fail_fast = no` garantiert derzeit kein Fortsetzen nach Regelversagen. Diese Felder **nicht** als fertige Features planen; siehe Referenz.
 
@@ -359,7 +359,7 @@ output = build/sbom.cdx.json
 
 DOC generates offline-readable HTML; BOM describes build inputs; SBOM is a **build-input SBOM**, not a package resolver. The SBOM `output` setting affects a single-target export; `--all-targets` writes separate per-target files. Configured missing DOC/BOM templates or CSS fail rather than silently falling back.
 
-**0.8.5-dev RC0.2 development status (not released):** The `[sbom]` nesting defect in 0.8.4 is fixed; `[fmt]` and `[fmt "NAME"]` are parsed independently. A strict C89 regression test verifies formatter keys, `fmt --list --strict` and rejection of malformed keys/modes. Windows acceptance and an external formatter end-to-end test are still pending. The example below is now valid for parsing and selection but not yet certified as a cross-platform formatter execution gate.
+**0.8.5-dev RC0.3 development status (not released):** The `[sbom]` nesting defect in 0.8.4 is fixed; `[fmt]` and `[fmt "NAME"]` are parsed independently. A strict C89 regression test verifies formatter keys, `fmt --list --strict` and rejection of malformed keys/modes. Owner-provided Windows GCC release, TinyCC debug and GCC coverage pass; real external formatter execution is verified on Linux, while the Windows external E2E gate remains NOT RUN. The example below is now valid for parsing and selection but not yet certified as a cross-platform formatter execution gate.
 
 ```ini
 [fmt]
@@ -376,7 +376,7 @@ cmd = clang-format -i --style=file @FILE@
 requires = clang-format
 ```
 
-The fixed parser lets `fmt --list --rule c --strict` preview the selection. `fmt --check --rule c --strict` formats temporary copies; its external tool behavior still needs integration validation; exit code 2 may also denote a configuration or rule error. `mode=file` requires `@FILE@`; `mode=batch` requires `@RSP@`.
+The fixed parser lets `fmt --list --rule c --strict` preview the selection. `fmt --check --rule c --strict` formats temporary copies; its Linux external tool behavior is validated with a throwaway `sed` fixture; Windows external E2E is still pending; exit code 2 may also denote a configuration or rule error. `mode=file` requires `@FILE@`; `mode=batch` requires `@RSP@`.
 
 **Further limitation after a parser fix:** `check_cmd`, `diff_cmd`, and `env.NAME` exist as source-level fields but are not applied in current formatter execution paths. `fail_fast = no` does not currently guarantee continuing after a formatter error. Do not treat these as operational features.
 

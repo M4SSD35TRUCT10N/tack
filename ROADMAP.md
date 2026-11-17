@@ -6,6 +6,12 @@ Links: **[README](README.md)** · **[FAQ](FAQ.md)** · **[Release Notes](RELEASE
 
 ## Deutsch (Roadmap)
 
+### Aktueller 0.8.5-dev-Stand (RC0.3)
+- Windows GCC Release/TinyCC Debug/GCC-Coverage sind vom Owner mit 25 PASS, 1 SKIP und neuer HWM 3434/5827 (58,93256 %) erfolgreich geprüft.
+- Externer Formatter-End-to-End-Lauf unter Linux erfolgreich; entsprechende Windows-Prüfung noch offen.
+- Linux-Coverage 3470/5708 (60,79187 %) gemessen, aber die höhere HWM noch nicht angenommen. Versionsanhebung und neues Release später nach erneuten Gates.
+
+
 ### Abgeschlossener Stand: v0.8.1-dev
 - `docs/` ist jetzt der feste Ort für Spezifikationen, Architekturentscheidungen und ergänzende Leitfäden.
 - 0.8 verfolgt bewusst **keine** generische Toolchain-DSL und kein Meta-Buildsystem als Zielbild.
@@ -183,6 +189,12 @@ Testinventar und Coverage-Gates sind implementiert. Die Windows/GCC-Release- und
 - Risikobasierte zusätzliche Negativ- und CLI-E2E-Tests, jeweils ein Meilenstein und eine echte Ratchet-Messung. Siehe [Plan](docs/plans/0.8.6-coverage.md).
 
 ## English (Roadmap)
+
+### Current 0.8.5-dev status (RC0.3)
+- Windows GCC release/TinyCC debug/GCC coverage passed in the owner log with 25 PASS, one SKIP and accepted 3434/5827 (58.93256%) HWM.
+- External formatter end-to-end verified on Linux; Windows external execution remains pending.
+- Linux 3470/5708 (60.79187%) improvement measured but not yet accepted as HWM. Version promotion/release subject to fresh gates.
+
 
 ### Completed state: v0.8.1-dev
 - `docs/` is now the fixed home for specifications, architecture decisions, and supporting guides.

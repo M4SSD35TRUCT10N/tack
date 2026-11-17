@@ -30,6 +30,7 @@
 
 ### Leitfäden
 - [tack.ini: Praxiseinstieg, Compilerprofile, Targets und Coverage](guides/tack-ini.md)
+- [Externe Formatter-Ausführung: Integrationsprüfung](guides/formatter-external-validation.md)
 - [tack.ini: vollständige Schlüsselreferenz](reference/tack-ini.md)
 - [v0.8.6: Coverage-Ziele und Testmatrix (Plan)](plans/0.8.6-coverage.md)
 - [GitHub self-hosted runners – Workflow-Starter](guides/github-self-hosted-runners.md)
@@ -44,7 +45,7 @@
 - [0.8.3-dev: BA-STD-C89-Kandidat](releases/0.8.3-dev.md)
 - [0.8.4: Test- und Coverage-Ratchet](releases/0.8.4.md)
 - [Windows-HWM: Abnahmenachweis 0.8.4](releases/0.8.4-windows-hwm.md)
-- [0.8.5-dev: Dokumentationsmeilenstein](releases/0.8.5-dev.md)
+- [0.8.5-dev: Dokumentation und Formatter-Validierung](releases/0.8.5-dev.md)
 
 Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokumentgruppen in Navigation und Index behandelt.
 
@@ -76,6 +77,7 @@ Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokume
 
 ### Guides
 - [tack.ini: guided configuration walkthrough](guides/tack-ini.md)
+- [Formatter: external integration check](guides/formatter-external-validation.md)
 - [tack.ini: complete key reference](reference/tack-ini.md)
 - [v0.8.6: coverage targets and traceability plan](plans/0.8.6-coverage.md)
 - [GitHub self-hosted runners – workflow starter](guides/github-self-hosted-runners.md)
@@ -90,6 +92,6 @@ Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokume
 - [0.8.3-dev: BA-STD-C89 candidate](releases/0.8.3-dev.md)
 - [0.8.4: test and coverage ratchets](releases/0.8.4.md)
 - [Windows HWM: 0.8.4 acceptance evidence](releases/0.8.4-windows-hwm.md)
-- [0.8.5-dev: documentation milestone](releases/0.8.5-dev.md)
+- [0.8.5-dev: documentation and formatter verification](releases/0.8.5-dev.md)
 
 Subdirectories below `docs/` are treated by `tack doc` as separate document groups in navigation and index.

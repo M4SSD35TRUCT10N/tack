@@ -2,6 +2,13 @@
 
 ## Deutsch
 
+### RC0.3: Windows-HWM und externes Formatter-E2E auf Linux (17.11.2026)
+
+- **Owner-Windows-Abnahme:** TDM-GCC Release und TinyCC Debug jeweils 26 kompiliert, 25 PASS, 1 SKIP, 0 FAIL. GCC/gcov maß **3434/5827 = 58,93256 %**, erhöhte Windows-HWM auf Nutzerbefehl angenommen und nach vollständiger Neu-Messung erneut **PASS HWM retained**. Profil/Fingerprints wurden wortgetreu aus `coverage/hwm-windows.txt` übernommen.
+- **Linux:** Externer Formatter mit isolierter `sed`-Fixture auf echtem CLI-Pfad erfolgreich (`--list`, `--check` vor und nach tatsächlicher Formatierung; Dateiname mit Leerzeichen; temporärer Check verändert Original nicht). [Reproduzierbarer Ablauf](../guides/formatter-external-validation.md).
+- **Linux-HWM:** vorher angenommen **3228/5708**; vollständige Messung aus RC0.2 **3470/5708 (60,79187 %)** ist ein höherer, noch nicht vom Owner angenommener Kandidat. Nicht stillschweigend erhöhen.
+- **Offen:** Windows externe Formatter-Ausführung; Linux-HWM-Annahme und Re-Check, tatsächlicher Versionssprung auf 0.8.5 mit nötiger Neumessung und Release-Abnahme. Produktions-C und Testbestand sind gegenüber RC0.2 unverändert. Kein Tag/Push.
+
 - **0.8.5-dev RC0.2 (17.11.2026):** Vorher unter `[sbom]` verschachtelte `[fmt]`- und `[fmt "NAME"]`-INI-Zweige sind wieder eigenständig erreichbar. Neuer `tests/fmt_ini_parser_test.c` prüft Regelwerte, CLI-Listing, Leerzeichen und strikte Negativfälle; Testinventar erweitert. Linux GCC Release **26 kompiliert, 25 PASS, 1 SKIP**; instrumentiert 3470/5708 (**60,79187 %**, verbesserter Kandidat, HWM noch nicht vom Owner angenommen). Der zuvor akzeptierte Linux-HWM-Wert **3228/5708 bleibt unverändert**; Windows-Compiler, Windows-Coverage und externe Formatter-Ausführung für RC0.2 sind NOT RUN. Für v0.8.5 noch Versionsanhebung und plattformübergreifende Abnahme nötig. BA-STD-C89 v0.3 DRAFT ergänzt Commit-Nachrichten, Portabilität, CLI-Tests und parallelisierbare Tests; keine Gruppenratifikation behauptet.
 
 - **0.8.5-dev Dokumentationsmeilenstein (17.11.2026):** Quellstand aus freigegebenem 0.8.4/RC0.6, GitHub-`main` Blob-SHAs für `src/tack.c`, `tack.ini`, README und Windows-HWM abgeglichen. README DE/EN erklärt 0.8.2-Profilerweiterung jetzt im Hauptteil; neue `docs/guides/tack-ini.md`, `docs/reference/tack-ini.md`, Plan für 0.8.6. Keine Produktionscode-Änderung, kein Auto-Tag und keine erneute HWM-Abnahme in diesem dokumentarischen Meilenstein. **Neuer P1-Befund:** `[fmt]`/`[fmt "NAME"]`-Schlüssel-Handler stehen in `ini_load_file` innerhalb `if (sec == SEC_SBOM)`; Ausführung unerreichbar, konkreter `fmt --list --strict`-Test ergibt `missing cmd`. Getrennten C89-Fix mit Regressionstests und Windows-/Linux-Gates vor 0.8.5-Freigabe durchführen. Owner meldete inzwischen Windows-Coverage-Gate PASS (3192/5827) nach RC0.6.
@@ -19,6 +26,13 @@
 - **Historie:** RC0.2 behob Windows-Pfade/Zeilenenden im Testinventar. Kein Test zur Freigabe abgeschwächt. Nur finaler `docs/releases/0.8.4.md` ist der aktuelle Releasebericht; alte dev-Stände 0.8.2/0.8.3 bleiben historische Dokumente.
 
 ## English
+
+### RC0.3: Windows HWM and real external formatter execution on Linux (2026-11-17)
+
+- **Owner Windows validation:** TDM-GCC release and TinyCC debug each compiled 26 tests, 25 PASS, one SKIP, zero failures. GCC/gcov measured **3434/5827 = 58.93256%**. The owner accepted this increased Windows HWM and confirmed **PASS HWM retained** in a fresh complete instrumented run. Profile and fingerprints are transcribed from the owner-provided baseline.
+- **Linux:** Verified real external formatting in an isolated fixture using CLI `--list`, `--check` before/after in-place formatting, a filename with spaces, and unchanged original content during the check. See the [reproduction guide](../guides/formatter-external-validation.md).
+- **Linux HWM:** Previously accepted baseline **3228/5708** remains unchanged. Fully measured improved candidate **3470/5708 (60.79187%)** still requires owner approval; do not silently raise it.
+- **Pending:** Windows external formatter execution, Linux HWM approval/recheck, version promotion to 0.8.5 (requiring fresh measurement) and release approval. C89 production and tests are byte-identical to RC0.2. No Git tag/push.
 
 - **0.8.5-dev RC0.2 (2026-11-17):** Restored independent `[fmt]`/`[fmt "NAME"]` parsing previously nested under `[sbom]`. New `tests/fmt_ini_parser_test.c` checks rule fields, CLI listing, spaces in paths and strict negative cases, with refreshed test inventory. Linux GCC release **26 compiled, 25 PASS, one SKIP**; measured instrumented coverage 3470/5708 (**60.79187%**), improved candidate **BLOCKED pending owner HWM acceptance**. Accepted Linux HWM **3228/5708 is untouched**; Windows compiler/coverage and external formatter execution NOT RUN. Version promotion and cross-platform acceptance remain pending. BA-STD-C89 v0.3 DRAFT adds commit messages, portability, CLI output and parallel-test targets; group-wide ratification not claimed.
 

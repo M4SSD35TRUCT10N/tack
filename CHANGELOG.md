@@ -2,6 +2,12 @@
 
 ## Deutsch
 
+
+### v0.8.5-dev RC0.3 (Windows-HWM und externe Linux-Formatter-Prüfung, NICHT FREIGEGEBEN)
+- Owner-Prüfung: Windows GCC Release und TinyCC Debug je 26 kompiliert, 25 PASS, 1 SKIP; GCC/gcov nach neuer HWM-Annahme 3434/5827 (58,93256 %) PASS, 26 Testquellen und keine Fehler. Die vorherige Windows-HWM war 3192/5827.
+- Erster echter externer Formatter-CLI-Lauf auf Linux: Liste, Check-Differenz mit unveränderter Quelldatei, Formatieren und anschließender Check-PASS; Dateiname mit Leerzeichen. Windows externer Formatter bleibt NOT RUN.
+- Kein Produktionscode oder Test verändert; Linux 3470/5708 (60,79187 %) bleibt gemessener, noch nicht angenommener Kandidat. Die Ausführungsversionsnummer bleibt 0.8.4; kein Tag/Push.
+
 ### v0.8.5-dev RC0.2 (Formatter-Parserkorrektur, NICHT FREIGEGEBEN)
 - Compilerprogramm und Compiler-Policy je Targetprofil (seit 0.8.2-dev) jetzt direkt im README-Hauptteil erklärt.
 - Bilinguale INI-Anleitung und Parser-Schlüsselreferenz mit nachvollziehbaren Beispielen ergänzt.
@@ -39,6 +45,12 @@
 - Abgeschlossener Basisstand. Details in [RELEASENOTES.md](RELEASENOTES.md).
 
 ## English
+
+
+### v0.8.5-dev RC0.3 (Windows HWM and Linux external formatter verification, NOT RELEASED)
+- Owner-verified Windows GCC release and TinyCC debug: 26 compiled, 25 PASS, one SKIP, zero failures; GCC/gcov PASS after acceptance of 3434/5827 (58.93256%), raised from 3192/5827.
+- Real external formatter process validated on Linux using CLI list, check-before, in-place formatting and check-after with a filename containing spaces. Windows external formatter E2E NOT RUN.
+- Production and test sources unchanged; Linux 3470/5708 (60.79187%) remains measured but not yet approved as HWM. Binary version remains 0.8.4; no tag/push.
 
 ### v0.8.5-dev RC0.2 (formatter parser fix, NOT RELEASED)
 - README now explains the per-target/profile compiler-program and compiler-policy split added in 0.8.2-dev.

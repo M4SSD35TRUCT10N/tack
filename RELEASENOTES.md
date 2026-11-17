@@ -6,12 +6,18 @@
 
 ## Deutsch (Release Notes)
 
+### v0.8.5-dev RC0.3 (Windows-HWM und externe Linux-Formatter-Prüfung, NICHT FREIGEGEBEN)
+- Windows: TDM-GCC Release/TinyCC Debug 25 PASS, 1 SKIP; gemessene und angenommene HWM 3434/5827 (58,93256 %), erneuter Coverage-Gate PASS.
+- Externer Formatter unter Linux mit Dateiname inklusive Leerzeichen end-to-end verifiziert; Windows externes Formatter-E2E noch offen.
+- Linux 3470/5708 (60,79187 %) gemessen, Owner-HWM-Annahme noch ausstehend. Keine C89-Quell-/Teständerung und kein 0.8.5-Release.
+
+
 > `v0.8.4` wurde als eigenständiges CLI-Werkzeug zur Veröffentlichung freigegeben. Die Integration in weitere Fremdprojekte (z. B. ft2-clone oder nuklear) ist weiterhin nicht als getestet zu betrachten. Tag und GitHub-Release sind erst nach dem Push nachzuweisen.
 
 ### v0.8.5-dev RC0.2 (Formatter-Parserkorrektur, NICHT FREIGEGEBEN)
 - Die README erklärt Compilerprogramme und Compiler-Policy je Targetprofil (seit v0.8.2-dev) jetzt im Hauptteil.
 - `docs/guides/tack-ini.md` und `docs/reference/tack-ini.md` dokumentieren praktische Konfigurationen, Parser-Schlüssel und Einschränkungen.
-- Die 0.8.4-Fehlverschachtelung von `[fmt]`/`[fmt "NAME"]` unter `[sbom]` ist in C89 korrigiert; der neue `fmt_ini_parser_test.c` prüft Parserwerte, `fmt --list --strict`, Leerzeichen und strikte Negativfälle. Linux GCC Release: 26 kompiliert, 25 PASS, 1 SKIP. Gemessener Linux-Coverage-Kandidat 3470/5708 (60,79187 %) ist besser als die bisherige HWM, benötigt aber noch Owner-Abnahme. Windows und externe Formatter-Ausführung sind NOT RUN; `TACK_VERSION` bleibt 0.8.4 bis zum eigentlichen Release. Der separate 0.8.6-Plan bleibt unverändert.
+- Die 0.8.4-Fehlverschachtelung von `[fmt]`/`[fmt "NAME"]` unter `[sbom]` ist in C89 korrigiert; der neue `fmt_ini_parser_test.c` prüft Parserwerte, `fmt --list --strict`, Leerzeichen und strikte Negativfälle. Linux GCC Release: 26 kompiliert, 25 PASS, 1 SKIP. Gemessener Linux-Coverage-Kandidat 3470/5708 (60,79187 %) ist besser als die bisherige HWM, benötigt aber noch Owner-Abnahme. Windows und externe Formatter-Ausführung waren zum Zeitpunkt von RC0.2 NOT RUN; `TACK_VERSION` bleibt 0.8.4 bis zum eigentlichen Release. Der separate 0.8.6-Plan bleibt unverändert.
 
 ### v0.8.4 (vom Owner zur Veröffentlichung freigegeben)
 - **RC0.6 Windows-HWM:** Vom Owner am 17.11.2026 mit TDM-GCC/gcov 10.3.0 tatsächlich gemessen: 3192/5827 ausführbare Produktionszeilen (54,77947 %). Die Messung ist als `coverage/hwm-windows.txt` festgeschrieben. Linux 3228/5708 unverändert. Bestätigenden `coverage check` und vollständigen instrumentierten Windows-Lauf gegen diese HWM vor GitHub-Push erneut ausführen.
@@ -212,6 +218,12 @@
 ---
 
 ## English (Release Notes)
+
+### v0.8.5-dev RC0.3 (Windows HWM and external Linux formatter check, NOT RELEASED)
+- Windows TDM-GCC release/TinyCC debug: 25 PASS, one SKIP; measured and accepted HWM 3434/5827 (58.93256%), fresh coverage gate PASS.
+- Real external formatter end-to-end verified on Linux, including a filename with spaces; Windows external formatter E2E pending.
+- Linux 3470/5708 (60.79187%) measured, owner HWM acceptance pending. No changes to C89 production/tests and no 0.8.5 release.
+
 
 > `v0.8.4` has been approved for publication as a standalone CLI. Integration with additional third-party projects (e.g. ft2-clone or nuklear) has not been verified. Git tag and GitHub Release are still pending the push.
 
