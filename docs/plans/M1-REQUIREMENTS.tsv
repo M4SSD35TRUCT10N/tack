@@ -1,0 +1,17 @@
+ID	Kritisch	Windows RC0.3	Linux RC0.3	Nachweis / offene Grenze
+S01	JA	PASS	PASS	ID-Token-Vertrag: tv_apply_targetdef, negative Testfälle
+S02	JA	PASS	PASS	BIN-Token-Vertrag: tv_apply_targetdef, negative Testfälle
+S03	JA	PASS (Unit+CLI-E2E)	PASS (Unit+CLI-E2E)	Relative Traversal (.., gemischte Separatoren); Windows safe.ini list Exit 2
+S04	JA	PASS	PASS	POSIX-Absolute stets verworfen: direkter Pfadtest
+S05	JA	PASS	PASS	Windows Drive/ADS-Formen auf beiden Hosts abgewiesen
+S06	JA	PASS	PASS	UNC/doppelte Separatoren abgewiesen
+S07	JA	PASS	PASS	DOS-Device-Namen, Punkt-/Leer-/Mixed-Separator-Kanten
+S08	JA	PASS	PASS	Portable positive Tokens und src-Pfade
+S09	JA	PASS (Unit+CLI-E2E)	PASS (Unit+CLI-E2E)	Windows Safe/CLI/INI/Restore Exit 2/0/0/2; Beleg M1-WINDOWS-CLI-EVIDENCE.txt
+S10	JA	PASS	PASS	Exakte Puffergrenze; overflow fail-fast als Child Exit 2
+S11	JA	PASS	PASS	Native Separatoren, path_join_alloc; Win32 path_join_test PASS
+S12	JA	PASS	PASS	Link-Root und Zwischenteil, Datei-Symlinks; Windows echte Junction-Scanner-Ablehnung Exit 2
+S13	JA	PASS	PASS	No-follow-Cleanup, Dangling Links und Sentinel; Win32 clean/clobber Junction-Entfernung isoliert PASS
+S14	JA	PASS	PASS	Tiefe 65 > Limit 64 in Child-Prozessen Exit 2
+S15	JA	RC0.4 FEHLERINJEKTION IMPLEMENTIERT, WINDOWS NOT RUN (Lock RC0.3 PASS)	RC0.4 Linux C89/Einzeltest PASS (EACCES RC0.3 PASS)	Win32 FindFirst/FindNext in Scanner/rm_rf_contents/rm_rf_depth deterministisch injiziert; Owner GCC/TinyCC-E2E ausstehend, siehe M1-RC0.4-S15-EVIDENCE.md
+S16	JA	PASS	PASS	Root-/Traversal-Guard, clobber, externe Sentinel-Datei; Windows Junction-Scan/Löschung PASS

@@ -1,6 +1,35 @@
+> **M1 RC0.4, neuer Implementierungskandidat 18.11.2026:** Nach Owner-Abnahme von RC0.3 (Windows HWM **3708/5996**, Linux HWM **3604/5790**, beide PASS; Windows-CLI-Opt-in **2/0/0/2 PASS**) wurde bei kritischem S15 ein tatsächlicher Win32-Enumerationsrandfall entdeckt. `rm_rf_depth` unterschied einen fehlgeschlagenen `FindFirstFileA`-Aufruf bislang nicht von einem leeren Verzeichnis. RC0.4 verweigert bei unerwarteten Fehlercodes jetzt die Löschung und ergänzt deterministische `FindFirstFileA`-/`FindNextFileA`-Fehlerinjektion im bestehenden M1-Test (Scanner, `rm_rf_contents`, `rm_rf_depth`, Sentinel). **Linux GCC/Clang C89 und M1-Einzeltest PASS; Windows GCC/TinyCC mit RC0.4 NOT RUN.** Da Test- und Produktionsquelle geändert sind, sind das RC0.3-Testinventar und beide HWM-Dateien absichtlich nicht neu angenommen. **Owner-Ratchet-Review und neue beidseitige Coverage-Messung erforderlich.** S15 erst nach Windows-Nachtest PASS, M1 noch offen. TOCTOU bleibt dokumentiertes Restrisiko. **Keine Git-Schreiboperation.** Siehe `docs/plans/M1-RC0.4-S15-EVIDENCE.md`. Alle nachfolgenden RC0.3-Zustandsangaben sind historische Evidenz.
+
+> **M1 RC0.3, verbindlicher Stand 18.11.2026 nach Owner-Freigaben:** Windows GCC Release und TinyCC Debug **26 PASS / 1 SKIP / 0 FAIL**; NTFS-Junction-Scan, `clean`/`clobber`, externe Sentinels und gesperrte Dateien **PASS**. Windows-CLI Safe/CLI-Opt-in/INI-Opt-in/Restore **2/0/0/2 PASS**, S03/S09 abgeschlossen. 27er Testinventar freigegeben. Windows-HWM **3708/5996** und Linux-HWM **3604/5790** sind **beide Owner-akzeptiert**, `coverage check` **PASS** auf der jeweiligen Referenzplattform. Linux unprivilegiert GCC/gcov 14.2.0 **26 PASS / 1 SKIP** mit POSIX-Permission-Fall. **Offen: S15 Win32-Enumeration-Fault deterministisch nachweisen**; daher M1 noch keine vollständige kritische Requirement-Abnahme. TOCTOU bleibt bekanntes Restrisiko. Noch **kein Git-Commit/Push/Merge/Tag**. Maßgeblich: `docs/plans/M1-VALIDATION.md`.
+> **Current M1 RC0.3 (2026-11-18):** Owner accepted separate Windows **3708/5996** and Linux **3604/5790** coverage HWMs; each platform's `coverage check` passed. Both Windows GCC release/TinyCC debug and unprivileged Linux GCC release/coverage tests passed 26/27 with one platform skip. Windows real unsafe-opt-in CLI E2E passed with exit codes 2/0/0/2. **Windows S15 forced enumeration failure remains unproven**, so no full M1 security sign-off. TOCTOU remains documented; no Git writes.
+
 # Aktueller Projektstand / Current agent handoff
 
+> **HISTORISCHER M1 RC0.3-Abnahmestand (18.11.2026):** Windows GCC Release und TinyCC Debug je **27 kompiliert / 26 PASS / 1 SKIP / 0 FAIL**. Echte NTFS-Junction-Scan-Ablehnung (Exit 2) und `clean`/`clobber`-Löschung (je Exit 0, externer Sentinel erhalten) **PASS**. Owner nahm das Test-Ratchet mit 27 Quellen und die Windows-HWM **3708/5996 (61,84123 %)** ausdrücklich an; `coverage check` PASS. Linux GCC 14.2.0 Release 26 PASS/1 SKIP; vollständige GCOV-Messung **3604/5790 (62,24525 %)** bei 26 PASS/1 SKIP, aber **BLOCKED**, da Linux-HWM 3505/5710 nicht neu ownerangenommen ist. Trace S01–S16: Windows-CLI-Opt-in-E2E und erzwungener Win32-Enumeration-Fault **nicht vollständig nachgewiesen**. TOCTOU bleibt offenes Restrisiko. **Kein Git-Commit/Push, keine Linux-HWM-Annahme.** Details: `docs/plans/M1-VALIDATION.md`.
+> **Current M1 RC0.3 state (2026-11-18):** Owner-confirmed Windows GCC release and TinyCC debug each pass 26/27 tests with one platform skip; native junction scan and isolated junction cleanup both PASS, external sentinel preserved. The Windows HWM **3708/5996** and 27-test inventory have been owner-accepted. Independent Linux GCC 14.2.0: release PASS, complete gcov measurement **3604/5790**, 26 PASS / 1 SKIP; final Linux HWM gate remains **BLOCKED** until explicit owner acceptance. Open: selected Windows trace gaps and documented link-swap/TOCTOU risk. No Git writes or Linux HWM update.
+
+
+
+
+> **HISTORISCHER STAND M1 RC0.3 (18.11.2026, Validierung ausstehend):** Windows GCC scheiterte mit RC0.2 am `FARPROC`-Funktionszeiger-Cast im Test (`-Werror=cast-function-type`), daher Release und Coverage FAIL/NOT RUN (keine `coverage/current.txt`). TinyCC RC0.2 hatte 26 PASS/1 SKIP. RC0.3 ersetzt ausschließlich den Windows-Test-Cast durch größenkontrolliertes C89-`memcpy` und verlangt erneuten Owner-Test-Ratchet. Unveränderte HWMs, kein Git-Commit/Push. Siehe `docs/plans/M1-VALIDATION.md`.
+
 ## Deutsch
+
+### tack v0.8.6 M1 RC0.2 — TinyCC-Symlink-Fixture-Kompatibilität (18.11.2026), OWNER-REVIEW PENDING
+
+- Owner Windows M1 RC0.1: GCC Release **27 kompiliert / 26 PASS / 1 SKIP**, alle neuen Windows-Symlink-/Link-Root-Tests und Sharing-Violation-Test PASS; GCC Coverage misst **3704/5996 (61,77452 %)** bei `sources_hash=39ea236e`, `source_count=1`, unveränderten Compiler-/Flag-Fingerprints. HWM Windows **3577/5906** bleibt akzeptierter Stand; erhöhte Messung ist korrekt **BLOCKED**, keine automatische HWM-Annahme. Linux-HWM **3505/5710** unverändert.
+- Owner hat Testinventar RC0.1 auf **27 Quellen** angenommen. TinyCC Debug RC0.1 jedoch **FAIL** bei `CreateSymbolicLinkA` (TinyCC-Header ohne Deklaration): 19 PASS / 1 FAIL / 1 SKIP / 6 NOT RUN. Dies ist ein Build-/Fixture-Kompatibilitätsfehler, kein nachgewiesener Produktivcode-Fehler.
+- RC0.2 **ändert nur die Windows-Fixture-Hilfsfunktionen** in `tests/path_filesystem_safety_test.c` (dynamisches `GetProcAddress` für `CreateSymbolicLinkA`), entfernt die bereits vom Owner korrigierte Whitespace-Zeile in `src/tack.c` und aktualisiert den Abnahmenachweis. Keine neue Abhängigkeit, kein anderer Produktionscode-Eingriff.
+- `coverage/test-inventory.txt` trägt die vom Owner akzeptierte **RC0.1**-Zeile `tests/path_filesystem_safety_test.c 66fbfcad`; sie passt absichtlich **noch nicht** zum geänderten RC0.2-Test. **Erneute Owner-Review und Ratchet-Annahme nötig.** GCC/Clang-Linux-C89 und neuer POSIX-Test direkt PASS; TinyCC Windows, offizielle RC0.2-Gates, Linux-Coverage und echte NTFS-Junction sind **NOT RUN**.
+- Branch `feature/v0.8.6-m1-path-safety`, kein Git-Schreibvorgang oder HWM-Accept. TOCTOU weiterhin offen. Details: `docs/plans/M1-VALIDATION.md`.
+
+
+### tack v0.8.6 M1 RC0.1 — Pfad-/Dateisystemsicherheit (18.11.2026), OWNER REVIEW PENDING
+
+- Owner hat M0-Commit `1b0d3a0` auf `main`, `dev/v0.8.6` und `feature/v0.8.6-m1-path-safety` bestätigt; letzterer ist aktiver sauberer Branch. Vor M1 hat Owner Windows TDM-GCC/gcov 10.3.0 erneut bestätigt: Release und Coverage je 25 PASS/1 SKIP, HWM **3577/5906**, keine gcov-Dateien im Projektroot. Das ist **nur** die freigegebene v0.8.5-Ausgangsbasis, keine Windows-M1-Messung.
+- M1 RC0.1: Pfad-Validierung (Traversal/Windows-Gerätenamen/Portabilität), join overflow fail-fast, Scan no-follow für Symlink-Dateien/-Root/-Zwischenpfade, Cleanup no-follow einschließlich dangling links/Windows Junctions, Zugriff-/Enumerationfehler sowie gefährliche Cleanup-Roots gehärtet; nur `src/tack.c` produktiv geändert.
+- Ein neuer C89-Test `tests/path_filesystem_safety_test.c`; bestehende 26 Testquellen/HWM-Dateien/test-inventory.txt bytegleich. Linux GCC14.2 striktes C89 + 27 individuelle C89-Tests **26 PASS/1 SKIP**; Linux Clang striktes C89, M1-Test und CLI-E2E PASS. Offizielles `ratchet tests` **FAIL/BLOCKED bis Owner-Accept**, damit reguläres `tack test`/Coverage **NOT RUN/BLOCKED**. Windows M1 GCC/TinyCC/Junction/Coverage **NOT RUN**. Nicht als Abnahme deuten.
+- Dokumentation: `docs/specs/0013-m1-path-filesystem-safety.md`, `docs/plans/M1-VALIDATION.md`, `docs/plans/M1-REQUIREMENTS.tsv`. **TOCTOU bei konkurrierenden Pfadänderungen bleibt offen**, keine race-free Garantie. Nächster Schritt: Owner-Diff-Review, freiwillige Test-Ratchet-Abnahme, dann vollständige Gates Windows/Linux, getrennte HWM-/Nenner-Prüfung und Freigabe. Keine Git-Aktionen oder HWM-Accept ausgeführt. Korrigiertes `update_tools.bat` im Quell-ZIP, Git-Ignore `*.bat` unverändert.
 
 ### tack v0.8.6 M0 — Coverage-Baseline und Requirement-Audit (17.11.2026), OWNER REVIEW AUSSTEHEND
 
@@ -82,6 +111,19 @@
 - **Historie:** RC0.2 behob Windows-Pfade/Zeilenenden im Testinventar. Kein Test zur Freigabe abgeschwächt. Nur finaler `docs/releases/0.8.4.md` ist der aktuelle Releasebericht; alte dev-Stände 0.8.2/0.8.3 bleiben historische Dokumente.
 
 ## English
+
+### tack v0.8.6 M1 RC0.2 — TinyCC symlink fixture compatibility (2026-11-18), OWNER REVIEW PENDING
+
+- Owner Windows M1 RC0.1: GCC release **27 compiled / 26 PASS / 1 SKIP**, Windows symlink-root and file-lock safety probes passed; GCC coverage **3704/5996 (61.77452%)**, source count and measurement scope comparable; improved HWM correctly **BLOCKED** pending independent owner approval. Accepted Windows baseline **3577/5906**, Linux baseline **3505/5710** unchanged.
+- Owner accepted the RC0.1 27-test inventory. TinyCC Debug RC0.1 **FAILED** because its Windows header omits `CreateSymbolicLinkA`: 19 PASS / 1 FAIL / 1 SKIP / 6 NOT RUN.
+- RC0.2 dynamically resolves the Windows symlink creation fixture via `GetProcAddress`, retains all assertions and privilege-based SKIP reporting, and removes the already owner-corrected stray whitespace line. The 27-entry inventory retains the previously owner-approved RC0.1 fingerprint, which intentionally **fails** on the modified RC0.2 test pending **renewed owner review/approval**. No HWMs accepted, no Git writes, real Windows TinyCC/coverage, Linux coverage, and junction gate **NOT RUN**. TOCTOU risk remains open.
+
+
+### tack v0.8.6 M1 RC0.1 — path/filesystem safety (2026-11-18), OWNER REVIEW PENDING
+
+- Owner reports M0 `1b0d3a0` on `main`, `dev/v0.8.6` and active clean `feature/v0.8.6-m1-path-safety`; fresh preceding v0.8.5 Windows GCC/gcov 3577/5906, 25 PASS/1 SKIP, no root gcov files. That is prior baseline evidence, **not** an M1 Windows gate.
+- Candidate changes only production `src/tack.c`, adds one new C89 security regression (`tests/path_filesystem_safety_test.c`) and trace/spec/validation documents. Existing 26 test files, test inventory and both accepted HWMs remain unchanged. Linux GCC14.2 strict C89 compiled and independently ran 27 tests (26 PASS/1 SKIP); Clang strict C89, M1 test and isolated CLI E2E passed. Official test ratchet BLOCKED pending owner review, official coverage NOT RUN. Windows M1 GCC/TinyCC/Junction/coverage NOT RUN. Concurrent link-swap TOCTOU remains unresolved.
+- Details in `docs/plans/M1-VALIDATION.md`, `docs/plans/M1-REQUIREMENTS.tsv` and `docs/specs/0013-m1-path-filesystem-safety.md`. Corrected owner `update_tools.bat` is package-only while `*.bat` is Git-ignored. No agent Git writes or ratchet/HWM acceptance.
 
 ### tack v0.8.6 M0 — baseline and requirements audit (2026-11-17), OWNER REVIEW PENDING
 

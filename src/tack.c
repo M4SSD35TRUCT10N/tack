@@ -925,7 +925,7 @@ static void ensure_parent_dir_recursive(const char *path) {
 }
 
 static void path_join(char *out, size_t cap, const char *a, const char *b) {
-  size_t la, lb, need;
+  size_t la, lb;
   int need_sep;
 
   if (!out || cap == 0) tack_die("internal error: bad buffer");
@@ -939,9 +939,9 @@ static void path_join(char *out, size_t cap, const char *a, const char *b) {
 #else
   need_sep = (la > 0 && a[la - 1] != PATH_SEP) ? 1 : 0;
 #endif
-  need = la + (size_t)need_sep + lb + 1;
-
-  if (need > cap) tack_die("path too long");
+  /* Check before addition: never wrap size_t or silently truncate. */
+  if (la >= cap || (size_t)need_sep > cap - la - 1u ||
+      lb >= cap - la - (size_t)need_sep) tack_die("path too long");
 
   tack_copy(out, cap, a);
   if (need_sep) {
@@ -956,6 +956,8 @@ static void path_join(char *out, size_t cap, const char *a, const char *b) {
 static char *path_join_alloc(const char *a, const char *b) {
   size_t la, lb, need_sep;
   char *out;
+  if (!a) a = "";
+  if (!b) b = "";
   la = strlen(a);
   lb = strlen(b);
 #ifdef _WIN32
@@ -963,7 +965,9 @@ static char *path_join_alloc(const char *a, const char *b) {
 #else
   need_sep = (la > 0 && a[la - 1] != PATH_SEP) ? 1 : 0;
 #endif
-  out = (char*)xmalloc(la + need_sep + lb + 1);
+  if (la > (size_t)-1 - need_sep ||
+      lb >= (size_t)-1 - la - need_sep) tack_die("path too long");
+  out = (char*)xmalloc(la + need_sep + lb + 1u);
   memcpy(out, a, la);
   if (need_sep) out[la] = PATH_SEP;
   memcpy(out + la + need_sep, b, lb + 1);
@@ -1055,6 +1059,39 @@ static void sv_free(StrVec *v) {
   v->items = 0; v->count = 0; v->cap = 0;
 }
 
+/* Check every directory component, not just the final component.
+ * A symlinked source root must not bypass the no-follow recursion rule.
+ * This is a preflight check, not a defense against concurrent path swaps. */
+static int path_has_link_component(const char *path) {
+  size_t i, len;
+  char *part;
+  int linked = 0;
+  if (!path || !*path) return 0;
+  len = strlen(path);
+  part = (char*)xmalloc(len + 1u);
+  memcpy(part, path, len + 1u);
+  for (i = 0; i <= len; i++) {
+    if (part[i] == '/' || part[i] == '\\' || part[i] == '\0') {
+      char saved = part[i];
+      part[i] = '\0';
+      if (part[0] && !(part[0] == '.' && part[1] == '\0') &&
+          !(i == 2u && isalpha((unsigned char)part[0]) && part[1] == ':')) {
+#ifdef _WIN32
+        DWORD a = GetFileAttributesA(part);
+        if (a != INVALID_FILE_ATTRIBUTES && (a & FILE_ATTRIBUTE_REPARSE_POINT)) linked = 1;
+#else
+        struct stat st;
+        if (lstat(part, &st) == 0 && S_ISLNK(st.st_mode)) linked = 1;
+#endif
+      }
+      part[i] = saved;
+      if (linked) break;
+    }
+  }
+  free(part);
+  return linked;
+}
+
 /* --------------------------- recursive scanning --------------------------- */
 
 static void scan_dir_recursive_suffix_skip_depth(StrVec *out, const char *dir, const char *suffix,
@@ -1063,13 +1100,25 @@ static void scan_dir_recursive_suffix_skip_depth(StrVec *out, const char *dir, c
   WIN32_FIND_DATAA fd;
   HANDLE h;
   char *pattern;
-
+#else
+  DIR *d;
+  struct dirent *e;
+#endif
   if (depth > TACK_MAX_SCAN_DEPTH) tack_die("directory recursion too deep");
+  if (path_has_link_component(dir)) {
+    fprintf(stderr, "tack: scan: refusing symlink/reparse source: %s\n", dir);
+    tack_die("unsafe source directory");
+  }
+#ifdef _WIN32
 
   pattern = path_join_alloc(dir, "*");
   h = FindFirstFileA(pattern, &fd);
   free(pattern);
-  if (h == INVALID_HANDLE_VALUE) return;
+  if (h == INVALID_HANDLE_VALUE) {
+    DWORD e = GetLastError();
+    if (e == ERROR_FILE_NOT_FOUND || e == ERROR_PATH_NOT_FOUND) return;
+    tack_die("directory scan failed");
+  }
 
   do {
     char *full;
@@ -1082,8 +1131,7 @@ static void scan_dir_recursive_suffix_skip_depth(StrVec *out, const char *dir, c
     }
 
     /* loop defense: do not recurse into reparse points (junctions/symlinks) */
-    if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
-        (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+    if (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
       continue;
     }
 
@@ -1101,19 +1149,23 @@ static void scan_dir_recursive_suffix_skip_depth(StrVec *out, const char *dir, c
     }
   } while (FindNextFileA(h, &fd));
 
+  if (GetLastError() != ERROR_NO_MORE_FILES) { FindClose(h); tack_die("directory scan failed"); }
   FindClose(h);
 #else
-  DIR *d;
-  struct dirent *e;
-
-  if (depth > TACK_MAX_SCAN_DEPTH) tack_die("directory recursion too deep");
-
   d = opendir(dir);
-  if (!d) return;
+  if (!d) {
+    if (errno == ENOENT || errno == ENOTDIR) return;
+    tack_die("directory scan failed");
+  }
 
-  while ((e = readdir(d)) != 0) {
+  for (;;) {
     char *full;
-
+    errno = 0;
+    e = readdir(d);
+    if (!e) {
+      if (errno) { closedir(d); tack_die("directory scan failed"); }
+      break;
+    }
     if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
 
     if (skip_dirname && streq(e->d_name, skip_dirname)) continue;
@@ -1121,6 +1173,8 @@ static void scan_dir_recursive_suffix_skip_depth(StrVec *out, const char *dir, c
 
     full = path_join_alloc(dir, e->d_name);
 
+    /* Do not add symlinked source files, even when they end in .c. */
+    if (path_has_link_component(full)) { free(full); continue; }
     if (is_dir_path_nofollow(full)) {
       scan_dir_recursive_suffix_skip_depth(out, full, suffix, skip_dirname, depth + 1);
       free(full);
@@ -1365,6 +1419,7 @@ static void win32_clear_attrs(const char *path) {
   DWORD a, na;
   a = GetFileAttributesA(path);
   if (a == INVALID_FILE_ATTRIBUTES) return;
+  if (a & FILE_ATTRIBUTE_REPARSE_POINT) return;
   na = a & ~(FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM);
   if (na == 0) na = FILE_ATTRIBUTE_NORMAL;
   SetFileAttributesA(path, na);
@@ -1453,12 +1508,54 @@ static void posix_record_failure(const char *kind, const char *path, int err) {
 }
 #endif
 
+/* stat() follows links; cleanup must see even dangling symlinks. */
+static int path_exists_nofollow(const char *path) {
+#ifdef _WIN32
+  return GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES;
+#else
+  struct stat st;
+  return lstat(path, &st) == 0;
+#endif
+}
+
+/* Never let an internal cleanup primitive target a filesystem root or
+ * the working directory itself, even if invoked incorrectly by a caller. */
+static int is_dangerous_cleanup_root(const char *path) {
+  const char *p, *seg;
+  int substantial = 0;
+  if (!path || !*path) return 1;
+  p = path;
+  if (isalpha((unsigned char)p[0]) && p[1] == ':') p += 2;
+  seg = p;
+  for (;;) {
+    if (*p == '/' || *p == '\\' || *p == '\0') {
+      size_t len = (size_t)(p - seg);
+      if (len == 2u && seg[0] == '.' && seg[1] == '.') return 1;
+      if (len > 0u && !(len == 1u && seg[0] == '.')) substantial = 1;
+      if (*p == '\0') break;
+      seg = p + 1;
+    }
+    p++;
+  }
+  return !substantial;
+}
+
 static int rm_rf_depth(const char *path, int depth) {
   if (depth > TACK_MAX_RM_DEPTH) tack_die("rm recursion too deep");
-  if (!file_exists(path)) return 0;
+  if (is_dangerous_cleanup_root(path)) {
+    fprintf(stderr, "tack: rm: refusing unsafe cleanup root\n");
+    return 1;
+  }
+  if (!path_exists_nofollow(path)) return 0;
 
   if (!is_dir_path_nofollow(path)) {
 #ifdef _WIN32
+    {
+      DWORD a = GetFileAttributesA(path);
+      /* Directory junctions need RemoveDirectory; never follow target. */
+      if (a != INVALID_FILE_ATTRIBUTES && (a & FILE_ATTRIBUTE_DIRECTORY) &&
+          (a & FILE_ATTRIBUTE_REPARSE_POINT)) return win32_remove_dir_retry(path);
+    }
     return win32_delete_file_retry(path);
 #else
     if (unlink(path) == 0) return 0;
@@ -1479,7 +1576,15 @@ static int rm_rf_depth(const char *path, int depth) {
     h = FindFirstFileA(pattern, &fd);
     free(pattern);
 
-    if (h != INVALID_HANDLE_VALUE) {
+    if (h == INVALID_HANDLE_VALUE) {
+      DWORD e = GetLastError();
+      /* An empty directory can report FILE_NOT_FOUND/NO_MORE_FILES;
+       * all other enumeration failures must stop cleanup. */
+      if (e != ERROR_FILE_NOT_FOUND && e != ERROR_NO_MORE_FILES) {
+        win32_record_failure("dir", path, e);
+        return 1;
+      }
+    } else {
       do {
         char *child;
 
@@ -1500,6 +1605,12 @@ static int rm_rf_depth(const char *path, int depth) {
           free(child);
         }
       } while (FindNextFileA(h, &fd));
+      if (GetLastError() != ERROR_NO_MORE_FILES) {
+        DWORD e = GetLastError();
+        win32_record_failure("dir", path, e);
+        FindClose(h);
+        return 1;
+      }
       FindClose(h);
     }
     return win32_remove_dir_retry(path);
@@ -1543,7 +1654,11 @@ static int rm_rf(const char *path) {
 
 static int rm_rf_contents_depth(const char *dir, int depth) {
   if (depth > TACK_MAX_RM_DEPTH) tack_die("rm recursion too deep");
-  if (!file_exists(dir)) return 0;
+  if (is_dangerous_cleanup_root(dir)) {
+    fprintf(stderr, "tack: rm: refusing unsafe cleanup root\n");
+    return 1;
+  }
+  if (!path_exists_nofollow(dir)) return 0;
   if (!is_dir_path_nofollow(dir)) return 1;
 
 #ifdef _WIN32
@@ -1556,7 +1671,14 @@ static int rm_rf_contents_depth(const char *dir, int depth) {
     h = FindFirstFileA(pattern, &fd);
     free(pattern);
 
-    if (h == INVALID_HANDLE_VALUE) return 0;
+    if (h == INVALID_HANDLE_VALUE) {
+      DWORD e = GetLastError();
+      if (e == ERROR_FILE_NOT_FOUND || e == ERROR_NO_MORE_FILES) return 0;
+      win32_record_failure("dir", dir, e);
+      fprintf(stderr, "tack: rm: cannot scan directory: %s (winerr=%lu)\n",
+              dir, (unsigned long)e);
+      return 1;
+    }
 
     do {
       char *child;
@@ -1578,6 +1700,12 @@ static int rm_rf_contents_depth(const char *dir, int depth) {
       }
     } while (FindNextFileA(h, &fd));
 
+    if (GetLastError() != ERROR_NO_MORE_FILES) {
+      DWORD e = GetLastError();
+      win32_record_failure("dir", dir, e);
+      FindClose(h);
+      return 1;
+    }
     FindClose(h);
     return 0;
   }
@@ -1594,8 +1722,14 @@ static int rm_rf_contents_depth(const char *dir, int depth) {
       return 1;
     }
 
-    while ((e = readdir(d)) != 0) {
+    for (;;) {
       char *child;
+      errno = 0;
+      e = readdir(d);
+      if (!e) {
+        if (errno) { posix_record_failure("dir", dir, errno); closedir(d); return 1; }
+        break;
+      }
       if (streq(e->d_name, ".") || streq(e->d_name, "..")) continue;
       child = path_join_alloc(dir, e->d_name);
       if (rm_rf_depth(child, depth + 1) != 0) { free(child); closedir(d); return 1; }
@@ -2807,6 +2941,25 @@ static int has_drive_prefix(const char *s) {
   return (isalpha((unsigned char)s[0]) && s[1] == ':') ? 1 : 0;
 }
 
+/* Windows device basenames (also reserved with extensions, e.g. CON.txt).
+ * Enforce portably, so an accepted project is safe on both platforms. */
+static int is_reserved_device_component(const char *s, size_t n) {
+  char base[5];
+  size_t i = 0u;
+  while (i < n && s[i] != '.' && i < sizeof(base) - 1u) {
+    base[i] = (char)toupper((unsigned char)s[i]);
+    i++;
+  }
+  if (i < n && s[i] != '.') return 0;
+  base[i] = '\0';
+  if (streq(base, "CON") || streq(base, "PRN") ||
+      streq(base, "AUX") || streq(base, "NUL")) return 1;
+  if (i == 4u && ((base[0] == 'C' && base[1] == 'O' && base[2] == 'M') ||
+                  (base[0] == 'L' && base[1] == 'P' && base[2] == 'T')) &&
+      base[3] >= '1' && base[3] <= '9') return 1;
+  return 0;
+}
+
 static int is_safe_simple_token(const char *s) {
   const char *p;
   if (!s || !s[0]) return 0;
@@ -2816,6 +2969,8 @@ static int is_safe_simple_token(const char *s) {
     if (!(isalnum(c) || c == '-' || c == '_' || c == '.')) return 0;
   }
   if (strstr(s, "..")) return 0;
+  if (s[strlen(s) - 1u] == '.') return 0;
+  if (is_reserved_device_component(s, strlen(s))) return 0;
   return 1;
 }
 
@@ -2829,8 +2984,16 @@ static int is_safe_relative_path(const char *s) {
   for (p = s; ; p++) {
     if (*p == '/' || *p == '\\' || *p == '\0') {
       size_t n = (size_t)(p - seg);
-      if (n == 0) return 0;
-      if (n == 2 && seg[0] == '.' && seg[1] == '.') return 0;
+      const char *q;
+      if (n == 0u || (n == 1u && seg[0] == '.') ||
+          (n == 2u && seg[0] == '.' && seg[1] == '.')) return 0;
+      if (seg[n - 1u] == '.' || seg[n - 1u] == ' ') return 0;
+      if (is_reserved_device_component(seg, n)) return 0;
+      for (q = seg; q < p; q++) {
+        unsigned char c = (unsigned char)*q;
+        if (c < 32u || c == 127u || c == ':' || c == '*' || c == '?' ||
+            c == '"' || c == '<' || c == '>' || c == '|') return 0;
+      }
       seg = p + 1;
       if (*p == '\0') break;
     }
@@ -6808,13 +6971,13 @@ static int cmd_clean(int verbose, int with_cache) {
   rm_collect_begin(verbose);
 
   /* clean = remove contents under build/, keep build directory */
-  if (file_exists(g_build_dir)) {
+  if (path_exists_nofollow(g_build_dir)) {
     any = 1;
     if (rm_rf_contents(g_build_dir) != 0) rc = 1;
   }
 
   /* optional: also remove .tack-cache/ (full cache reset) */
-  if (with_cache && file_exists(g_cache_dir)) {
+  if (with_cache && path_exists_nofollow(g_cache_dir)) {
     any = 1;
     if (rm_rf(g_cache_dir) != 0) rc = 1;
   }
@@ -6840,13 +7003,13 @@ static int cmd_clobber(int verbose) {
   rm_collect_begin(verbose);
 
   /* clobber = remove build/ itself */
-  if (file_exists(g_build_dir)) {
+  if (path_exists_nofollow(g_build_dir)) {
     any = 1;
     if (rm_rf(g_build_dir) != 0) rc = 1;
   }
 
   /* clobber also removes .tack-cache/ (big hammer) */
-  if (file_exists(g_cache_dir)) {
+  if (path_exists_nofollow(g_cache_dir)) {
     any = 1;
     if (rm_rf(g_cache_dir) != 0) rc = 1;
   }

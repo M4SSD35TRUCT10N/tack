@@ -18,6 +18,7 @@ tests/incremental_link_test.c	a608c026
 tests/init_doc_search_template_test.c	04311998
 tests/init_scaffold_version_test.c	87c11ee2
 tests/junit_report_output_test.c	85b8ce25
+tests/path_filesystem_safety_test.c	d1c30ed5
 tests/path_join_test.c	870aac0a
 tests/path_safety_test.c	561426f1
 tests/sbom_all_targets_test.c	b858559d

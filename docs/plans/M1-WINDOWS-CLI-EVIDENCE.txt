@@ -1,0 +1,26 @@
+tack v0.8.6 M1 RC0.3 – Windows unsafe-paths CLI E2E evidence
+Date: 2026-11-18
+Owner environment: Windows cmd.exe; binary C:\Projects\tack\build\app\release\bin\tack.exe
+Fixture: two temporary INI files, each with [target "app"] and src = ../outside
+safe.ini: [project] allow_unsafe_paths = no
+unsafe.ini: [project] allow_unsafe_paths = yes
+
+Case 1: tack --config safe.ini list
+Output: tack: invalid src (unsafe path): ../outside; tack: invalid target configuration
+Exit code: 2 (PASS, unsafe source rejected)
+
+Case 2: tack --config safe.ini --unsafe-paths list
+Output: app src=../outside, enabled=yes
+Exit code: 0 (PASS, explicit CLI opt-in)
+
+Case 3: tack --config unsafe.ini list
+Output: app src=../outside, enabled=yes
+Exit code: 0 (PASS, explicit INI opt-in)
+
+Case 4: tack --config safe.ini list (after opt-in runs)
+Output: tack: invalid src (unsafe path): ../outside; tack: invalid target configuration
+Exit code: 2 (PASS, safe default restored)
+
+Observed result sequence: 2 / 0 / 0 / 2. No out-of-scope files changed.
+S09: Windows Unit + CLI E2E PASS. S03: Windows CLI traversal rejection PASS.
+Note: This observation proves the lexical opt-in interface, not race-free filesystem access.
