@@ -1781,25 +1781,135 @@ static void print_argv(char **argv) {
 }
 
 #ifdef _WIN32
+/* The Windows process command line must be quoted with the same exact
+ * CRT-compatible rules used by tack fmt. _spawnvp silently changes some
+ * valid argument boundaries on supported Windows CRTs (M2 owner probe).
+ * Reuse the proven Windows quoting primitive for all child processes. */
+static char *fmt_windows_quote_cmd_arg(const char *arg);
+static char *proc_windows_commandline(char **argv) {
+  StrVec quoted;
+  char *cmdline;
+  size_t used, n, pos;
+  int i;
+  if (!argv || !argv[0] || !argv[0][0]) {
+    errno = EINVAL;
+    return 0;
+  }
+  sv_init(&quoted);
+  used = 0u;
+  for (i = 0; argv[i]; i++) {
+    char *q;
+    if (i >= 8191) {
+      sv_free(&quoted);
+      tack_die("process: too many arguments");
+    }
+    q = fmt_windows_quote_cmd_arg(argv[i]);
+    n = strlen(q);
+    if (used > 32766u || (i && used == 32766u) ||
+        n > 32766u - used - (i ? 1u : 0u)) {
+      free(q);
+      sv_free(&quoted);
+      tack_die("process: Windows command line too long");
+    }
+    used += n + (i ? 1u : 0u);
+    sv_push_own(&quoted, q);
+  }
+  cmdline = (char*)xmalloc(used + 1u);
+  pos = 0u;
+  for (i = 0; i < quoted.count; i++) {
+    n = strlen(quoted.items[i]);
+    if (i) cmdline[pos++] = ' ';
+    memcpy(cmdline + pos, quoted.items[i], n);
+    pos += n;
+  }
+  cmdline[pos] = '\0';
+  sv_free(&quoted);
+  return cmdline;
+}
 typedef struct { intptr_t pid; } Proc;
 static int proc_spawn_nowait(char **argv, Proc *out) {
-  intptr_t pid;
-  if (!argv || !argv[0] || !argv[0][0] || !out) { errno = EINVAL; return 1; }
-  pid = _spawnvp(_P_NOWAIT, argv[0], (const char * const *)argv);
-  if (pid == -1) return 1;
-  out->pid = pid;
+  STARTUPINFOA startup;
+  PROCESS_INFORMATION child;
+  DWORD win_error;
+  char *cmdline;
+  BOOL ok;
+  if (!argv || !argv[0] || !argv[0][0] || !out) {
+    errno = EINVAL;
+    return 1;
+  }
+  cmdline = proc_windows_commandline(argv);
+  if (!cmdline) return 1;
+  memset(&startup, 0, sizeof(startup));
+  memset(&child, 0, sizeof(child));
+  startup.cb = sizeof(startup);
+  ok = CreateProcessA(NULL, cmdline, NULL, NULL, FALSE, 0,
+                      NULL, NULL, &startup, &child);
+  win_error = ok ? 0u : GetLastError();
+  free(cmdline);
+  if (!ok) {
+    fprintf(stderr, "tack: process CreateProcessA failed (winerr=%lu): %s\n",
+            (unsigned long)win_error, argv[0]);
+    if (win_error == ERROR_FILE_NOT_FOUND || win_error == ERROR_PATH_NOT_FOUND ||
+        win_error == ERROR_BAD_PATHNAME) errno = ENOENT;
+    else if (win_error == ERROR_ACCESS_DENIED ||
+             win_error == ERROR_SHARING_VIOLATION) errno = EACCES;
+    else errno = EIO;
+    return 1;
+  }
+  if (!CloseHandle(child.hThread)) {
+    win_error = GetLastError();
+    fprintf(stderr, "tack: process CloseHandle(thread) failed (winerr=%lu)\n",
+            (unsigned long)win_error);
+    (void)TerminateProcess(child.hProcess, 1u);
+    (void)WaitForSingleObject(child.hProcess, INFINITE);
+    (void)CloseHandle(child.hProcess);
+    errno = EIO;
+    return 1;
+  }
+  out->pid = (intptr_t)child.hProcess;
   return 0;
 }
 static int proc_wait(Proc *p) {
-  int status = 0;
-  intptr_t r;
-  if (!p) { errno = EINVAL; return 1; }
-  r = _cwait(&status, p->pid, 0);
-  if (r == -1) {
-    fprintf(stderr, "tack: _cwait failed: errno=%d (%s)\n", errno, strerror(errno));
+  HANDLE process;
+  DWORD wait_result, code, win_error;
+  BOOL status_ok, close_ok;
+  if (!p || p->pid == 0 || p->pid == -1) {
+    errno = EINVAL;
     return 1;
   }
-  return status;
+  process = (HANDLE)p->pid;
+  wait_result = WaitForSingleObject(process, INFINITE);
+  if (wait_result != WAIT_OBJECT_0) {
+    win_error = GetLastError();
+    fprintf(stderr, "tack: process wait failed (winerr=%lu)\n",
+            (unsigned long)win_error);
+    (void)CloseHandle(process);
+    p->pid = 0;
+    errno = EIO;
+    return 1;
+  }
+  code = 0u;
+  status_ok = GetExitCodeProcess(process, &code);
+  win_error = status_ok ? 0u : GetLastError();
+  close_ok = CloseHandle(process);
+  p->pid = 0;
+  if (!status_ok) {
+    fprintf(stderr, "tack: process exit status unavailable (winerr=%lu)\n",
+            (unsigned long)win_error);
+    errno = EIO;
+    return 1;
+  }
+  if (!close_ok) {
+    fprintf(stderr, "tack: process CloseHandle(process) failed\n");
+    errno = EIO;
+    return 1;
+  }
+  if (code > (DWORD)INT_MAX) {
+    fprintf(stderr, "tack: process exit code out of int range (%lu)\n",
+            (unsigned long)code);
+    return 1;
+  }
+  return (int)code;
 }
 #else
 typedef struct { pid_t pid; } Proc;
@@ -10440,9 +10550,9 @@ static char *fmt_expand_token(const char *tok, const char *file, const char *roo
   return s5;
 }
 
-/* Build a Windows command line with exact CRT argument boundaries for the
- * external formatter only.  The general tack build runner is unchanged.
- * CreateProcessA receives one fully terminated, mutable command line. */
+/* Encode one Win32 argument with the Windows CRT parsing rules. The shared
+ * general-process and formatter launchers both use this routine, preserving
+ * empty values, embedded quotes, and terminal backslashes. */
 #ifdef _WIN32
 static char *fmt_windows_quote_cmd_arg(const char *arg) {
   size_t n, i, used;
@@ -10479,43 +10589,18 @@ static char *fmt_windows_quote_cmd_arg(const char *arg) {
 #endif
 
 #ifdef _WIN32
-/* Win32 does not accept an argv array: construct the command line explicitly.
- * _spawnvp on some Windows CRTs corrupts or splits formatter path arguments
- * even after per-argument quoting.  This function is formatter-only. */
+/* The formatter's existing synchronous Win32 launcher now uses the same
+ * bounded commandline encoder as the generic asynchronous process API. */
 static int fmt_run_win32(char **argv, int verbose) {
-  StrVec quoted;
   STARTUPINFOA startup;
   PROCESS_INFORMATION child;
   DWORD wait_result, child_exit, win_error;
   char *cmdline;
-  size_t used, n, pos;
-  int i, ok;
+  int ok;
 
   if (!argv || !argv[0] || !argv[0][0]) return 1;
-  sv_init(&quoted);
-  used = 0u;
-  for (i = 0; argv[i]; i++) {
-    char *q = fmt_windows_quote_cmd_arg(argv[i]);
-    n = strlen(q);
-    if (used > 32766u || (i && used == 32766u) ||
-        n > 32766u - used - (i ? 1u : 0u)) {
-      free(q);
-      sv_free(&quoted);
-      tack_die("fmt: Windows command line too long");
-    }
-    used += n + (i ? 1u : 0u);
-    sv_push_own(&quoted, q);
-  }
-
-  cmdline = (char*)xmalloc(used + 1u);
-  pos = 0u;
-  for (i = 0; i < quoted.count; i++) {
-    n = strlen(quoted.items[i]);
-    if (i) cmdline[pos++] = ' ';
-    memcpy(cmdline + pos, quoted.items[i], n);
-    pos += n;
-  }
-  cmdline[pos] = '\0';
+  cmdline = proc_windows_commandline(argv);
+  if (!cmdline) return 1;
 
   if (verbose) print_argv(argv);
   memset(&startup, 0, sizeof(startup));
@@ -10528,12 +10613,10 @@ static int fmt_run_win32(char **argv, int verbose) {
     fprintf(stderr, "tack: fmt: CreateProcess failed (winerr=%lu): %s\n",
             (unsigned long)win_error, argv[0]);
     free(cmdline);
-    sv_free(&quoted);
     return 1;
   }
 
   free(cmdline);
-  sv_free(&quoted);
   wait_result = WaitForSingleObject(child.hProcess, INFINITE);
   if (wait_result != WAIT_OBJECT_0) {
     fprintf(stderr, "tack: fmt: formatter process wait failed (winerr=%lu)\n",

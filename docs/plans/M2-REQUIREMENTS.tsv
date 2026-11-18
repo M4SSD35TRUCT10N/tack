@@ -14,7 +14,7 @@ P12	P0	JA	Win/Linux	exit 0/13/127	status preserved	NOT RUN	planned/implemented w
 P13	P0	JA	Linux	signal termination	nonzero signal-derived status	NOT RUN	planned/implemented where available; no gate evidence
 P14	P0	JA	Linux	waitpid EINTR	wait retries and reaps	NOT RUN	planned/implemented where available; no gate evidence
 P15	P0	JA	Linux	injected wait error	wait failure detected	NOT RUN	planned/implemented where available; no gate evidence
-P16	P0	JA	Windows	injected _cwait failure	failure detected and reported	NOT RUN	planned/implemented where available; no gate evidence
+P16	P0	JA	Windows	Win32 native WaitForSingleObject/GetExitCodeProcess/CloseHandle fault injection	Failure detected and all handles closed; retains stronger checks after removal of legacy _cwait	NOT RUN	RC0.4 tests pending owner Windows rerun
 P17	P0	JA	Win/Linux	compile job limit	running concurrency <= -j	NOT RUN	planned/implemented where available; no gate evidence
 P18	P0	JA	Win/Linux	failed pool sibling	all running children reaped	NOT RUN	planned/implemented where available; no gate evidence
 P19	P0	JA	Win/Linux	out of order completion	same result and artifacts	NOT RUN	planned/implemented where available; no gate evidence

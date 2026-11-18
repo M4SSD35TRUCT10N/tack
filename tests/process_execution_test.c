@@ -4,7 +4,7 @@
 #include <windows.h>
 #include <process.h>
 #include <errno.h>
-static int m2_win_fail_create, m2_win_fail_wait, m2_win_fail_exit, m2_win_fail_cwait;
+static int m2_win_fail_create, m2_win_fail_wait, m2_win_fail_exit, m2_win_fail_close;
 static int m2_win_closes;
 static BOOL WINAPI m2_wrap_create(LPCSTR app, LPSTR cmd,
     LPSECURITY_ATTRIBUTES proc_attr, LPSECURITY_ATTRIBUTES thread_attr,
@@ -23,18 +23,21 @@ static BOOL WINAPI m2_wrap_exit(HANDLE process, LPDWORD exit_code) {
   return GetExitCodeProcess(process, exit_code);
 }
 static BOOL WINAPI m2_wrap_close(HANDLE handle) {
+  BOOL real_result;
   m2_win_closes++;
-  return CloseHandle(handle);
-}
-static intptr_t m2_wrap_cwait(int *status, intptr_t process, int action) {
-  if (m2_win_fail_cwait) { errno = ECHILD; return -1; }
-  return _cwait(status, process, action);
+  real_result = CloseHandle(handle);
+  if (m2_win_fail_close) {
+    /* Release the real handle even in the injected failure path. */
+    m2_win_fail_close = 0;
+    SetLastError(ERROR_INVALID_HANDLE);
+    return FALSE;
+  }
+  return real_result;
 }
 #define CreateProcessA m2_wrap_create
 #define WaitForSingleObject m2_wrap_wait
 #define GetExitCodeProcess m2_wrap_exit
 #define CloseHandle m2_wrap_close
-#define _cwait m2_wrap_cwait
 #endif
 #ifndef _WIN32
 #include <sys/types.h>
@@ -67,7 +70,6 @@ static pid_t m2_waitpid(pid_t pid, int *status, int flags) {
 #undef WaitForSingleObject
 #undef GetExitCodeProcess
 #undef CloseHandle
-#undef _cwait
 #endif
 #ifndef _WIN32
 #undef fork
@@ -134,9 +136,18 @@ static int m2_child(int argc, char **argv) {
   int i;
   if (argc < 2) return -1;
   if (!strcmp(argv[1], "--m2-args")) {
-    if (argc != 2 + (int)(sizeof(expected)/sizeof(expected[0]))) return 61;
-    for (i = 0; i < (int)(sizeof(expected)/sizeof(expected[0])); i++)
-      if (strcmp(argv[i + 2], expected[i])) return 62 + i;
+    if (argc != 2 + (int)(sizeof(expected)/sizeof(expected[0]))) {
+      fprintf(stderr, "m2 child: argc=%d expected=%lu\n",
+              argc, (unsigned long)(2u + sizeof(expected)/sizeof(expected[0])));
+      return 61;
+    }
+    for (i = 0; i < (int)(sizeof(expected)/sizeof(expected[0])); i++) {
+      if (strcmp(argv[i + 2], expected[i])) {
+        fprintf(stderr, "m2 child: argv[%d] mismatch: actual=[%s] expected=[%s]\n",
+                i + 2, argv[i + 2], expected[i]);
+        return 62 + i;
+      }
+    }
     return 0;
   }
 #ifdef _WIN32
@@ -267,7 +278,9 @@ static void m2_process_cases(const char *self) {
       m2_assert(CopyFileA(self_path, spaced, FALSE) != 0,
                 "prepare executable with spaced path");
       m2_assert(m2_fmt(spaced_argv, 0) == 0,
-                "CreateProcessA starts executable whose path contains spaces");
+                "formatter starts executable whose path contains spaces");
+      m2_assert(m2_run(spaced_argv, 0) == 0,
+                "general subprocess starts spaced executable with exact argv");
       m2_assert(DeleteFileA(spaced) != 0, "remove spaced child executable fixture");
     } else m2_assert(0, "query own Windows executable path");
   }
@@ -290,11 +303,53 @@ static void m2_process_cases(const char *self) {
   m2_assert(m2_fmt(ok, 0) == 0 && m2_win_closes == 2,
             "successful formatter closes both handles");
   {
-    Proc invalid;
-    invalid.pid = -1;
-    m2_win_fail_cwait = 1;
-    m2_assert(proc_wait(&invalid) != 0, "injected _cwait failure");
-    m2_win_fail_cwait = 0;
+    Proc p2;
+    int started;
+    p2.pid = -1;
+    m2_assert(proc_wait(&p2) != 0, "invalid Win32 child handle rejected");
+    m2_win_closes = 0;
+    m2_win_fail_create = 1;
+    m2_assert(m2_spawn(ok, &p2) != 0 && m2_win_closes == 0,
+              "generic CreateProcessA failure propagates, no handles leaked");
+    m2_win_fail_create = 0;
+    m2_win_closes = 0;
+    started = m2_spawn(ok, &p2) == 0;
+    m2_assert(started && m2_win_closes == 1,
+              "generic spawn closes thread handle, retains process handle");
+    if (started) {
+      m2_win_fail_wait = 1;
+      m2_assert(proc_wait(&p2) != 0 && m2_win_closes == 2 && p2.pid == 0,
+                "generic wait error closes process handle and resets state");
+      m2_win_fail_wait = 0;
+    }
+    m2_win_closes = 0;
+    started = m2_spawn(ok, &p2) == 0;
+    m2_assert(started && m2_win_closes == 1,
+              "generic spawn for exit status fault");
+    if (started) {
+      m2_win_fail_exit = 1;
+      m2_assert(proc_wait(&p2) != 0 && m2_win_closes == 2 && p2.pid == 0,
+                "generic GetExitCodeProcess fault closes process handle");
+      m2_win_fail_exit = 0;
+    }
+    m2_win_closes = 0;
+    started = m2_spawn(ok, &p2) == 0;
+    m2_assert(started && m2_win_closes == 1,
+              "generic spawn for handle-close fault");
+    if (started) {
+      m2_win_fail_close = 1;
+      m2_assert(proc_wait(&p2) != 0 && m2_win_closes == 2 && p2.pid == 0,
+                "generic CloseHandle failure detected and state reset");
+      m2_win_fail_close = 0;
+    }
+    m2_win_closes = 0;
+    started = m2_spawn(ok, &p2) == 0;
+    m2_assert(started && m2_win_closes == 1,
+              "generic spawn for success lifecycle");
+    if (started) {
+      m2_assert(proc_wait(&p2) == 0 && m2_win_closes == 2 && p2.pid == 0,
+                "generic subprocess success closes both thread and process handles");
+    }
   }
 #else
   {

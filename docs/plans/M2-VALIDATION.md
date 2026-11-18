@@ -1,9 +1,19 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.3, pending gates)
+# M2 VALIDATION – tack v0.8.6 (RC0.4, pending gates)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
 
 ## Deutsch
+
+### Windows-Owner-Evidenz: RC0.3 und RC0.4-Korrektur
+
+RC0.3-Owner-Run am 18.11.2026, SHA `f74c7992e7f2e9a4e02c828a05ba2fa717479d31`: Windows TinyCC Debug, GCC Release und GCC Coverage kompilierten den neuen M2-C89-Test und endeten jeweils mit `TACK_SUMMARY total=28 compiled=24 passed=22 failed=1 skipped=1 not_run=4`. Einzige echte FAIL-Assertion: `child sees exact argv and literal metacharacters` im generischen CRT-`_spawnvp`-Pfad. Die gleichartige echte Formatter-`CreateProcessA`-Probe bestand. Erwartete Fehlerausgaben der negativen API-/Argument-/Compiler-Jobs-Proben sind kein eigenständiger Test-Fail.
+
+**RC0.4, noch NOT RUN:** Gemeinsamer Windows-Commandline-Encoder mit CRT-kompatibler Kodierung für generische `CreateProcessA`-Child-Prozesse und den Formatter. Generischer Prozessstarter jetzt native Win32 Create/Wait/Exit-APIs mit expliziter Handle-Ownership. Im Test bleiben die Kindprozess-Argument-Assertions unverändert; hinzu kommen Diagnose von empfangenem versus erwartetem Argument, der echte generische Start eines Executables mit Leerzeichen und native Create/Wait/GetExitCode/Close-Fault-Tests. ADR 0003 beschreibt Architektur und Grenzen.
+
+**Ratchet:** RC0.3-Testinventar wurde vom Owner lokal mit `--owner-approve` aktualisiert und meldet `tests/process_execution_test.c c2b48bd9`. Die geänderte Datei liegt noch uncommittet im Owner-Working-Tree und wurde nicht in das Repository gepusht. Mit der neuen RC0.4-Testquelle muss der Fingerprint erneut geprüft und vom Owner angenommen werden. Keine stille Aufnahme, keine Abschwächung.
+
+**Coverage:** RC0.3 `coverage/current.txt` nicht erzeugt; `coverage check` NOT RUN. Windows-HWM 3724/6000 und Linux-HWM 3604/5790 unverändert. RC0.4 Windows/Linux und Instrumentierung NOT RUN; M2 nicht abgenommen.
 
 ### Stand der Änderungen
 
@@ -60,10 +70,10 @@ Dieser Check belegt nur den isolierten Algorithmus und ist nicht gleichzusetzen 
 | --- | --- | --- |
 | Repository-Ref, Agentenvertrag, v0.5-Entwurf gelesen | PASS | GitHub/Drive read-only, 18.11.2026 |
 | Vollständiger tatsächlicher Linux-tack-Testlauf | NOT RUN | Kein lokaler Repository-Checkout (Netzwerkzugriff gesperrt) |
-| Windows TinyCC debug | FAIL (RC0.2) / NOT RUN (RC0.3) | Nur neuer M2-Test kompiliert nicht: const-Qualifier; Owner-Log |
-| Windows TDM-GCC release | FAIL (RC0.2) / NOT RUN (RC0.3) | Nur neuer M2-Test kompiliert nicht: C89-Dynamic-Aggregate/const; Owner-Log |
-| Windows real formatter/argv | NOT RUN | M2-Prozesstest wurde bislang nicht ausführbar gebaut |
-| Test-Ratchet in dieser Revision | BLOCKED | RC0.2 lokal angenommen; RC0.3 Fingerprint geändert, Owner-Prüfung erforderlich |
+| Windows TinyCC debug | FAIL RC0.3 / NOT RUN RC0.4 | Allgemeiner `_spawnvp`-Argv-Test, Formatter-Äquivalent PASS |
+| Windows TDM-GCC release | FAIL RC0.3 / NOT RUN RC0.4 | Gleicher Argv-Fehler |
+| Windows real formatter/argv | PASS RC0.3 / NOT RUN RC0.4 | Reale `CreateProcessA`-Child-Argumente stimmten überein |
+| Test-Ratchet in dieser Revision | BLOCKED RC0.4 | RC0.3 lokal Owner-angenommen, RC0.4-Fingerprint neu prüfpflichtig |
 | Windows / Linux instrumentierte M2-Coverage | NOT RUN | Windows RC0.2 Compiler-FAIL, keine gültige aktuelle Messung; Linux noch offen |
 | M2 gesamthaft | BLOCKED | Plattform- und Requirement-Gates ausstehend |
 
@@ -100,3 +110,7 @@ git status --short --branch
 ## English
 
 RC0.2 Windows owner logs prove that the newly added process test failed compilation in TinyCC debug, GCC release and GCC coverage, while prior legacy tests passed. The owner locally accepted the RC0.2 test inventory. The RC0.3 change addresses the C89 initializer and const-qualifier failures without weakening assertions. RC0.3 integrated tests remain NOT RUN, and its new fingerprint requires fresh owner review. Never misreport the BLOCKED result as PASS, or modify the reference HWMs without review.
+
+### English: RC0.3 Owner evidence and RC0.4 remediation
+
+Owner Windows RC0.3 passed compilation under TinyCC and GCC, but exactly one real generic `_spawnvp` child-argument assertion failed in each profile (22 PASS, 1 FAIL, 1 SKIP, 4 NOT RUN); the equivalent formatter `CreateProcessA` child probe passed. RC0.4 fixes the Windows general launcher using the shared formatter encoder and native process/wait/handle APIs. It keeps the argv requirement and strengthens native error-path probes. RC0.4 platform tests and coverage remain NOT RUN. The locally accepted RC0.3 test-inventory fingerprint must be reviewed again after RC0.4 test-source changes.
