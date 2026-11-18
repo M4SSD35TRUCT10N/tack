@@ -37,6 +37,12 @@
 - [Externe Formatter-Ausführung: Integrationsprüfung](guides/formatter-external-validation.md)
 - [tack.ini: vollständige Schlüsselreferenz](reference/tack-ini.md)
 - [v0.8.6: Coverage-Ziele und Testmatrix (Plan)](plans/0.8.6-coverage.md)
+- [v0.8.6 M1 RC0.3: Abnahmeakte (Windows/Linux HWMs akzeptiert, S15 offen)](plans/M1-VALIDATION.md)
+- [v0.8.6 M1 RC0.3: Lieferung und Integration](plans/M1-DELIVERY.md)
+- [v0.8.6 M1: Linux-Coverage-Nachweis ohne Root-Rechte](plans/M1-LINUX-EVIDENCE.txt)
+- [v0.8.6 M1: Windows Unsafe-Opt-in-CLI-E2E](plans/M1-WINDOWS-CLI-EVIDENCE.txt)
+- [v0.8.6 M1: Kritische Anforderungen S01–S16](plans/M1-REQUIREMENTS.tsv)
+- [SPEC 0013: Pfad- und Dateisystemsicherheit](specs/0013-m1-path-filesystem-safety.md)
 - [GitHub self-hosted runners – Workflow-Starter](guides/github-self-hosted-runners.md)
 - [GitHub self-hosted runner installation unter Windows x64](guides/github-runner-install-windows.md)
 - [GitHub self-hosted runner installation unter Linux ARM64](guides/github-runner-install-linux-arm64.md)
@@ -56,6 +62,8 @@ Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokume
 ---
 
 ## English
+**M1 RC0.3 status (2026-11-18):** Owner-accepted HWMs Windows **3708/5996** and Linux **3604/5790**, both reference coverage checks PASS; Windows unsafe-paths CLI E2E 2/0/0/2 PASS. **Critical requirement S15 remains partially verified** pending deterministic Win32 enumeration-failure injection. See [M1 acceptance record](plans/M1-VALIDATION.md), [Windows CLI evidence](plans/M1-WINDOWS-CLI-EVIDENCE.txt), and [requirements trace](plans/M1-REQUIREMENTS.tsv). Earlier status statements below are historical snapshots.
+
 **As of 2026-11-17:** [v0.8.5 final record](releases/0.8.5.md). Windows RC0.7 and Linux reference passed; both higher coverage HWMs owner-approved, Linux post-acceptance check PASS. Windows HWM post-adoption check and GitHub publication remain pending. RC0.7 text below records the earlier state.
 
 
