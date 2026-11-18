@@ -30,4 +30,4 @@ P28	P0	JA	Win/Linux	formatter missing workdir	no unintended child execution	PASS
 P29	P0	JA	Win/Linux	formatter cwd restored	original directory restored	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
 P30	P1	NEIN	Windows	ANSI/Unicode documentation	limitation explicit	PASS Windows RC0.4	ADR 0003 documents ANSI/Unicode and commandline limits
 P31	P0	JA	Win/Linux	legacy suite / formatter regression	all 27 existing tests remain	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
-P32	P0	JA	Win/Linux	ratchet review	Owner acceptance required	BLOCKED	RC0.4 test inventory owner-accepted locally but not committed; improved Windows HWM still needs owner acceptance
+P32	P0	JA	Win/Linux	ratchet review	Owner acceptance required	PASS Windows RC0.4 / NOT RUN Linux	Owner explicitly approved test inventory and measured Windows HWM; both ratchets versioned together; Linux remains pending

@@ -5,7 +5,22 @@
 
 ## Deutsch
 
-### Windows RC0.4: Owner-Gates bestanden, HWM-Annahme offen (18.11.2026)
+### Windows Owner-Gate und HWM-Abnahme: endgültig PASS (18.11.2026)
+
+Auf dem Feature-Branch `feature/v0.8.6-m2-process-execution` wurde der Source-/Test-Commit `382471c950d126697391977fe9962bd0eb2d57e9` ausgeführt (drei Windows-Profile jeweils **28 kompiliert, 27 PASS, 0 FAIL, 1 SKIP, 0 NOT RUN**). Der zwischenzeitliche reine Dokumentationscommit `ef748c9399c39eab64bbdd4e0323e99700daa0a6` änderte weder Produktions- noch Testquellen. Das Testinventar wurde vom Owner mit `ratchet tests --owner-approve` angenommen; der erneute `ratchet tests`-Lauf zeigte PASS.
+
+Danach führte der Owner ausdrücklich `tack --config .\tack.ini coverage accept --owner-approve` aus. Das Kommando bestätigte `accepted measured high-water mark: coverage/hwm-windows.txt`. Der anschließende `tack --config .\tack.ini coverage check` meldete **PASS HWM retained: 3844/6075**. Die vorherige BLOCKED-Ausgabe im `coverage accept`-Kommando gehört zur vorgeschalteten, noch gegen den alten HWM prüfenden Negativentscheidung; die anschließende explizite Annahme und PASS-Prüfung sind maßgeblich.
+
+**Exakt vom Owner freigegebene Artefakte:**
+
+- `coverage/hwm-windows.txt`: `3844/6075`, `tests_state=ee1bba53`, 28 Tests (27 PASS, 1 SKIP), Git-Blob **`2f4b698566ae86a53f6b0383579e64a07bee7911`**. Entspricht dem lokalen `git diff`-Index `2f4b698`.
+- `coverage/test-inventory.txt`: alle bisherigen 27 Hash-Zeilen erhalten, **`tests/process_execution_test.c\t0750f9e5`** als zusätzliche 28. Zeile, Git-Blob **`2f8dbecf0b2d56e4eb2fbacd0f9efc4720a6e7c0`**. Entspricht dem lokalen `git diff`-Index `2f8dbec`.
+- Die beiden Files werden zusammen in einer Revision aufgenommen. Historische Windows-HWM 3724/6000 und Linux-HWM 3604/5790 dienen nur dem Vorher-Vergleich, es erfolgt keine Baseline-Senkung.
+
+**Offen:** Vollständiger Linux-GCC-/Clang-Referenzlauf und Linux-Coverage, sowie Anforderungen P17/P19/P20 mit zusätzlichen instrumentierten Parallelprozess-Randfällen. Ein Windows HWM-PASS alleine ist noch keine gesamte M2-Abnahme. Keine Änderung an `main` oder `dev/v0.8.6`.
+
+
+### Windows RC0.4: historische Owner-Tests vor HWM-Freigabe (18.11.2026)
 
 **Geprüfter Implementierungscommit:** `382471c950d126697391977fe9962bd0eb2d57e9` auf `feature/v0.8.6-m2-process-execution`. Die lokale `coverage/test-inventory.txt` wurde vom Owner für genau diese Testquellenfassung mit `tack --config .\tack.ini ratchet tests --owner-approve` angenommen; sie bleibt lokal modifiziert und ist noch **nicht** im GitHub-Branch versioniert. Im anschließenden Runner meldete die Test-Ratchet `PASS versioned source inventory`.
 
@@ -92,9 +107,9 @@ Dieser Check belegt nur den isolierten Algorithmus und ist nicht gleichzusetzen 
 | Windows TinyCC debug | **PASS RC0.4** | 27 PASS, 0 FAIL, 1 SKIP; real Win32 arg/handle probes PASS |
 | Windows TDM-GCC release | **PASS RC0.4** | 27 PASS, 0 FAIL, 1 SKIP |
 | Windows real formatter/argv | **PASS RC0.4** | Allgemeiner Win32-Prozessstart und Formatter-Child-Argv vollständig PASS |
-| Test-Ratchet in dieser Revision | **PASS lokal / Versionierung offen** | Owner hat RC0.4-Fingerprint angenommen; Datei lokal uncommittet |
+| Test-Ratchet in dieser Revision | **PASS Windows RC0.4, owner-angenommen und versioniert** | Genaues Inventar-Blob `2f8dbecf0b2d56e4eb2fbacd0f9efc4720a6e7c0` |
 | Windows / Linux instrumentierte M2-Coverage | NOT RUN | Windows RC0.2 Compiler-FAIL, keine gültige aktuelle Messung; Linux noch offen |
-| M2 gesamthaft | BLOCKED | Plattform- und Requirement-Gates ausstehend |
+| M2 gesamthaft | BLOCKED | Linux und noch unvollständig belegte Parallelprozess-Randfälle P17/P19/P20 |
 
 ### Windows-CMD-Abnahme (erst nach Test-Ratchet-Review)
 
@@ -137,3 +152,7 @@ Owner Windows RC0.3 passed compilation under TinyCC and GCC, but exactly one rea
 ### English: RC0.4 Windows gates (18 November 2026)
 
 On commit `382471c950d126697391977fe9962bd0eb2d57e9`, Owner Windows TinyCC debug, GCC release and GCC coverage test suites each executed 28 compiled tests with **27 passed, zero failed, one deliberately skipped and none unrun**. The previously failing generic Windows child argument probe now passes. GCC/gcov measured **3844/6075 (63.27572%)** against the accepted 3724/6000 (62.06667%) HWM. This is a valid improvement (+120 covered lines, +75 executable lines, +1.20905 percentage points), but the coverage command remains **BLOCKED pending explicit Owner HWM acceptance and versioning**. The RC0.4 test inventory was accepted locally, not committed. Linux reference tests remain NOT RUN; no milestone closure is claimed.
+
+### English: owner-accepted Windows HWM and test inventory
+
+The Owner explicitly ran `tack coverage accept --owner-approve` and then `tack coverage check`, which returned **PASS HWM retained: 3844/6075**. Both accepted ratchet artifacts were reconstructed without content changes and verified against the local Git diff prefixes: Windows HWM full blob `2f4b698566ae86a53f6b0383579e64a07bee7911` and 28-item test inventory full blob `2f8dbecf0b2d56e4eb2fbacd0f9efc4720a6e7c0`. The two files are versioned in the same commit. Windows tests passed; full Linux gates and residual parallel-process boundary requirements remain pending. M2 as a whole is not accepted.
