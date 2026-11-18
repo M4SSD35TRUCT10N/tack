@@ -1,22 +1,107 @@
 /* M2 process execution: real child-received argv, errors and -j cleanup.
  * ISO C89; fault wrappers are compiled only into this test. */
+#include <stdio.h>
 #ifdef _WIN32
 #include <windows.h>
 #include <process.h>
 #include <errno.h>
+#else
+#include <unistd.h>
+#endif
+/* Parent-only process-accounting probe. A successful platform spawn increments
+ * the live count; its completed platform wait decrements it. This bounds even
+ * children that have finished but have not yet been reaped. The second-attempt
+ * failure is injected while the first compiler child is still running. */
+static int m2_pool_probe_on, m2_pool_probe_limit, m2_pool_probe_fail_at;
+static int m2_pool_attempts, m2_pool_starts, m2_pool_reaps;
+static int m2_pool_live, m2_pool_peak, m2_pool_violation;
+static int m2_pool_hold_observed;
+static void m2_pool_probe_begin(int limit, int fail_at) {
+  m2_pool_probe_limit = limit;
+  m2_pool_probe_fail_at = fail_at;
+  m2_pool_attempts = 0;
+  m2_pool_starts = 0;
+  m2_pool_reaps = 0;
+  m2_pool_live = 0;
+  m2_pool_peak = 0;
+  m2_pool_violation = 0;
+  m2_pool_hold_observed = 0;
+  m2_pool_probe_on = 1;
+}
+static int m2_pool_probe_should_fail(void) {
+  int tries, max_tries;
+  FILE *f;
+  if (!m2_pool_probe_on) return 0;
+  m2_pool_attempts++;
+  if (m2_pool_probe_fail_at <= 0 ||
+      m2_pool_attempts != m2_pool_probe_fail_at) return 0;
+  /* P20's first child must really be running, not merely unreaped.
+   * Wait for its ready marker before failing spawn #2, then release it.
+   * Both waits are bounded and the child checks the release marker. */
+#ifdef _WIN32
+  max_tries = 150;
+#else
+  max_tries = 8;
+#endif
+  for (tries = 0; tries < max_tries; tries++) {
+    f = fopen("build/m2-process/hold-ready", "rb");
+    if (f) {
+      fclose(f);
+      m2_pool_hold_observed = 1;
+      break;
+    }
+#ifdef _WIN32
+    Sleep(20);
+#else
+    sleep(1);
+#endif
+  }
+  f = fopen("build/m2-process/hold-release", "wb");
+  if (!f) m2_pool_violation = 1;
+  else {
+    int wrote = fputs("release", f) != EOF;
+    int closed = fclose(f) == 0;
+    if (!wrote || !closed) m2_pool_violation = 1;
+  }
+  return 1;
+}
+static void m2_pool_probe_started(void) {
+  if (!m2_pool_probe_on) return;
+  m2_pool_starts++;
+  m2_pool_live++;
+  if (m2_pool_live > m2_pool_peak) m2_pool_peak = m2_pool_live;
+  if (m2_pool_live > m2_pool_probe_limit) m2_pool_violation = 1;
+}
+static void m2_pool_probe_waited(void) {
+  if (!m2_pool_probe_on) return;
+  m2_pool_reaps++;
+  if (m2_pool_live <= 0) m2_pool_violation = 1;
+  else m2_pool_live--;
+}
+static void m2_pool_probe_end(void) { m2_pool_probe_on = 0; }
+#ifdef _WIN32
 static int m2_win_fail_create, m2_win_fail_wait, m2_win_fail_exit, m2_win_fail_close;
 static int m2_win_closes;
 static BOOL WINAPI m2_wrap_create(LPCSTR app, LPSTR cmd,
     LPSECURITY_ATTRIBUTES proc_attr, LPSECURITY_ATTRIBUTES thread_attr,
     BOOL inherit, DWORD flags, LPVOID env, LPCSTR cwd,
     LPSTARTUPINFOA startup, LPPROCESS_INFORMATION info) {
-  if (m2_win_fail_create) { SetLastError(ERROR_ACCESS_DENIED); return FALSE; }
-  return CreateProcessA(app, cmd, proc_attr, thread_attr, inherit, flags,
-                        env, cwd, startup, info);
+  BOOL ok;
+  if (m2_pool_probe_should_fail() || m2_win_fail_create) {
+    SetLastError(ERROR_ACCESS_DENIED);
+    return FALSE;
+  }
+  ok = CreateProcessA(app, cmd, proc_attr, thread_attr, inherit, flags,
+                      env, cwd, startup, info);
+  if (ok) m2_pool_probe_started();
+  return ok;
 }
 static DWORD WINAPI m2_wrap_wait(HANDLE process, DWORD timeout) {
+  DWORD result;
   if (m2_win_fail_wait) { SetLastError(ERROR_INVALID_HANDLE); return WAIT_FAILED; }
-  return WaitForSingleObject(process, timeout);
+  result = WaitForSingleObject(process, timeout);
+  if (result == WAIT_OBJECT_0) m2_pool_probe_waited();
+  return result;
 }
 static BOOL WINAPI m2_wrap_exit(HANDLE process, LPDWORD exit_code) {
   if (m2_win_fail_exit) { SetLastError(ERROR_INVALID_HANDLE); return FALSE; }
@@ -47,8 +132,14 @@ static BOOL WINAPI m2_wrap_close(HANDLE handle) {
 #include <errno.h>
 static int m2_fail_fork, m2_eintr_once, m2_fail_wait;
 static pid_t m2_fork(void) {
-  if (m2_fail_fork) { errno = EAGAIN; return (pid_t)-1; }
-  return fork();
+  pid_t child;
+  if (m2_pool_probe_should_fail() || m2_fail_fork) {
+    errno = EAGAIN;
+    return (pid_t)-1;
+  }
+  child = fork();
+  if (child > 0) m2_pool_probe_started();
+  return child;
 }
 static pid_t m2_waitpid(pid_t pid, int *status, int flags) {
   if (m2_eintr_once) { m2_eintr_once = 0; errno = EINTR; return (pid_t)-1; }
@@ -59,7 +150,11 @@ static pid_t m2_waitpid(pid_t pid, int *status, int flags) {
     errno = ECHILD;
     return (pid_t)-1;
   }
-  return waitpid(pid, status, flags);
+  {
+    pid_t r = waitpid(pid, status, flags);
+    if (r > 0) m2_pool_probe_waited();
+    return r;
+  }
 }
 #define fork m2_fork
 #define waitpid m2_waitpid
@@ -127,6 +222,28 @@ static int m2_write(const char *path, const char *body) {
   if (!f) return 1;
   if (fputs(body, f) == EOF) { fclose(f); return 1; }
   return fclose(f) != 0;
+}
+/* Bounded interprocess fixture handshake: no sleeps as proof of ordering.
+ * The child exits with failure if its partner's marker never appears. */
+static void m2_fixture_pause(void) {
+#ifdef _WIN32
+  Sleep(50);
+#else
+  sleep(1);
+#endif
+}
+static int m2_fixture_wait(const char *path) {
+  int attempts;
+#ifdef _WIN32
+  const int max_attempts = 100;
+#else
+  const int max_attempts = 10;
+#endif
+  for (attempts = 0; attempts < max_attempts; attempts++) {
+    if (file_exists(path)) return 0;
+    m2_fixture_pause();
+  }
+  return 1;
 }
 static int m2_child(int argc, char **argv) {
   static const char *expected[] = {
@@ -197,6 +314,37 @@ static int m2_child(int argc, char **argv) {
       if (!strcmp(argv[i], "-o")) out = argv[i + 1];
     if (!out) return 76;
     if (strstr(src, "m2_fail.c")) return 23;
+    if (strstr(src, "m2_job_")) {
+      const char *tag = strstr(src, "m2_job_") + 7;
+      char mine[96], peer[96], id[2], other[2];
+      if (tag[0] < '0' || tag[0] > '3' || strcmp(tag + 1, ".c")) return 81;
+      id[0] = tag[0]; id[1] = '\0';
+      other[0] = (char)('0' + ((tag[0] - '0') ^ 1)); other[1] = '\0';
+      tack_copy(mine, sizeof(mine), "build/m2-process/job-");
+      tack_cat(mine, sizeof(mine), id);
+      tack_cat(mine, sizeof(mine), ".ready");
+      tack_copy(peer, sizeof(peer), "build/m2-process/job-");
+      tack_cat(peer, sizeof(peer), other);
+      tack_cat(peer, sizeof(peer), ".ready");
+      if (m2_write(mine, "started") != 0) return 82;
+      if (m2_fixture_wait(peer) != 0) return 83;
+    }
+    if (strstr(src, "m2_hold.c")) {
+      if (m2_write("build/m2-process/hold-ready", "started") != 0) return 87;
+      if (m2_fixture_wait("build/m2-process/hold-release") != 0) return 88;
+      if (m2_write("build/m2-process/hold-complete", "done") != 0) return 89;
+    }
+    if (strstr(src, "m2_order_fast.c")) {
+      if (m2_write(out, "object") != 0) return 84;
+      return m2_write("build/m2-process/order-fast.done", "done");
+    }
+    if (strstr(src, "m2_order_slow.c")) {
+      if (m2_fixture_wait("build/m2-process/order-fast.done") != 0) return 85;
+      /* Fast writes its output before publishing this marker. Slow cannot
+       * complete first, independent of startup scheduling or wall-clock time. */
+      if (m2_write("build/m2-process/order-slow.saw-fast", "done") != 0) return 86;
+      return m2_write(out, "object");
+    }
     if (strstr(src, "m2_slow.c")) {
 #ifdef _WIN32
       Sleep(900);
@@ -443,6 +591,122 @@ static void m2_pool_and_cwd(const char *self) {
 #endif
   m2_assert(!strcmp(before, after), "formatter restores original cwd");
 }
+
+/* P17: mutually dependent child start markers prove two genuine concurrent
+ * compiler processes; parent OS wrappers count all unreaped children.
+ * P19: the slow child cannot publish completion before the fast child does,
+ * even when the slow child was placed first in the FIFO job queue.
+ * P20: fail the second spawn with a first child already live, then assert
+ * it was drained and no success metadata was committed for that child. */
+static void m2_parallel_probe_cases(const char *self) {
+  StrVec srcs, objs;
+  char path[160], id[2], obj_name[768], meta_name[768], meta_path[1024];
+  int k, rc, touched = 0;
+  const char *hold_src = "build/m2-process/m2_hold.c";
+  ensure_dir_recursive("build/m2-process/probe_obj");
+  ensure_dir_recursive("build/m2-process/probe_dep");
+  ensure_dir_recursive("build/m2-process/order_obj");
+  ensure_dir_recursive("build/m2-process/order_dep");
+  ensure_dir_recursive("build/m2-process/fault_obj");
+  ensure_dir_recursive("build/m2-process/fault_dep");
+  for (k = 0; k < 4; k++) {
+    id[0] = (char)('0' + k); id[1] = '\0';
+    tack_copy(path, sizeof(path), "build/m2-process/m2_job_");
+    tack_cat(path, sizeof(path), id);
+    tack_cat(path, sizeof(path), ".c");
+    m2_assert(m2_write(path, "int m2_job;\n") == 0, "P17 job source fixture");
+    tack_copy(path, sizeof(path), "build/m2-process/job-");
+    tack_cat(path, sizeof(path), id);
+    tack_cat(path, sizeof(path), ".ready");
+    (void)remove(path);
+  }
+  (void)rm_rf_contents("build/m2-process/probe_obj");
+  (void)rm_rf_contents("build/m2-process/probe_dep");
+  sv_init(&srcs); sv_init(&objs);
+  for (k = 0; k < 4; k++) {
+    id[0] = (char)('0' + k); id[1] = '\0';
+    tack_copy(path, sizeof(path), "build/m2-process/m2_job_");
+    tack_cat(path, sizeof(path), id);
+    tack_cat(path, sizeof(path), ".c");
+    sv_push(&srcs, path);
+  }
+  m2_pool_probe_begin(2, 0);
+  rc = compile_sources(self, &srcs, "build/m2-process/probe_obj",
+                       "build/m2-process/probe_dep",
+                       0, 0, 0, 0, PROF_DEBUG, 0, 0, 1, 2, 0, &objs, &touched);
+  m2_pool_probe_end();
+  m2_assert(rc == 0 && objs.count == 4 &&
+            m2_pool_attempts == 4 && m2_pool_starts == 4 &&
+            m2_pool_reaps == 4 && m2_pool_live == 0 &&
+            m2_pool_peak == 2 && !m2_pool_violation,
+            "P17 real child overlap and -j 2 strict live upper bound");
+  for (k = 0; k < objs.count; k++)
+    m2_assert(file_exists(objs.items[k]), "P17 four compiler output objects");
+  sv_free(&srcs); sv_free(&objs);
+
+  m2_assert(m2_write("build/m2-process/m2_order_slow.c", "int m2_order_slow;\n") == 0,
+            "P19 slow completion fixture");
+  m2_assert(m2_write("build/m2-process/m2_order_fast.c", "int m2_order_fast;\n") == 0,
+            "P19 fast completion fixture");
+  for (k = 0; k < 2; k++) {
+    (void)remove("build/m2-process/order-fast.done");
+    (void)remove("build/m2-process/order-slow.saw-fast");
+    (void)rm_rf_contents("build/m2-process/order_obj");
+    (void)rm_rf_contents("build/m2-process/order_dep");
+    sv_init(&srcs); sv_init(&objs);
+    if (k == 0) {
+      sv_push(&srcs, "build/m2-process/m2_order_slow.c");
+      sv_push(&srcs, "build/m2-process/m2_order_fast.c");
+    } else {
+      sv_push(&srcs, "build/m2-process/m2_order_fast.c");
+      sv_push(&srcs, "build/m2-process/m2_order_slow.c");
+    }
+    m2_pool_probe_begin(2, 0);
+    rc = compile_sources(self, &srcs, "build/m2-process/order_obj",
+                         "build/m2-process/order_dep",
+                         0, 0, 0, 0, PROF_DEBUG, 0, 0, 1, 2, 0, &objs, &touched);
+    m2_pool_probe_end();
+    m2_assert(rc == 0 && objs.count == 2 &&
+              file_exists("build/m2-process/order-fast.done") &&
+              file_exists("build/m2-process/order-slow.saw-fast") &&
+              m2_pool_starts == 2 && m2_pool_reaps == 2 &&
+              m2_pool_live == 0 && m2_pool_peak == 2 &&
+              !m2_pool_violation,
+              "P19 child-enforced fast-before-slow finish, both launch orders");
+    if (objs.count == 2)
+      m2_assert(file_exists(objs.items[0]) && file_exists(objs.items[1]),
+                "P19 successful objects for both reversed launch orders");
+    sv_free(&srcs); sv_free(&objs);
+  }
+
+  (void)rm_rf_contents("build/m2-process/fault_obj");
+  (void)rm_rf_contents("build/m2-process/fault_dep");
+  (void)remove("build/m2-process/hold-ready");
+  (void)remove("build/m2-process/hold-release");
+  (void)remove("build/m2-process/hold-complete");
+  m2_assert(m2_write(hold_src, "int m2_hold;\n") == 0,
+            "P20 hold source fixture");
+  sv_init(&srcs); sv_init(&objs);
+  sv_push(&srcs, hold_src);
+  sv_push(&srcs, "build/m2-process/m2_third.c");
+  sanitize_path_to_id(obj_name, sizeof(obj_name), hold_src);
+  tack_copy(meta_name, sizeof(meta_name), obj_name);
+  tack_cat(meta_name, sizeof(meta_name), ".meta");
+  path_join(meta_path, sizeof(meta_path), "build/m2-process/fault_dep", meta_name);
+  m2_pool_probe_begin(2, 2);
+  rc = compile_sources(self, &srcs, "build/m2-process/fault_obj",
+                       "build/m2-process/fault_dep",
+                       0, 0, 0, 0, PROF_DEBUG, 0, 0, 1, 2, 0, &objs, &touched);
+  m2_pool_probe_end();
+  m2_assert(rc != 0 && m2_pool_attempts == 2 &&
+            m2_pool_starts == 1 && m2_pool_reaps == 1 &&
+            m2_pool_live == 0 && m2_pool_peak == 1 &&
+            m2_pool_hold_observed && !m2_pool_violation &&
+            file_exists("build/m2-process/hold-complete") &&
+            !file_exists(meta_path),
+            "P20 second spawn fails while first runs, then drains without metadata");
+  sv_free(&srcs); sv_free(&objs);
+}
 int main(int argc, char **argv) {
   int rc;
   if (argc > 1) {
@@ -453,6 +717,7 @@ int main(int argc, char **argv) {
   ensure_dir_recursive("build/m2-process");
   m2_process_cases(argv[0]);
   m2_pool_and_cwd(argv[0]);
+  m2_parallel_probe_cases(argv[0]);
   if (m2_failed) {
     fprintf(stderr, "process_execution_test: %d failures\n", m2_failed);
     return 1;

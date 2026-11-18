@@ -1,9 +1,21 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.4, pending gates)
+# M2 VALIDATION – tack v0.8.6 (RC0.5 tests pending)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
 
 ## Deutsch
+
+### RC0.5 – P17/P19/P20 erweiterte Parallelprozessproben (18.11.2026, Kandidat)
+
+**Ausgangspunkt:** RC0.4 Produktionscode und seine vom Owner bestätigten Windows-Gates bleiben unverändert. Commit `ca9090dda0aa302d404784cb78a0716b5289a059` enthält das owner-genehmigte Windows-Testinventar und HWM **3844/6075**. RC0.5 erweitert ausschließlich `tests/process_execution_test.c`. **RC0.5 Windows und Linux NOT RUN**, keine Ratchet- oder HWM-Freigabe für diesen neuen Test-Fingerprint.
+
+- **P17, echte Jobbegrenzung:** Die Elternseite instrumentiert die echten Betriebssystem-Spawn- und Wait-APIs (Win32 CreateProcessA/WaitForSingleObject, POSIX fork/waitpid) und zählt Spawnversuche, erfolgreiche Starts, abgeschlossene Waits, aktive/unreaped Prozesse, Spitzenwert und Grenzverletzungen. Vier Fake-Compiler-Kinder laufen mit `-j 2`; die Paare 0/1 und 2/3 warten auf gegenseitige Ready-Dateien, wodurch zwei tatsächlich gleichzeitig laufende Prozesse statt nur der Slotzahl nachgewiesen werden. Jede Ready-Wartebedingung ist bounded. Erwartung: 4 Starts/4 Waits, Peak exakt 2, nie mehr als 2 aktive Handles/Jobs, alle vier Output-Objekte vorhanden.
+- **P19, Completion-Reihenfolge:** Zwei echte Compiler-Kinder (`m2_order_slow.c`, `m2_order_fast.c`) werden unter `-j 2` in beiden Startreihenfolgen geprüft. Der schnelle Kindprozess schreibt sein Objekt und publiziert erst dann `order-fast.done`; das langsame Kind darf sein Objekt erst nach dem beobachteten Marker und eigener Bestätigung schreiben. Das erzwingt eine überprüfbare Reihenfolge der abgeschlossenen *Compiler-Arbeit*, unabhängig von Scheduling-Timestamps, bei gleichzeitig erfolgreicher FIFO-Prozessverwaltung. Dies beweist nicht zwingend die Reihenfolge der endgültigen OS-Exit-Zustände; der Vertrag betrifft erhaltene Ergebnisse trotz Completion-Reordering.
+- **P20, injizierter Spawn-Fehler bei lebendem Kind:** Der erste Fake-Compiler `m2_hold.c` publiziert `hold-ready` und wartet bounded auf `hold-release`. Die Parent-API-Injektion wartet bounded auf dessen Ready-Marker, bevor sie **den zweiten Start** mit ACCESS_DENIED/EAGAIN ablehnt; danach gibt sie den ersten Kindprozess frei. Erwartung: genau zwei Versuche, ein gestartetes und ein eingesammeltes Kind, null aktive Handles, `hold-complete` vorhanden, kein `.meta`-Erfolgseintrag für den abgebrochenen Job.
+
+**Nicht verändert:** `src/tack.c`, `coverage/hwm-windows.txt` (3844/6075), `coverage/hwm-linux.txt` (3604/5790), bestehende 27 Regressionstests, Buildsystem und Abhängigkeiten. Kein neues M3–M8-Feature.
+
+**Ausstehende Gates in dieser RC:** Windows TinyCC debug, GCC release, GCC coverage, neue Test-Ratchet-Ownerprüfung sowie Linux GCC/Clang-Referenzsuite und Linux gcov. Tests und Coverage dürfen erst nach neuer tatsächlicher Messung als PASS übernommen werden. Sind neue Windows-Zeilen stärker abgedeckt, ist eine neue HWM-Annahme durch den Owner erforderlich. No automatic ratchet acceptance, no merge.
 
 ### Windows Owner-Gate und HWM-Abnahme: endgültig PASS (18.11.2026)
 
@@ -156,3 +168,7 @@ On commit `382471c950d126697391977fe9962bd0eb2d57e9`, Owner Windows TinyCC debug
 ### English: owner-accepted Windows HWM and test inventory
 
 The Owner explicitly ran `tack coverage accept --owner-approve` and then `tack coverage check`, which returned **PASS HWM retained: 3844/6075**. Both accepted ratchet artifacts were reconstructed without content changes and verified against the local Git diff prefixes: Windows HWM full blob `2f4b698566ae86a53f6b0383579e64a07bee7911` and 28-item test inventory full blob `2f8dbecf0b2d56e4eb2fbacd0f9efc4720a6e7c0`. The two files are versioned in the same commit. Windows tests passed; full Linux gates and residual parallel-process boundary requirements remain pending. M2 as a whole is not accepted.
+
+### English – RC0.5 parallel subprocess proof candidates
+
+RC0.5 modifies **only the C89 M2 process regression test**. It instruments native parent-side spawn/wait accounting for P17, adds a bounded two-child start barrier to prove real concurrency, checks fast-before-slow completion-marker ordering in both launch orders for P19, and injects the second spawn failure only once the first held child is confirmed running for P20. The held child is released and must be reaped without a success metadata record. The verified RC0.4 Windows HWM **3844/6075** and 28-test inventory remain untouched. All RC0.5 Windows/Linux gates and fresh ratchets are **NOT RUN / BLOCKED** pending Owner review. No complete milestone acceptance.
