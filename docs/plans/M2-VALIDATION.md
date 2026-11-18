@@ -1,4 +1,4 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.1, pending gates)
+# M2 VALIDATION – tack v0.8.6 (RC0.2, pending gates)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
@@ -11,6 +11,10 @@
 - Neue C89-Testquelle `tests/process_execution_test.c` mit echten Child-Argumentproben, tatsächlichen Exitstatusfällen und einem langsamen Compiler-Geschwisterprozess.
 - Bestehende 27 Testquellen, akzeptierte Ratchets und HWM-Dateien unverändert. Neuer Test bislang **nicht in Test-Ratchet angenommen**. Erster offizieller `tack test`-Lauf soll daher bis zur Freigabe BLOCKED bleiben.
 - Testcode wurde für P16, P19, P23-P26 ergänzt (Windows API-Fault-Injektionen, tatsächlicher Child mit Leerzeichen im Executable-Pfad, 16000-Byte-Argument, umgekehrte -j-Reihenfolge). Ihre Gates bleiben NOT RUN. Ausstehend sind u.a. zusätzliche Spawn-Fehler während aktiver Geschwister und tatsächliche Plattformabnahme.
+
+### GitHub-/Manifeststatus
+
+Draft-PR **#13** zielt auf `dev/v0.8.6`; kein Merge oder Tag. Die bestehende `SHA256SUMS.txt` stammt vom integrierten M1-Stand und ist **kein aktuelles M2-RC-Manifest**, da `src/tack.c`, Test und Dokumentation geändert wurden. Ein vollständiges neues SHA-256-Release-Manifest ist vor M8-Release-Freigabe zu erzeugen und zu verifizieren. Kein Quell-ZIP im aktuellen GitHub-only-Workflow.
 
 ### Referenzstände, unverändert
 
@@ -76,4 +80,4 @@ git status --short --branch
 
 ## English
 
-RC0.1 is a source/test candidate, not an accepted milestone. Neither reference-platform full suite nor instrumented M2 coverage has been run in this environment. Windows tests require real owner logs; the added test changes the locked inventory, so the standard runner intentionally blocks before an explicit owner ratchet acceptance. Never misreport the BLOCKED result as PASS, or modify the reference HWMs without review.
+RC0.2 is a source/test candidate, not an accepted milestone. Neither reference-platform full suite nor instrumented M2 coverage has been run in this environment. Windows tests require real owner logs; the added test changes the locked inventory, so the standard runner intentionally blocks before an explicit owner ratchet acceptance. Never misreport the BLOCKED result as PASS, or modify the reference HWMs without review.
