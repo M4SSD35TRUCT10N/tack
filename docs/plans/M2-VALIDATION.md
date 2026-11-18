@@ -10,7 +10,7 @@
 - M2-Quellcodekandidat für Eingabevalidierung, POSIX-Exec-Fehlerkanal, Wait/EINTR/Signal, Compiler-Sibling-Drain, Job-Grenze und Formatter-CWD.
 - Neue C89-Testquelle `tests/process_execution_test.c` mit echten Child-Argumentproben, tatsächlichen Exitstatusfällen und einem langsamen Compiler-Geschwisterprozess.
 - Bestehende 27 Testquellen, akzeptierte Ratchets und HWM-Dateien unverändert. Neuer Test bislang **nicht in Test-Ratchet angenommen**. Erster offizieller `tack test`-Lauf soll daher bis zur Freigabe BLOCKED bleiben.
-- Offene Requirement-Tests: P16, P19, P23-P26, einige echte Windows-Child- und kontrollierte Jobpool-Varianten. Siehe Matrix.
+- Testcode wurde für P16, P19, P23-P26 ergänzt (Windows API-Fault-Injektionen, tatsächlicher Child mit Leerzeichen im Executable-Pfad, 16000-Byte-Argument, umgekehrte -j-Reihenfolge). Ihre Gates bleiben NOT RUN. Ausstehend sind u.a. zusätzliche Spawn-Fehler während aktiver Geschwister und tatsächliche Plattformabnahme.
 
 ### Referenzstände, unverändert
 
@@ -20,6 +20,17 @@
 | Linux GCC/gcov 14.2.0 | 3604/5790 | NOT RUN | unbekannt | unbekannt | unbekannt |
 
 Quellenbasierte M0-/M1-Werte sind keine M2-Messung. Für M8 90 % und 100 % kritische Anforderungen bleiben Zielwerte, keine automatische M2-Abnahme.
+
+
+### Isolierter POSIX-Algorithmuscheck (keine tack-Gesamtabnahme)
+
+Die identische M2-Fork/Exec/Wait-Algorithmusfassung wurde als eigenständige C89-Prüfdatei unter Linux ausgeführt (nicht als `tack test`):
+
+- Debian GCC 14.2.0, `-std=c89 -pedantic-errors -Wall -Wextra -Werror`: **PASS**.
+- Clang 17.0.0, dieselben strengen C89-Flags: **PASS**.
+- Jede Ausführung: `ENOENT` aus fehlgeschlagenem `execvp` unterscheidbar von echtem Child-Exit 127, SIGTERM als 128+SIGTERM: **PASS**.
+
+Dieser Check belegt nur den isolierten Algorithmus und ist nicht gleichzusetzen mit kompiliertem `src/tack.c`, dem neuen Testinventar oder dem vollständigen Linux-Referenz-Coverageprofil. Alle integrierten M2-Gates bleiben **NOT RUN**.
 
 ### Gates
 

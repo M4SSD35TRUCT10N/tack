@@ -18,7 +18,7 @@ M2 ändert ausschließlich vorhandene Prozessaufrufe, Argumentübergabe und -beg
 
 ### Regressionen und Freigabe
 
-`tests/process_execution_test.c` startet die eigene Testbinärdatei als echtes Child. Positiv-, Fehler- und Boundary-Fälle prüfen empfangene Argumente sowie Exitcodes, POSIX-Exec-Errno und Signalbeendigung, EINTR/Wait-Fault-Injektion, -j-Sibling-Drain und Formatter-Workdir. Bestehende `tests/fmt_ini_parser_test.c` sichert weitere echte Windows-Quoting-Fälle. Die Prüflücken P16, P19, P23-P26 benötigen weitere deterministische Assertions vor der vollständigen M2-Abnahme. Jeder Status ist plattformbezogen. Erst nach Owner-Freigaben und gemessenen Windows-/Linux-Gates darf M2 als abgeschlossen gelten.
+`tests/process_execution_test.c` startet die eigene Testbinärdatei als echtes Child. Positiv-, Fehler- und Boundary-Fälle prüfen empfangene Argumente sowie Exitcodes, POSIX-Exec-Errno und Signalbeendigung, EINTR/Wait-Fault-Injektion, -j-Sibling-Drain und Formatter-Workdir. Bestehende `tests/fmt_ini_parser_test.c` sichert weitere echte Windows-Quoting-Fälle. P16, P19 und P23-P26 sind im RC0.2-Testentwurf mit Windows-API-Injektionen, Grenzwerten und Reihenfolgeprüfungen ergänzt. **Das ist Testcode, noch kein Gate-PASS.** Noch zu prüfen sind insbesondere die tatsächliche Windows-CRT-Argumentintegrität, ein erzwungener Spawn-Fehler bei aktiven Geschwistern sowie C89-Compiler-/Plattformkompatibilität. Keine Requirement gilt allein wegen vorhandener Assertions als abgenommen. Jeder Status ist plattformbezogen. Erst nach Owner-Freigaben und gemessenen Windows-/Linux-Gates darf M2 als abgeschlossen gelten.
 
 ## English
 
