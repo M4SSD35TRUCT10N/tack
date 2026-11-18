@@ -97,6 +97,33 @@ static int m2_child(int argc, char **argv) {
       if (strcmp(argv[i + 2], expected[i])) return 62 + i;
     return 0;
   }
+#ifdef _WIN32
+  if (!strcmp(argv[1], "--m2-win-limit-ok-child"))
+    return (argc == 3 && strlen(argv[2]) == 16000u) ? 0 : 69;
+  if (!strcmp(argv[1], "--m2-win-limit") ||
+      !strcmp(argv[1], "--m2-win-total") ||
+      !strcmp(argv[1], "--m2-win-limit-ok")) {
+    char *big = (char*)xmalloc(16002u);
+    char *cmd[6];
+    int i, rc;
+    for (i = 0; i < 16001; i++) big[i] = 'x';
+    big[16001] = '\0';
+    cmd[0] = argv[0];
+    cmd[1] = "--m2-win-limit-ok-child";
+    cmd[2] = big;
+    cmd[3] = 0;
+    if (!strcmp(argv[1], "--m2-win-limit-ok")) big[16000] = '\0';
+    if (!strcmp(argv[1], "--m2-win-total")) {
+      big[15000] = '\0';
+      cmd[3] = big;
+      cmd[4] = big;
+      cmd[5] = 0;
+    }
+    rc = fmt_run_win32(cmd, 0);
+    free(big);
+    return rc;
+  }
+#endif
   if (!strcmp(argv[1], "--m2-exit0")) return 0;
   if (!strcmp(argv[1], "--m2-exit13")) return 13;
   if (!strcmp(argv[1], "--m2-exit127")) return 127;
@@ -166,6 +193,33 @@ static void m2_process_cases(const char *self) {
 #ifdef _WIN32
   m2_assert(fmt_run_win32(args, 0) == 0, "CreateProcessA exact received argv");
   m2_assert(fmt_run_win32(fail, 0) != 0, "formatter child error propagated");
+  {
+    char *long_bad[] = {(char*)self, "--m2-win-limit", 0};
+    char *total_bad[] = {(char*)self, "--m2-win-total", 0};
+    char *long_ok[] = {(char*)self, "--m2-win-limit-ok", 0};
+    m2_assert(run_argv_wait(long_bad, 0) == 2,
+              "Windows argument longer than 16000 rejected");
+    m2_assert(run_argv_wait(total_bad, 0) == 2,
+              "Windows aggregate command length rejected");
+    m2_assert(run_argv_wait(long_ok, 0) == 0,
+              "Windows 16000-byte argument reaches child intact");
+  }
+  {
+    char self_path[MAX_PATH];
+    DWORD n = GetModuleFileNameA(NULL, self_path, MAX_PATH);
+    const char *spaced = "build/m2-process/space dir/m2 child.exe";
+    if (n > 0u && n < MAX_PATH) {
+      char *spaced_argv[] = {(char*)spaced, "--m2-args", "space here",
+                            "tab\there", "", "\"quoted\"", "C:\\spaced path\\tail\\",
+                            "backslash\\\"quote", "&|;$\x60<>", "one", "two", 0};
+      ensure_dir_recursive("build/m2-process/space dir");
+      m2_assert(CopyFileA(self_path, spaced, FALSE) != 0,
+                "prepare executable with spaced path");
+      m2_assert(fmt_run_win32(spaced_argv, 0) == 0,
+                "CreateProcessA starts executable whose path contains spaces");
+      m2_assert(DeleteFileA(spaced) != 0, "remove spaced child executable fixture");
+    } else m2_assert(0, "query own Windows executable path");
+  }
   m2_win_fail_create = 1;
   m2_win_closes = 0;
   m2_assert(fmt_run_win32(ok, 0) != 0 && m2_win_closes == 0,
@@ -239,6 +293,24 @@ static void m2_pool_and_cwd(const char *self) {
                        0, 0, 0, 0, PROF_DEBUG, 0, 0, 1, 2, 0, &objs, &touched);
   m2_assert(rc != 0 && file_exists("build/m2-process/slow-complete"),
             "failed -j pool reaps slow running sibling");
+  sv_free(&srcs); sv_free(&objs);
+  sv_init(&srcs); sv_init(&objs);
+  sv_push(&srcs, "build/m2-process/m2_slow.c");
+  sv_push(&srcs, "build/m2-process/m2_third.c");
+  rc = compile_sources(self, &srcs, "build/m2-process/obj", "build/m2-process/dep",
+                       0, 0, 0, 0, PROF_DEBUG, 0, 0, 1, 2, 0, &objs, &touched);
+  m2_assert(rc == 0 && objs.count == 2 &&
+            file_exists(objs.items[0]) && file_exists(objs.items[1]),
+            "successful -j 2 compilation with slow first child");
+  sv_free(&srcs); sv_free(&objs);
+  sv_init(&srcs); sv_init(&objs);
+  sv_push(&srcs, "build/m2-process/m2_third.c");
+  sv_push(&srcs, "build/m2-process/m2_slow.c");
+  rc = compile_sources(self, &srcs, "build/m2-process/obj", "build/m2-process/dep",
+                       0, 0, 0, 0, PROF_DEBUG, 0, 0, 1, 2, 0, &objs, &touched);
+  m2_assert(rc == 0 && objs.count == 2 &&
+            file_exists(objs.items[0]) && file_exists(objs.items[1]),
+            "successful -j 2 compilation with slow last child");
   sv_free(&srcs); sv_free(&objs);
   sv_init(&srcs); sv_init(&objs);
   m2_assert(compile_sources(self, &srcs, "build/m2-process/obj", "build/m2-process/dep",
