@@ -1,0 +1,27 @@
+# SPEC 0014 – tack v0.8.6 M2: Prozessausführung / Process execution
+
+**Stand:** 2026-11-18 | **Status:** Implementierungskandidat, NICHT abgenommen / implementation candidate, NOT accepted
+**Ausgangsbasis:** dev/v0.8.6 @ `39daf5047038dd88cfd7ca5521ceb97d951a929c`
+**Referenzen:** AGENTS.md, docs/adr/*, docs/plans/0.8.6-coverage.md, BA-STD-C89 v0.5 DRAFT (nicht ratifiziert).
+
+## Deutsch
+
+### Geltung und Sicherheitsvertrag
+
+M2 ändert ausschließlich vorhandene Prozessaufrufe, Argumentübergabe und -begrenzung, Wait-/Spawn-Fehler, Compiler-Jobpool und Formatter-Workdir-Verwaltung. `_spawnvp/_cwait` (Windows), `fork/execvp/waitpid` (POSIX) und `CreateProcessA` (Formatter) bleiben die Architektur. Kein Shell-Wrapper, keine neuen Abhängigkeiten, keine parallele Testausführung, kein M3-M8-Feature.
+
+- **P01-P08, P21:** Ungültige Programme werden vor dem Zugriff zurückgewiesen. C89-Argv hat ein überprüftes NULL-Ende, echte Empty-Argumente bleiben erhalten. Maximal 8192 Einträge einschließlich Terminator; `-j` wird vor der Pool-Allokation auf 1–256 begrenzt. Mehrere Argumente müssen als einzelne Werte bis ins Child gelangen; Metazeichen sind Daten.
+- **P09-P16:** POSIX nutzt einen vor `fork` angelegten close-on-exec-Errno-Kanal. Erfolgreiches `execvp` schließt die Pipe und meldet keinen Exec-Fehler; fehlgeschlagenes `execvp` liefert tatsächliches `errno`, Child wird eingesammelt. Regulärer Exit 127 bleibt unterscheidbar. `waitpid` wiederholt nur bei `EINTR` und meldet Signale. Windows behält CRT-Aufrufpfad und ergänzt explizite Diagnosen.
+- **P17-P20:** `compile_sources` lässt maximal `-j` Prozesse gleichzeitig laufen und wartet bei einem Fehler auch alle bereits gestarteten Geschwister ab. Keine erfolgreichen Cache-/Meta-Markierungen für abgebrochene Geschwister. Die bisherige FIFO-Semantik bleibt.
+- **P22-P29:** Die bisherige CreateProcessA-Quotierung bleibt; vor jedem Formatter-Start wird ein angefordertes Arbeitsverzeichnis geprüft. Misslingt der Rückwechsel, wird der gesamte Aufruf als Fehler gewertet. Windows verwendet weiterhin ANSI-`CreateProcessA` mit bekannten Unicode- und Long-Path-Grenzen. Keine Wide-API-Migration.
+- **P31-P32:** Alte Regressionen, HWM-Dateien und das 27-Test-Inventar dürfen nicht abgeschwächt werden. Der neue Test blockiert die Test-Ratchet, bis der Owner seine Quellen-/Assertion-Änderungen ausdrücklich annimmt. Eine stärkere Coverage-Messung bleibt bis zur Owner-HWM-Annahme BLOCKED.
+
+### Regressionen und Freigabe
+
+`tests/process_execution_test.c` startet die eigene Testbinärdatei als echtes Child. Positiv-, Fehler- und Boundary-Fälle prüfen empfangene Argumente sowie Exitcodes, POSIX-Exec-Errno und Signalbeendigung, EINTR/Wait-Fault-Injektion, -j-Sibling-Drain und Formatter-Workdir. Bestehende `tests/fmt_ini_parser_test.c` sichert weitere echte Windows-Quoting-Fälle. Die Prüflücken P16, P19, P23-P26 benötigen weitere deterministische Assertions vor der vollständigen M2-Abnahme. Jeder Status ist plattformbezogen. Erst nach Owner-Freigaben und gemessenen Windows-/Linux-Gates darf M2 als abgeschlossen gelten.
+
+## English
+
+M2 preserves the existing Windows CRT, POSIX fork/exec and Windows formatter APIs, hardening input validation, argument boundaries, exec error signaling, waits, bounded parallel compiler cleanup and formatter working directories. The POSIX close-on-exec error pipe distinguishes `execvp` failure from a successfully started program exiting with status 127. All already launched compiler children must be reaped on failure, without recording success metadata for abandoned jobs. The normal Windows formatter continues using `CreateProcessA` and its documented ANSI and path constraints. No shell, new build system, new dependencies, parallel test runner or early M3–M8 implementation is authorized.
+
+The requirement matrix is `docs/plans/M2-REQUIREMENTS.tsv`, the platform evidence record is `M2-VALIDATION.md`. New tests have not been ratchet-accepted; both pre-existing reference HWMs stay untouched. Owner Windows/Linux verification and explicit test/coverage ratchet acceptance are mandatory before milestone closure.

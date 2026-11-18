@@ -72,6 +72,9 @@
   #include <dirent.h>
   #include <unistd.h>
   #include <sys/wait.h>
+  #include <fcntl.h>
+  #include <signal.h>
+  extern int kill(pid_t pid, int sig); /* strict C89 POSIX declaration */
   #define PATH_SEP '/'
   #define STAT_FN stat
   #define STAT_ST struct stat
@@ -1780,43 +1783,116 @@ static void print_argv(char **argv) {
 #ifdef _WIN32
 typedef struct { intptr_t pid; } Proc;
 static int proc_spawn_nowait(char **argv, Proc *out) {
-  intptr_t pid = _spawnvp(_P_NOWAIT, argv[0], (const char * const *)argv);
+  intptr_t pid;
+  if (!argv || !argv[0] || !argv[0][0] || !out) { errno = EINVAL; return 1; }
+  pid = _spawnvp(_P_NOWAIT, argv[0], (const char * const *)argv);
   if (pid == -1) return 1;
   out->pid = pid;
   return 0;
 }
 static int proc_wait(Proc *p) {
   int status = 0;
-  intptr_t r = _cwait(&status, p->pid, 0);
-  if (r == -1) return 1;
+  intptr_t r;
+  if (!p) { errno = EINVAL; return 1; }
+  r = _cwait(&status, p->pid, 0);
+  if (r == -1) {
+    fprintf(stderr, "tack: _cwait failed: errno=%d (%s)\n", errno, strerror(errno));
+    return 1;
+  }
   return status;
 }
 #else
 typedef struct { pid_t pid; } Proc;
+/* A close-on-exec error pipe distinguishes failed execvp from an executable
+ * that legitimately exits with 127. The child uses async-signal-safe calls. */
 static int proc_spawn_nowait(char **argv, Proc *out) {
-  pid_t pid = fork();
-  if (pid < 0) return 1;
+  int fds[2];
+  int flags, child_errno = 0, saved_errno, status;
+  size_t got;
+  ssize_t n;
+  pid_t pid, waited;
+  if (!argv || !argv[0] || !argv[0][0] || !out) { errno = EINVAL; return 1; }
+  if (pipe(fds) != 0) return 1;
+  flags = fcntl(fds[1], F_GETFD);
+  if (flags < 0 || fcntl(fds[1], F_SETFD, flags | FD_CLOEXEC) < 0) {
+    saved_errno = errno;
+    (void)close(fds[0]); (void)close(fds[1]);
+    errno = saved_errno;
+    return 1;
+  }
+  pid = fork();
+  if (pid < 0) {
+    saved_errno = errno;
+    (void)close(fds[0]); (void)close(fds[1]);
+    errno = saved_errno;
+    return 1;
+  }
   if (pid == 0) {
+    const char *bytes;
+    size_t sent;
+    (void)close(fds[0]);
     execvp(argv[0], argv);
+    child_errno = errno;
+    bytes = (const char*)&child_errno;
+    sent = 0u;
+    while (sent < sizeof(child_errno)) {
+      n = write(fds[1], bytes + sent, sizeof(child_errno) - sent);
+      if (n < 0 && errno == EINTR) continue;
+      if (n <= 0) break;
+      sent += (size_t)n;
+    }
     _exit(127);
   }
-  out->pid = pid;
-  return 0;
+  (void)close(fds[1]);
+  got = 0u;
+  n = 0;
+  while (got < sizeof(child_errno)) {
+    n = read(fds[0], ((char*)&child_errno) + got, sizeof(child_errno) - got);
+    if (n < 0 && errno == EINTR) continue;
+    if (n <= 0) break;
+    got += (size_t)n;
+  }
+  saved_errno = (got == sizeof(child_errno)) ? child_errno : EIO;
+  if (got == 0u && n == 0) {
+    (void)close(fds[0]);
+    out->pid = pid;
+    return 0;
+  }
+  if (got != sizeof(child_errno)) (void)kill(pid, SIGKILL);
+  (void)close(fds[0]);
+  do { waited = waitpid(pid, &status, 0); } while (waited < 0 && errno == EINTR);
+  errno = saved_errno;
+  return 1;
 }
 static int proc_wait(Proc *p) {
   int status = 0;
-  if (waitpid(p->pid, &status, 0) < 0) return 1;
+  pid_t r;
+  if (!p) { errno = EINVAL; return 1; }
+  do { r = waitpid(p->pid, &status, 0); } while (r < 0 && errno == EINTR);
+  if (r < 0) {
+    fprintf(stderr, "tack: waitpid failed: errno=%d (%s)\n", errno, strerror(errno));
+    return 1;
+  }
   if (WIFEXITED(status)) return WEXITSTATUS(status);
+  if (WIFSIGNALED(status)) {
+    int sig = WTERMSIG(status);
+    fprintf(stderr, "tack: child terminated by signal %d\n", sig);
+    return 128 + sig;
+  }
+  fprintf(stderr, "tack: child terminated without exit status\n");
   return 1;
 }
 #endif
 
 static int run_argv_wait(char **argv, int verbose) {
   Proc p;
+  if (!argv || !argv[0] || !argv[0][0]) {
+    fprintf(stderr, "tack: spawn failed: missing program\n");
+    return 1;
+  }
   if (verbose) print_argv(argv);
   if (proc_spawn_nowait(argv, &p) != 0) {
-    const char *cmd0 = (argv && argv[0]) ? argv[0] : "(null)";
-    fprintf(stderr, "tack: spawn failed: %s\n", cmd0);
+    fprintf(stderr, "tack: spawn failed: %s\n", argv[0]);
     fprintf(stderr, "tack: errno: %d (%s)\n", errno, strerror(errno));
     return 1;
   }
@@ -1835,8 +1911,10 @@ static void av_init(Argv *v) { v->a = 0; v->n = 0; v->cap = 0; }
 static void av_free(Argv *v) { free(v->a); v->a = 0; v->n = 0; v->cap = 0; }
 
 static void av_push(Argv *v, const char *s) {
+  if (v->n >= 8192) tack_die("process: too many arguments");
   if (v->n + 1 > v->cap) {
     int ncap = v->cap ? v->cap * 2 : 32;
+    if (ncap > 8192) ncap = 8192;
     v->a = (char**)xrealloc(v->a, (size_t)ncap * sizeof(char*));
     v->cap = ncap;
   }
@@ -4842,6 +4920,7 @@ static void push_common_warnings(Argv *av, int strict) {
 }
 
 /* spawn compile jobs with -j pool */
+#define TACK_MAX_COMPILER_JOBS 256
 typedef struct {
   Proc proc;
   char obj_path[1024];
@@ -4850,6 +4929,13 @@ typedef struct {
   char cache_key[64];
   int cache_enabled;
 } CompileJob;
+
+/* Reap outstanding siblings after a failed compiler, metadata operation, or
+ * spawn. Do not record cache success for jobs abandoned after an error. */
+static void compile_jobs_drain(CompileJob *running, int from, int count) {
+  int k;
+  for (k = from; k < count; k++) (void)proc_wait(&running[k].proc);
+}
 
 static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const char *depd,
                            const char * const *inc_common,
@@ -4865,6 +4951,10 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
 
   touched = 0;
   if (jobs < 1) jobs = 1;
+  if (jobs > TACK_MAX_COMPILER_JOBS) {
+    fprintf(stderr, "tack: compiler jobs exceed limit (%d)\n", TACK_MAX_COMPILER_JOBS);
+    return 1;
+  }
 
   running = (CompileJob*)xmalloc((size_t)jobs * sizeof(CompileJob));
   running_n = 0;
@@ -4888,6 +4978,7 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
     sv_push(out_objs, obj_path);
 
     if (update_depfile_for_source(src, dep_path, inc_common, inc_extra) != 0) {
+      compile_jobs_drain(running, 0, running_n);
       free(running);
       return 1;
     }
@@ -4988,9 +5079,9 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
           }
           for (m = 1; m < running_n; m++) running[m - 1] = running[m];
           running_n--;
-          if (rcw != 0) { sv_free(&tmp_defs); av_free(&av); free(running); return 1; }
+          if (rcw != 0) { sv_free(&tmp_defs); av_free(&av); compile_jobs_drain(running, 0, running_n); free(running); return 1; }
         }
-        if (proc_spawn_nowait(av.a, &running[running_n].proc) != 0) { sv_free(&tmp_defs); av_free(&av); free(running); return 1; }
+        if (proc_spawn_nowait(av.a, &running[running_n].proc) != 0) { fprintf(stderr, "tack: compiler spawn failed: %s: errno=%d (%s)\n", cc, errno, strerror(errno)); sv_free(&tmp_defs); av_free(&av); compile_jobs_drain(running, 0, running_n); free(running); return 1; }
         running[running_n].cache_enabled = cache_enabled;
         tack_copy(running[running_n].obj_path, sizeof(running[running_n].obj_path), obj_path);
         tack_copy(running[running_n].dep_path, sizeof(running[running_n].dep_path), dep_path);
@@ -5016,7 +5107,7 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
       if (rc == 0 && running[k].cache_enabled) {
         cache_store(running[k].cache_key, running[k].obj_path, running[k].dep_path);
       }
-      if (rc != 0) { free(running); return 1; }
+      if (rc != 0) { compile_jobs_drain(running, k + 1, running_n); free(running); return 1; }
     }
   }
 
@@ -10498,19 +10589,18 @@ static int fmt_exec_cmd(const char *cmd, const char *file, const char *root, con
     av_push(&av, argv_own.items[i]);
   av_terminate(&av);
 
-#ifdef _WIN32
-  _getcwd(cwd0, (int)sizeof(cwd0));
-#else
-  getcwd(cwd0, sizeof(cwd0));
-#endif
-  cwd0[sizeof(cwd0) - 1] = '\0';
-
+  cwd0[0] = '\0';
   if (workdir && workdir[0]) {
 #ifdef _WIN32
-    _chdir(workdir);
+    if (!_getcwd(cwd0, (int)sizeof(cwd0)) || _chdir(workdir) != 0) {
 #else
-    chdir(workdir);
+    if (!getcwd(cwd0, sizeof(cwd0)) || chdir(workdir) != 0) {
 #endif
+      fprintf(stderr, "tack: fmt: cannot enter workdir: %s: %s\n",
+              workdir, strerror(errno));
+      av_free(&av); sv_free(&toks); sv_free(&argv_own);
+      return 1;
+    }
   }
 
 #ifdef _WIN32
@@ -10521,10 +10611,13 @@ static int fmt_exec_cmd(const char *cmd, const char *file, const char *root, con
 
   if (workdir && workdir[0]) {
 #ifdef _WIN32
-    _chdir(cwd0);
+    if (_chdir(cwd0) != 0) {
 #else
-    chdir(cwd0);
+    if (chdir(cwd0) != 0) {
 #endif
+      fprintf(stderr, "tack: fmt: cannot restore workdir: %s\n", cwd0);
+      rc = 1;
+    }
   }
 
   av_free(&av);
@@ -11317,7 +11410,7 @@ int main(int argc, char **argv) {
         int v;
         if (argi + 1 >= argc) { fprintf(stderr, "tack: -j needs N\n"); tv_free(&tv); config_free(); return 2; }
         v = parse_int(argv[++argi]);
-        if (v < 1) { fprintf(stderr, "tack: invalid -j %s\n", argv[argi]); tv_free(&tv); config_free(); return 2; }
+        if (v < 1 || v > TACK_MAX_COMPILER_JOBS) { fprintf(stderr, "tack: invalid -j %s\n", argv[argi]); tv_free(&tv); config_free(); return 2; }
         jobs = v;
       } else {
         /* run: allow args without -- (best effort) */
