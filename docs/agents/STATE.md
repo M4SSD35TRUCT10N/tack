@@ -1,6 +1,17 @@
 # Aktueller Projektstand / Current agent handoff
 
 ## Deutsch
+
+### tack v0.8.6 M0 — Coverage-Baseline und Requirement-Audit (17.11.2026), OWNER REVIEW AUSSTEHEND
+
+- GitHub: annotierter Release-Tag `v0.8.5` zeigt auf Commit `a5c630b2bab4f8545feb591d1e3c01bcee656f11`; `main` = `6bb19dc2a9aae576b1792a4315c6388644a9f6c7` (nur README-Delta). `dev/v0.8.6` existiert im Remote noch nicht. `v0.8.5` ist inzwischen am 17.11.2026 19:34:08 UTC auf GitHub veröffentlicht worden; ältere Aussagen zur ausstehenden Publikation sind historische Momentaufnahmen.
+- Unveränderte, ownerangenommene Referenzen: Windows TDM-GCC/gcov 10.3.0 **3577/5906 (60,56553%)**; Linux GCC/gcov 14.2.0 **3505/5710 (61,38354%)**. Profil-IDs, Fingerprints und `coverage/test-inventory.txt` bleiben unverändert. 26 Testquellen; historischer GCC Release Windows/Linux: 25 PASS/1 SKIP, TinyCC Debug Windows: 24 PASS/2 SKIP.
+- Dokument `docs/plans/0.8.6-coverage.md` enthält noch v0.8.4-Zähler und 25 Testquellen und ist nach M0-Review auf diese neue Baseline zu konsolidieren. Ziel: >=90% executable production lines getrennt je OS, >=90% ownergeprüfte testbare Requirements, 100% kritische Sicherheits- und Datenintegritätsrequirements; keine Denominator-Tricks, keine Testsabschwächung.
+- Statischer Test-/Funktions-Audit durchgeführt; ungetroffene Zeilen und Requirements-Prozentsatz ohne frische gcov-Daten/Owner-Review **NOT RUN / unbekannt**. Die ältere GitHub-Dokumentation bezeichnet den Windows-Nachtest nach HWM-Übernahme noch als offen. Das jüngere Owner-CMD-Protokoll `Eingefügter Text(20261117-185021).txt` belegt jedoch `coverage check` PASS (Exit 0) und erneuten instrumentierten Lauf **3577/5906**, **25 PASS / 1 SKIP**, Exit 0. Für M0 selbst wurde kein Plattform-Gate neu ausgeführt (NOT RUN).
+- M1 vorgeschlagen: Pfad-/Dateisystemsicherheit mit Positiv-/Negativ-/Boundary-/CLI-E2E, Symlink/Junction-/Cleanup-Sentinels, Limitfälle und ausdrücklichem Opt-in. Kein produktiver C89-Code in M0 geändert; keine HWM angenommen, kein Ratchet-Accept, keine Git-Schreiboperation.
+- `SHA256SUMS.txt` auf `main` wegen README-GitHub-Delta nicht mehr als abschließendes Release-Manifest verwenden; für das M0-Quell-ZIP aus den tatsächlich verpackten Dateien vollständig neu berechnet und geprüft; beim endgültigen v0.8.6-Release erneut aus eingefrorenem Quellbestand erzeugen.
+- Prüfdokument `M0-COVERAGE-AUDIT.md`; Requirements-Kandidat `M0-REQUIREMENTS.tsv`. Vollständiges M0-Quell-ZIP mit geprüftem SHA-256-Manifest erstellt; Owner-Abnahme und M1-Freigabe noch offen.
+
 ### Finale HWM-Annahme v0.8.5 (17.11.2026) — Windows-Nachtest / GitHub-Publikation offen
 
 - Owner Windows RC0.7: GCC Release 25 PASS/1 SKIP; TinyCC Debug 24 PASS/2 SKIP; echte `clang-format 23.1.5`-E2E-Exitcodes 0/2/0/0/1/0 PASS; `git fetch` Exit 0. `tack --version` = 0.8.5.
@@ -71,6 +82,16 @@
 - **Historie:** RC0.2 behob Windows-Pfade/Zeilenenden im Testinventar. Kein Test zur Freigabe abgeschwächt. Nur finaler `docs/releases/0.8.4.md` ist der aktuelle Releasebericht; alte dev-Stände 0.8.2/0.8.3 bleiben historische Dokumente.
 
 ## English
+
+### tack v0.8.6 M0 — baseline and requirements audit (2026-11-17), OWNER REVIEW PENDING
+
+- GitHub release tag `v0.8.5` points to `a5c630b2bab4f8545feb591d1e3c01bcee656f11`; `main` is `6bb19dc2a9aae576b1792a4315c6388644a9f6c7` with only a README change. Remote `dev/v0.8.6` is absent. The v0.8.5 GitHub Release was published at 19:34:08 UTC; earlier unreleased status notes are historical.
+- Preserve accepted independent HWMs: Windows TDM-GCC/gcov 10.3.0 **3577/5906 (60.56553%)**; Linux GCC/gcov 14.2.0 **3505/5710 (61.38354%)**. Keep both profile IDs/fingerprints, 26-file test inventory and ratchet records unchanged. Historical Windows/Linux GCC release: 25 PASS/1 SKIP; Windows TinyCC debug: 24 PASS/2 SKIP.
+- Existing v0.8.6 plan has obsolete v0.8.4 counts and 25-test inventory and needs baseline reconciliation. Targets remain >=90% executable production lines on each OS, >=90% verified testable requirements and 100% of critical security/data-integrity requirements; no denominator gaming or test weakening.
+- Static mapping done; actual uncovered lines and requirement coverage ratio are **NOT RUN / unknown** without fresh OS-specific gcov evidence and owner approval. Earlier GitHub release notes list the Windows post-HWM check as outstanding; a later Owner CMD log (`Eingefügter Text(20261117-185021).txt`) confirms `coverage check` PASS (exit 0), followed by an instrumented **3577/5906** run with **25 PASS / 1 SKIP**, exit 0. No platform gates were rerun during M0 (NOT RUN).
+- Proposed M1: path and filesystem safety with positive, negative, boundary and CLI end-to-end tests, symlink/junction/cleanup sentinels, bounds and explicit unsafe opt-in. No production C89 edits, HWM acceptance, ratchet acceptance or Git writes in M0.
+- Main README changed after the manifest snapshot; M0 `SHA256SUMS.txt` was regenerated and checked for the packed source snapshot; regenerate it again after final v0.8.6 source freeze. Audit documents: `M0-COVERAGE-AUDIT.md` and `M0-REQUIREMENTS.tsv`. The complete M0 source ZIP with verified SHA-256 manifest is prepared; Owner acceptance and M1 authorization remain outstanding.
+
 ### Final v0.8.5 HWM adoption (2026-11-17) — Windows post-check and GitHub publication pending
 
 - Owner Windows RC0.7: GCC release 25 PASS/1 SKIP; TinyCC debug 24 PASS/2 SKIP; real `clang-format 23.1.5` E2E 0/2/0/0/1/0 PASS; `git fetch` exit 0. `tack --version` = 0.8.5.

@@ -1,0 +1,68 @@
+ID	Bereich	Kritisch	Anforderung / testbares Verhalten	Produktionsanker	Existierender Testanker	M0-Status	Fehlender Nachweis / Abnahmefall
+S01	Pfad	JA	id mit ..-Traversal ohne Opt-in abweisen	validate_target_path_value	tests/path_safety_test.c	STATIC	CLI-E2E und Windows/Linux
+S02	Pfad	JA	bin mit ..-Traversal ohne Opt-in abweisen	validate_target_path_value	tests/path_safety_test.c	STATIC	CLI-E2E und Windows/Linux
+S03	Pfad	JA	src mit ..-Traversal ohne Opt-in abweisen	is_safe_relative_path	tests/path_safety_test.c	STATIC	CLI-E2E und Windows/Linux
+S04	Pfad	JA	Absolute POSIX-Pfade als sichere src ablehnen	is_safe_relative_path	tests/path_safety_test.c	GAP	Negativtest
+S05	Pfad	JA	Drive-Präfix als sichere src ablehnen	has_drive_prefix	tests/path_safety_test.c	GAP	Negativtest C: und c:
+S06	Pfad	JA	UNC-Pfad und doppelte Backslash-Prefixe ablehnen	is_safe_relative_path	tests/path_safety_test.c	GAP	Windows-E2E
+S07	Pfad	JA	Leere Pfadsegmente und gemischte Traversal-Trenner abweisen	is_safe_relative_path	tests/path_safety_test.c	GAP	Grenzfälle // und \\ und gemischte Separatoren
+S08	Pfad	JA	Sichere relative src und sichere id/bin akzeptieren	validate_target_path_value	tests/path_safety_test.c	STATIC	Erweiterte Positivfälle / nicht bei Substrings falsch ablehnen
+S09	Pfad	JA	Unsafe-Pfade nur bei explizitem Opt-in akzeptieren	allow_unsafe_paths_enabled	tests/path_safety_test.c	STATIC	CLI-INI-Prioritäten und Restoring des Defaults
+S10	Pfad	JA	Überlange Pfadkombination nie still kürzen	path_join	tests/path_join_test.c	GAP	Exakt cap-1 und cap+1 / Fail-fast
+S11	Pfad	JA	Pfadseparatoren über Windows/POSIX konsistent behandeln	path_join;path_join_alloc	tests/path_join_test.c	STATIC	POSIX- und Windows-Grenzen
+S12	Dateisystem	JA	Directory-Scan folgt keinem externen Symlink/Junction-Verzeichnis	scan_dir_recursive_suffix_skip_depth	keiner gezielt	GAP	Fremdverzeichnis-Sentinel Linux/Windows
+S13	Dateisystem	JA	clean/clobber traversiert keine externen Symlink/Junction-Ziele	rm_rf_depth;rm_rf_contents_depth	keiner gezielt	GAP	Fremdverzeichnis-Sentinel Linux/Windows
+S14	Dateisystem	JA	Scan-/Löschtiefe begrenzt und fehlschlagend	scan_dir_recursive_suffix_skip_depth;rm_rf_depth	keiner gezielt	GAP	Maximal-/Übergrenzen
+S15	Dateisystem	JA	Löschfehler und gesperrte Dateien führen nicht zu falschem PASS	rm_rf_depth;win32_delete_file_retry	keiner gezielt	GAP	Permission-/Sharing-Violation
+S16	Dateisystem	JA	Dateioperationen verlassen ohne Opt-in nicht das Projektverzeichnis	cmd_clean;cmd_clobber;validate_target_path_value	keiner gezielt	GAP	isolierter E2E mit Außen-Sentinel
+P01	Prozess	JA	Build-Prozessstart ohne Shell-Injektion	proc_spawn_nowait;run_argv_wait	tests/functional_smoke_test.c	STATIC	Sonderzeichen/argv E2E
+P02	Prozess	JA	Fehlende Executable gibt Fehler statt PASS	proc_spawn_nowait;run_argv_wait	keiner gezielt	GAP	Windows/POSIX Negativtest
+P03	Prozess	JA	Kindprozess-Exitcode 0 korrekt propagiert	proc_wait	tests/functional_smoke_test.c	STATIC	CLI-Exitcode-Nachweis
+P04	Prozess	JA	Nicht-Null-Exitcode korrekt propagiert	proc_wait	tests/functional_smoke_test.c	GAP	Exit 1/2/127 mit CLI
+P05	Prozess	JA	Abnormes Kindende als Fehler erkannt	proc_wait	keiner gezielt	GAP	POSIX Signal/Windows Fehler
+P06	Prozess	JA	Windows CreateProcessA-Quote/Space/Trailing-Backslash erhalten	fmt_run_win32	tests/fmt_ini_parser_test.c	STATIC	Owner-RC0.7-E2E plus echte isolierte Fixture
+P07	Prozess	JA	Externe Formatter führen ohne Shell aus	fmt_exec_cmd;fmt_run_win32	tests/fmt_ini_parser_test.c	STATIC	Argument-Manipulation/Metazeichen Negativ-E2E
+P08	Prozess	NEIN	Parallele Builds lassen Exitcodes/Fehler nicht verschwinden	compile_sources	keiner gezielt	GAP	Fehlschlag eines parallelen Jobs
+I01	Parser	JA	INI-Zeilenüberlänge wird fail-fast abgewiesen	ini_load_file	tests/fmt_ini_parser_test.c	GAP	TACK_MAX_LINE Grenze
+I02	Parser	JA	INI-Listen unterhalb Maximalzahl akzeptiert	split_list_tokens	keiner gezielt	GAP	TACK_MAX_LIST_ITEMS - 1
+I03	Parser	JA	INI-Listen über Maximum fail-fast abgewiesen	split_list_tokens	keiner gezielt	GAP	TACK_MAX_LIST_ITEMS + 1
+I04	Parser	JA	Nicht geschlossenes Quote wird abgewiesen	split_list_tokens	tests/fmt_ini_parser_test.c	STATIC	INI- und CLI-Grenzfixtures
+I05	Parser	JA	Zu lange Einzelwerte/Regelnamen abgewiesen	ini_load_file;split_list_tokens	tests/fmt_ini_parser_test.c	GAP	TACK_MAX_TOKEN / NAME
+I06	Parser	NEIN	[fmt] bleibt von [sbom] isoliert	ini_load_file	tests/fmt_ini_parser_test.c	STATIC	Erneute E2E unter beiden OS
+I07	Parser	JA	--strict weist unbekannte Felder und ungültige Modes zurück	ini_load_file;fmt_validate_strict	tests/fmt_ini_parser_test.c	STATIC	Vollständige negative Schlüsselmatrix
+I08	Parser	NEIN	Profil-Compilerpriorität bleibt stabil	get_cc;get_compiler_policy	tests/compiler_target_profile_selection_test.c	STATIC	E2E TACK_CC vs Profile vs Projekt
+C01	Cache	JA	Veränderter Header erzwingt frischen Build	scan_includes_recursive;depfile_needs_rebuild_explain	tests/incremental_link_test.c	STATIC	Windows eigene E2E (Test bisher POSIX-only)
+C02	Cache	JA	Objekt-Cache restauriert gültiges Objekt und Depfile	cache_restore	tests/cache_restore_after_clean_test.c	STATIC	CLI-E2E und Checksumme
+C03	Cache	JA	Geänderter Depgraph invalidiert Cache	cache_restore;cache_meta_valid	tests/cache_restore_after_clean_test.c	STATIC	Weitere Grenzfälle
+C04	Cache	JA	Korruptes Metadata-File wird abgewiesen	cache_meta_valid;depmeta_needs_rebuild_explain	keiner gezielt	GAP	Trunkierung/Teilwrite/Fehlformat
+C05	Cache	JA	Fehlendes Objekt invalidiert Cache/erzwingt Rebuild	obj_needs_rebuild_explain	keiner gezielt	GAP	Deleted-object Test
+C06	Cache	JA	Geänderte Link-Eingaben erzwingen Relink	linkmeta_needs_relink_explain	tests/incremental_link_test.c	STATIC	Windows E2E und Timestamp-Grenzen
+C07	Cache	JA	Unveränderte Link-Eingaben vermeiden falsches Relink	linkmeta_needs_relink_explain	tests/incremental_link_test.c	STATIC	Windows E2E und präzise Assertions
+C08	Cache	JA	Compiler-Wechsel führt nicht zu falschem Cache-Hit	cache_key_from_argv;get_cc	tests/compiler_target_profile_selection_test.c	GAP	Compiler-Wechsel im selben Profil nach SPEC 0010
+V01	Coverage	JA	Nicht instrumentierte neue Produktionsquelle blockiert Messung	cov_validate_source_scope	tests/coverage_ratchet_test.c	GAP	Fixture zweite Produktionsquelle
+V02	Coverage	JA	Test-/Header-Code wird nicht als Produktion gezählt	cov_is_production	tests/coverage_ratchet_test.c	STATIC	include/tests/ und neue Headerdaten
+V03	Coverage	JA	Gcov Parser erfasst ausgeführte und nicht ausgeführte Zeilen korrekt	cov_read_gcov	tests/coverage_ratchet_test.c	STATIC	Malformed-Gcov-Negativmatrix
+V04	Coverage	JA	Gcov Source-Metadaten in Strings sind keine Metadaten	cov_read_gcov	tests/coverage_ratchet_test.c	STATIC	Mehrfach-/Overlaydaten
+V05	Coverage	JA	Frische Quell-/Test-/Flag-Fingerprints erforderlich	cov_fresh	tests/coverage_ratchet_test.c	GAP	Veraltetes current.txt End-to-end
+V06	Coverage	JA	HWM-Regressionsratio FAIL (nicht gerundet)	cov_compare	tests/coverage_ratchet_test.c	STATIC	Grenzwerte unterschiedliche Nenner
+V07	Coverage	JA	Bessere Coverage ohne Owner-Accept ist BLOCKED	cov_compare;cov_accept_current	tests/coverage_ratchet_test.c	STATIC	Keine Annahme im Testlauf
+V08	Coverage	JA	Inkompatible Profil-/Plattform-/Quellmenge BLOCKED	cov_compare	tests/coverage_ratchet_test.c	STATIC	Geschützte Denominator-Drift-Review
+V09	Coverage	JA	Gcov-Notizen und Laufdaten ausschließlich in Build-Objektverzeichnis	test_coverage_artifact_paths	tests/coverage_ratchet_test.c	STATIC	Realinstrumentierung Windows/Linux
+V10	Coverage	JA	Testinventar erkennt semantisch geänderte Testdatei	cov_test_source_hash;cov_test_inventory	tests/coverage_ratchet_test.c	STATIC	Testschwächung durch Diff-Review verhindern
+R01	Reporting	NEIN	TAP v13 PASS ist gültig und geordnet	tap_write_test_result	tests/tap_report_output_test.c	STATIC	Validierungsparser und doppelter Testname
+R02	Reporting	NEIN	TAP FAIL enthält not ok/Bail out	tap_write_bail_out	tests/tap_report_output_test.c	STATIC	Abbruch früh während Aufbereitung
+R03	Reporting	NEIN	JUnit XML enthält PASS-Testcase	xml_write_string;junit_write_report	tests/junit_report_output_test.c	STATIC	XML-Parser-E2E
+R04	Reporting	NEIN	JUnit XML enthält korrekten Fehler-Testcase	junit_write_report	tests/junit_report_output_test.c	STATIC	Escaping Sonderzeichen
+R05	Reporting	NEIN	Events JSONL meldet run_started/run_finished	events_write_run_started;events_write_run_finished	tests/events_jsonl_output_test.c	STATIC	Schema/JSON Parser
+R06	Reporting	NEIN	Events JSONL enthält Testplan und Testresultate	events_write_test_plan;events_write_test_finished	tests/events_jsonl_output_test.c	STATIC	Fehlerabbruch und Reihenfolge
+R07	Reporting	JA	Report-Ausgabepfad/Schreibfehler nicht als PASS maskiert	tap_open;junit_open;events_open	keiner gezielt	GAP	Nicht beschreibbares Ziel/Verzeichnispfad
+R08	Reporting	JA	JSON/XML-Sonderzeichen werden korrekt escaped	json_write_string;xml_write_string	tests/events_jsonl_output_test.c;tests/junit_report_output_test.c	GAP	Steuerzeichen/Quotes/Unicode und Parser
+A01	Artefakte	JA	BOM repräsentiert effektive Targetquellen	cmd_bom	tests/functional_smoke_test.c	STATIC	Multitarget und verbotene Pfade
+A02	Artefakte	JA	SBOM all enthält alle selektierten Targets	cmd_sbom_all	tests/sbom_all_targets_test.c	STATIC	Unvollständige Target-Graphen
+A03	Artefakte	JA	SBOM Metadaten sind konsistent	cmd_sbom_internal	tests/sbom_metadata_test.c	STATIC	Datei-Inhalt/Encoding prüfen
+A04	Artefakte	NEIN	CycloneDX/SPDX-Varianten erzeugen gültige Dokumente	write_sbom_cyclonedx;write_sbom_spdx	tests/sbom_metadata_test.c	GAP	Schema-/Negativvalidierung
+A05	Artefakte	JA	Doc-Renderer escaped HTML statt Injection	render_markdown_lite;write_html_escaped	tests/doc_markdown_ux_test.c	STATIC	Bösartige HTML/Link Fixtures
+A06	Artefakte	JA	Formatter verändert bei --check keine Originaldatei	fmt_rule_check	tests/fmt_ini_parser_test.c	STATIC	Echte E2E-Differenz/Hash
+A07	Artefakte	JA	SHA256SUMS validiert alle finalen Quell-ZIP-Einträge	Release packaging	kein automatisierter Repository-Test	GAP	Finales ZIP entpacken, SHA256 jeder Datei vergleichen
+A08	Artefakte	JA	README-Hash nach Freeze passend und vollständig	Release packaging	kein automatisierter Repository-Test	GAP	main README-Delta / neues Release-Manifest
+A09	Artefakte	JA	Quell-ZIP enthält vollständigen Releasebestand ohne Buildmüll	Release packaging	kein automatisierter Repository-Test	GAP	Git-Tree vs ZIP-Inventar

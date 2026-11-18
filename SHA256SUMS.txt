@@ -6,7 +6,7 @@ ff7286b8f393d44bd3164080d22883650fcf97a66688849aaab61422b891d4b8  ./CHANGELOG.md
 247cac07978ef8120dec73f22256c709b7443db0dc06f625f3b3c4ecabda7940  ./CLAUDE.md
 de42c0256e3c7ef07e87ee59a3800d0374b1a442a36bce9891d62bbb31ec56bb  ./FAQ.md
 7eabc3ebc3d485f6e70421226aa35eb15a14e9932beb9c92184f66f38ba39433  ./LICENSE
-606cde2aca39a101940a80a1156fb686505af3e4cda4f87432091c317510609e  ./README.md
+4f70584d8fa395cc9cba6618fcc475c01394de4fa54b294e6e4165c92ecc7ce0  ./README.md
 aa7e67db2cd55da8067834dad6084f358753ae9edccf0d2df0828a11f0ca75ef  ./RELEASENOTES.md
 16cd15bbd31067efc0a785aa0bfd711c3b466db3975a9434c24ef8a2f6a6a33d  ./ROADMAP.md
 e3d8d5036ab6eff915ae91c61b2904429c4248a039a83fe0f9f214b476c4139e  ./SECURITY.md
@@ -16,7 +16,7 @@ e3d8d5036ab6eff915ae91c61b2904429c4248a039a83fe0f9f214b476c4139e  ./SECURITY.md
 35ff6429c9bedf9809c264b0f2d39ccd3a8b34d0a5f3f7ebe9b581269703aa67  ./docs/README.md
 e040e2fe051e962b95982be2ca177b23c4a395631e807efbf0ab46724ef34115  ./docs/adr/0001-open-v0.8-series.md
 0a28a94af9030393350ab732cb35559d9834a872db9ce488cce03438d1a298cc  ./docs/adr/0002-profile-compiler-ownership.md
-4e7d651d432db56eb3c120d7bd1c718166056fcf929e7026ad79427892e26b1e  ./docs/agents/STATE.md
+b8b07757558726adee557b2b36a56cdc49ff72bebdb4e86e6fc05b2512068976  ./docs/agents/STATE.md
 9c321aae29efe09e4fab04fadd4a18ea027cb90d72d8fcd2c14aa2542198fecf  ./docs/agents/TASK-TEMPLATE.md
 aca6415475f1c3d4dedc31210a7e6a7aa8528132c529323b3b20d1f9cb4b247d  ./docs/guides/coverage-ratchet.md
 1fcedaa1951a3c266b0a9385ea72aae3c9dcc57f03c3332e6a7de65703e723bf  ./docs/guides/formatter-external-validation.md
@@ -26,14 +26,16 @@ a150ebaf3fab1830bb2cdedcdf8b87c5de810f6d03bc01b3e4078a5424c3e1c9  ./docs/guides/
 63bb77a1b39c18599513f6caa7a47f34d9719a626088e0f6ca0b09518c55e214  ./docs/guides/init-new-and-ba-std-c89.md
 f2a5e1cb40b288280d7f213b7a3a2dd64aa3e58cadd806ba2bffe16becfa4a62  ./docs/guides/publish-v0.8.4.md
 f76ae5eb4559206e33021edad76ad22f3a3aa2f3e11990f6ed206c08a30b171a  ./docs/guides/tack-ini.md
-def2f608ea2c0c8ad716dc6d5c7791515b063f15231533496b9061a2f088f532  ./docs/plans/0.8.6-coverage.md
+b7c158d53643a9eb21fe9548b0501e998a56f4a5073ee2b95db0c2802aa085f0  ./docs/plans/0.8.6-coverage.md
+0d1a523db52a6c2ae56db4a222b66ed750fed7cb3bec90f82f6845e9733947eb  ./docs/plans/M0-COVERAGE-AUDIT.md
+c28ae68fc49231b25aa8c6c481a021418d7eba63b47d60a2480a7ecfd666b123  ./docs/plans/M0-REQUIREMENTS.tsv
 46a1cfeb60aef2c97d33db70411dfc75a1a67a5037d9602cb6bc03155ac551a1  ./docs/reference/tack-ini.md
 279c56cd28f63cca32e04e4a360166e8627ed2c956bf6ae8b966410f51f03962  ./docs/releases/0.8.2-dev.md
 aa8ca1f14ff927ba762f654d1957ee1098cbc1f8b5ab8289bb9c4b5752fd080c  ./docs/releases/0.8.3-dev.md
 a816af77f86f08002989288c0b50be29be40c3a68db9c879e347178674706f25  ./docs/releases/0.8.4-windows-hwm.md
 bac18f5dd34288e84703bd4dea8292e4469f4b124a30010b138359a55e512233  ./docs/releases/0.8.4.md
 4d2e3210aa10f2b5e9cb2087f811635b98b2877e72b07a5b45a8aeefc3f916ff  ./docs/releases/0.8.5-rc0.7-validation.md
-6613d4a6ccbda2318087395f1dc8bf0ad9aeb216a5448f273540744a1f9c4598  ./docs/releases/0.8.5.md
+0307b8afb505f70eae1bcb5c6792c140628d8b2ef18efa4a2a7b3be870bc6cbb  ./docs/releases/0.8.5.md
 d82f3228362984755c252f78accf7dccff15f47f03ccf8d5e466b8ccbbf3a5d8  ./docs/releases/archive/0.8.5/0.8.5-dev-RC0.4-validation.md
 b0efba8266a3524dfffa846bc66e57fa879c7e94bd16b71aa4dc7cc0f22fd43d  ./docs/releases/archive/0.8.5/0.8.5-dev-RC0.5-validation.md
 a99a75b5315e2ee2ee4203328c6edafc44c073916166765b98fa85b62bc3c866  ./docs/releases/archive/0.8.5/0.8.5-dev-RC0.6-validation.md
