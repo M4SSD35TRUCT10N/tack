@@ -1,33 +1,33 @@
 ID	Risiko	Kritisch	Plattform	Pruefung	Erwartete Assertion	Status	Anmerkung
-P01	P0	JA	Win/Linux	invalid argv	NULL/empty program returns error	NOT RUN	planned/implemented where available; no gate evidence
-P02	P0	JA	Win/Linux	empty argv element	empty string preserved before NULL sentinel	NOT RUN	planned/implemented where available; no gate evidence
-P03	P0	JA	Win/Linux	8191 argv boundary / 8193 rejected	bounded vector and rejection	NOT RUN	planned/implemented where available; no gate evidence
-P04	P0	JA	Win/Linux	real child argv	multiple distinct arguments intact	NOT RUN	planned/implemented where available; no gate evidence
-P05	P0	JA	Win/Linux	tab/space/empty child argv	exact received bytes	NOT RUN	planned/implemented where available; no gate evidence
-P06	P0	JA	Win/Linux	quotes/backslashes	exact received bytes	NOT RUN	planned/implemented where available; no gate evidence
-P07	P0	JA	Windows	spaced child executable path	CreateProcessA child launched	NOT RUN	planned/implemented where available; no gate evidence
-P08	P0	JA	Win/Linux	shell metacharacters	literal child data, no shell	NOT RUN	planned/implemented where available; no gate evidence
-P09	P0	JA	Win/Linux	missing executable	spawn error propagated	NOT RUN	planned/implemented where available; no gate evidence
-P10	P0	JA	Linux	exec failure vs exit(127)	ENOENT independent of real 127	NOT RUN	planned/implemented where available; no gate evidence
-P11	P0	JA	Linux	nonexecutable file	EACCES from execvp	NOT RUN	planned/implemented where available; no gate evidence
-P12	P0	JA	Win/Linux	exit 0/13/127	status preserved	NOT RUN	planned/implemented where available; no gate evidence
-P13	P0	JA	Linux	signal termination	nonzero signal-derived status	NOT RUN	planned/implemented where available; no gate evidence
-P14	P0	JA	Linux	waitpid EINTR	wait retries and reaps	NOT RUN	planned/implemented where available; no gate evidence
-P15	P0	JA	Linux	injected wait error	wait failure detected	NOT RUN	planned/implemented where available; no gate evidence
-P16	P0	JA	Windows	Win32 native WaitForSingleObject/GetExitCodeProcess/CloseHandle fault injection	Failure detected and all handles closed; retains stronger checks after removal of legacy _cwait	NOT RUN	RC0.4 tests pending owner Windows rerun
-P17	P0	JA	Win/Linux	compile job limit	running concurrency <= -j	NOT RUN	planned/implemented where available; no gate evidence
-P18	P0	JA	Win/Linux	failed pool sibling	all running children reaped	NOT RUN	planned/implemented where available; no gate evidence
-P19	P0	JA	Win/Linux	out of order completion	same result and artifacts	NOT RUN	planned/implemented where available; no gate evidence
-P20	P0	JA	Win/Linux	parallel spawn/child failure	failure propagated and drained	NOT RUN	planned/implemented where available; no gate evidence
-P21	P0	JA	Win/Linux	invalid -j bound	no unbounded allocation	NOT RUN	planned/implemented where available; no gate evidence
-P22	P0	JA	Windows	fmt real child args	empty/tab/quote/slash intact	NOT RUN	planned/implemented where available; no gate evidence
-P23	P0	JA	Windows	fmt command length limit	bounded, controlled failure	NOT RUN	planned/implemented where available; no gate evidence
-P24	P0	JA	Windows	injected CreateProcessA error	diagnostic/no leaked handles	NOT RUN	planned/implemented where available; no gate evidence
-P25	P0	JA	Windows	injected WaitForSingleObject error	diagnostic/handles released	NOT RUN	planned/implemented where available; no gate evidence
-P26	P0	JA	Windows	injected GetExitCodeProcess error	diagnostic/handles released	NOT RUN	planned/implemented where available; no gate evidence
-P27	P0	JA	Windows	fmt child exit nonzero	no false success	NOT RUN	planned/implemented where available; no gate evidence
-P28	P0	JA	Win/Linux	formatter missing workdir	no unintended child execution	NOT RUN	planned/implemented where available; no gate evidence
-P29	P0	JA	Win/Linux	formatter cwd restored	original directory restored	NOT RUN	planned/implemented where available; no gate evidence
-P30	P1	NEIN	Windows	ANSI/Unicode documentation	limitation explicit	NOT RUN	planned/implemented where available; no gate evidence
-P31	P0	JA	Win/Linux	legacy suite / formatter regression	all 27 existing tests remain	NOT RUN	planned/implemented where available; no gate evidence
-P32	P0	JA	Win/Linux	ratchet review	Owner acceptance required	BLOCKED	no auto-accept
+P01	P0	JA	Win/Linux	invalid argv	NULL/empty program returns error	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P02	P0	JA	Win/Linux	empty argv element	empty string preserved before NULL sentinel	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P03	P0	JA	Win/Linux	8191 argv boundary / 8193 rejected	bounded vector and rejection	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P04	P0	JA	Win/Linux	real child argv	multiple distinct arguments intact	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P05	P0	JA	Win/Linux	tab/space/empty child argv	exact received bytes	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P06	P0	JA	Win/Linux	quotes/backslashes	exact received bytes	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P07	P0	JA	Windows	spaced child executable path	CreateProcessA child launched	PASS Windows RC0.4	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P08	P0	JA	Win/Linux	shell metacharacters	literal child data, no shell	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P09	P0	JA	Win/Linux	missing executable	spawn error propagated	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P10	P0	JA	Linux	exec failure vs exit(127)	ENOENT independent of real 127	NOT RUN	Linux full reference gate pending
+P11	P0	JA	Linux	nonexecutable file	EACCES from execvp	NOT RUN	Linux full reference gate pending
+P12	P0	JA	Win/Linux	exit 0/13/127	status preserved	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P13	P0	JA	Linux	signal termination	nonzero signal-derived status	NOT RUN	Linux full reference gate pending
+P14	P0	JA	Linux	waitpid EINTR	wait retries and reaps	NOT RUN	Linux full reference gate pending
+P15	P0	JA	Linux	injected wait error	wait failure detected	NOT RUN	Linux full reference gate pending
+P16	P0	JA	Windows	Win32 native WaitForSingleObject/GetExitCodeProcess/CloseHandle fault injection	Failure detected and all handles closed; retains stronger checks after removal of legacy _cwait	PASS Windows RC0.4	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P17	P0	JA	Win/Linux	compile job limit	running concurrency <= -j	PARTIAL Windows RC0.4 / NOT RUN Linux	-j 2 and invalid -j 257 PASS; max live concurrency not independently instrumented
+P18	P0	JA	Win/Linux	failed pool sibling	all running children reaped	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P19	P0	JA	Win/Linux	out of order completion	same result and artifacts	PARTIAL Windows RC0.4 / NOT RUN Linux	two successful reversed input orders PASS; actual completion ordering not explicitly measured
+P20	P0	JA	Win/Linux	parallel spawn/child failure	failure propagated and drained	PARTIAL Windows RC0.4 / NOT RUN Linux	failed running child drains siblings PASS; injected spawn failure with sibling still running not yet asserted
+P21	P0	JA	Win/Linux	invalid -j bound	no unbounded allocation	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P22	P0	JA	Windows	fmt real child args	empty/tab/quote/slash intact	PASS Windows RC0.4	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P23	P0	JA	Windows	fmt command length limit	bounded, controlled failure	PASS Windows RC0.4	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P24	P0	JA	Windows	injected CreateProcessA error	diagnostic/no leaked handles	PASS Windows RC0.4	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P25	P0	JA	Windows	injected WaitForSingleObject error	diagnostic/handles released	PASS Windows RC0.4	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P26	P0	JA	Windows	injected GetExitCodeProcess error	diagnostic/handles released	PASS Windows RC0.4	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P27	P0	JA	Windows	fmt child exit nonzero	no false success	PASS Windows RC0.4	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P28	P0	JA	Win/Linux	formatter missing workdir	no unintended child execution	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P29	P0	JA	Win/Linux	formatter cwd restored	original directory restored	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P30	P1	NEIN	Windows	ANSI/Unicode documentation	limitation explicit	PASS Windows RC0.4	ADR 0003 documents ANSI/Unicode and commandline limits
+P31	P0	JA	Win/Linux	legacy suite / formatter regression	all 27 existing tests remain	PASS Windows RC0.4 / NOT RUN Linux	Owner Windows RC0.4 all 28 compiled; 27 PASS, 1 SKIP; matching process test assertions passed
+P32	P0	JA	Win/Linux	ratchet review	Owner acceptance required	BLOCKED	RC0.4 test inventory owner-accepted locally but not committed; improved Windows HWM still needs owner acceptance

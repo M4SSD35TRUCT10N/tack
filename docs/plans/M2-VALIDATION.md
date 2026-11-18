@@ -5,6 +5,25 @@
 
 ## Deutsch
 
+### Windows RC0.4: Owner-Gates bestanden, HWM-Annahme offen (18.11.2026)
+
+**Geprüfter Implementierungscommit:** `382471c950d126697391977fe9962bd0eb2d57e9` auf `feature/v0.8.6-m2-process-execution`. Die lokale `coverage/test-inventory.txt` wurde vom Owner für genau diese Testquellenfassung mit `tack --config .\tack.ini ratchet tests --owner-approve` angenommen; sie bleibt lokal modifiziert und ist noch **nicht** im GitHub-Branch versioniert. Im anschließenden Runner meldete die Test-Ratchet `PASS versioned source inventory`.
+
+| Gate | Tatsächlicher Status | Nachweis |
+| --- | --- | --- |
+| Windows TinyCC debug | **PASS** | `TACK_SUMMARY status=ok total=28 compiled=28 passed=27 failed=0 skipped=1 not_run=0` |
+| Windows TDM-GCC release | **PASS** | `TACK_SUMMARY status=ok total=28 compiled=28 passed=27 failed=0 skipped=1 not_run=0` |
+| Windows TDM-GCC coverage, Testdurchlauf | **PASS** | `27 PASS / 0 FAIL / 1 SKIP`; `process_execution_test: ok` |
+| Windows Coverage-HWM-Gate | **BLOCKED** | Neues Verhältnis übertrifft alte HWM, Annahme im selben angenommenen Revisionsstand erforderlich |
+| Vollständiger Linux-Referenzlauf | **NOT RUN** | Nicht Bestandteil des Windows-Owner-Logs |
+
+Die erwarteten diagnostischen `FAIL`-/`BLOCKED`-Meldungen im isolierten `coverage_ratchet_test` sind absichtliche Negativproben. Der Test selbst meldete `coverage_ratchet_test: ok`. Der bisherige fehlerhafte allgemeine Win32-Argumentpfad ist durch den echten Kindprozessvergleich behoben; die zusätzlichen Win32-Create/Wait/Exit/Close-Injektionstests liefen erfolgreich.
+
+**Messung:** `coverage/current.txt`: Profil `windows-gcc-10.3.0-gcov-10.3.0-coverage-v1`, `covered=3844`, `total=6075`, **63.27572 %**, `source_count=1`, `sources_hash=39ea236e`, `source_state=811c9dc5`, `tests_state=ee1bba53`, `flags_state=36eb9e95`, `tests_total=28`, `tests_passed=27`, `tests_skipped=1`. Altes HWM `3724/6000 = 62.06667 %`; Differenz **+120 ausgeführte Zeilen, +75 ausführbare Zeilen, +1.20905 Prozentpunkte**. Kein Nenner-Trick: Beide Profile sind anhand des gemeinsamen Quellen-Scopes und der Flag-State-Identität vergleichbar.
+
+**Annahmeprozess:** Der Owner muss den tatsächlich gemessenen Fortschritt ausdrücklich mit `tack --config .\tack.ini coverage accept --owner-approve` annehmen. Danach müssen das lokal akzeptierte `coverage/test-inventory.txt` und das neue `coverage/hwm-windows.txt` als gemeinsam geprüfte Artefakte in derselben akzeptierten Revision versioniert werden. Erst anschließend kann `tack --config .\tack.ini coverage check` erfolgreich sein und der Windows-Coverage-Gate als PASS gewertet werden. Die Linux-HWM `3604/5790` bleibt unverändert. **Kein automatisches HWM-Accept, kein Merge und kein M2-Abschluss.**
+
+Die gcov-Hinweise `Quelldatei ist neuer als Hinweis-Datei` wurden gemeldet, verhinderten aber weder die Testausführung noch die gültige Coverage-Zusammenführung. Vor einer endgültigen Abnahme sind Build-Timestamps bei Bedarf separat zu prüfen.
 ### Windows-Owner-Evidenz: RC0.3 und RC0.4-Korrektur
 
 RC0.3-Owner-Run am 18.11.2026, SHA `f74c7992e7f2e9a4e02c828a05ba2fa717479d31`: Windows TinyCC Debug, GCC Release und GCC Coverage kompilierten den neuen M2-C89-Test und endeten jeweils mit `TACK_SUMMARY total=28 compiled=24 passed=22 failed=1 skipped=1 not_run=4`. Einzige echte FAIL-Assertion: `child sees exact argv and literal metacharacters` im generischen CRT-`_spawnvp`-Pfad. Die gleichartige echte Formatter-`CreateProcessA`-Probe bestand. Erwartete Fehlerausgaben der negativen API-/Argument-/Compiler-Jobs-Proben sind kein eigenständiger Test-Fail.
@@ -48,7 +67,7 @@ Draft-PR **#13** zielt auf `dev/v0.8.6`; kein Merge oder Tag. Die bestehende `SH
 
 | Plattform | Alte HWM | Neue Messung | Delta ausgeführte Zeilen | Nennerdelta | Prozentpunkte |
 | --- | ---: | --- | --- | --- | --- |
-| Windows TDM-GCC/gcov 10.3.0 | 3724/6000 | NOT RUN | unbekannt | unbekannt | unbekannt |
+| Windows TDM-GCC/gcov 10.3.0 | 3724/6000 | **3844/6075, HWM BLOCKED** | +120 | +75 | +1.20905 |
 | Linux GCC/gcov 14.2.0 | 3604/5790 | NOT RUN | unbekannt | unbekannt | unbekannt |
 
 Quellenbasierte M0-/M1-Werte sind keine M2-Messung. Für M8 90 % und 100 % kritische Anforderungen bleiben Zielwerte, keine automatische M2-Abnahme.
@@ -70,10 +89,10 @@ Dieser Check belegt nur den isolierten Algorithmus und ist nicht gleichzusetzen 
 | --- | --- | --- |
 | Repository-Ref, Agentenvertrag, v0.5-Entwurf gelesen | PASS | GitHub/Drive read-only, 18.11.2026 |
 | Vollständiger tatsächlicher Linux-tack-Testlauf | NOT RUN | Kein lokaler Repository-Checkout (Netzwerkzugriff gesperrt) |
-| Windows TinyCC debug | FAIL RC0.3 / NOT RUN RC0.4 | Allgemeiner `_spawnvp`-Argv-Test, Formatter-Äquivalent PASS |
-| Windows TDM-GCC release | FAIL RC0.3 / NOT RUN RC0.4 | Gleicher Argv-Fehler |
-| Windows real formatter/argv | PASS RC0.3 / NOT RUN RC0.4 | Reale `CreateProcessA`-Child-Argumente stimmten überein |
-| Test-Ratchet in dieser Revision | BLOCKED RC0.4 | RC0.3 lokal Owner-angenommen, RC0.4-Fingerprint neu prüfpflichtig |
+| Windows TinyCC debug | **PASS RC0.4** | 27 PASS, 0 FAIL, 1 SKIP; real Win32 arg/handle probes PASS |
+| Windows TDM-GCC release | **PASS RC0.4** | 27 PASS, 0 FAIL, 1 SKIP |
+| Windows real formatter/argv | **PASS RC0.4** | Allgemeiner Win32-Prozessstart und Formatter-Child-Argv vollständig PASS |
+| Test-Ratchet in dieser Revision | **PASS lokal / Versionierung offen** | Owner hat RC0.4-Fingerprint angenommen; Datei lokal uncommittet |
 | Windows / Linux instrumentierte M2-Coverage | NOT RUN | Windows RC0.2 Compiler-FAIL, keine gültige aktuelle Messung; Linux noch offen |
 | M2 gesamthaft | BLOCKED | Plattform- und Requirement-Gates ausstehend |
 
@@ -114,3 +133,7 @@ RC0.2 Windows owner logs prove that the newly added process test failed compilat
 ### English: RC0.3 Owner evidence and RC0.4 remediation
 
 Owner Windows RC0.3 passed compilation under TinyCC and GCC, but exactly one real generic `_spawnvp` child-argument assertion failed in each profile (22 PASS, 1 FAIL, 1 SKIP, 4 NOT RUN); the equivalent formatter `CreateProcessA` child probe passed. RC0.4 fixes the Windows general launcher using the shared formatter encoder and native process/wait/handle APIs. It keeps the argv requirement and strengthens native error-path probes. RC0.4 platform tests and coverage remain NOT RUN. The locally accepted RC0.3 test-inventory fingerprint must be reviewed again after RC0.4 test-source changes.
+
+### English: RC0.4 Windows gates (18 November 2026)
+
+On commit `382471c950d126697391977fe9962bd0eb2d57e9`, Owner Windows TinyCC debug, GCC release and GCC coverage test suites each executed 28 compiled tests with **27 passed, zero failed, one deliberately skipped and none unrun**. The previously failing generic Windows child argument probe now passes. GCC/gcov measured **3844/6075 (63.27572%)** against the accepted 3724/6000 (62.06667%) HWM. This is a valid improvement (+120 covered lines, +75 executable lines, +1.20905 percentage points), but the coverage command remains **BLOCKED pending explicit Owner HWM acceptance and versioning**. The RC0.4 test inventory was accepted locally, not committed. Linux reference tests remain NOT RUN; no milestone closure is claimed.
