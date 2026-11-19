@@ -5,6 +5,12 @@
 
 ## Deutsch
 
+### RC0.6a Windows-Clang-Owner-Nachweis 19.11.2026: C89-Compile-Probes PASS
+
+Auf `1ba915f3ee48961dd5e2dbbab307ad74b1422f6b` hat der Owner den Git-Pull per Fast-forward ausgeführt und `git diff --check 2528f13..HEAD` ohne Befund geprüft. Die **tatsächlich ausgeführte Einzelübersetzung** `clang -std=c89 -pedantic-errors -Wextra -Werror -Iinclude -Isrc -c tests\cache_restore_after_clean_test.c -o build\cache-clang-msvc-probe.obj` war **PASS** (keine Fehlermeldung). Danach war die **vollständige Syntaxprüfung der 28 Testdateien im Verzeichnis `tests`** mittels `for %F in (tests\*_test.c) do @clang ... -fsyntax-only "%F" || echo CLANG_FAIL: %F` **PASS** (keine Compilerdiagnose, kein `CLANG_FAIL`). Zielcompiler ist nach wie vor **Windows Clang 23.1.5, `x86_64-pc-windows-msvc`** und damit **keine Linux-Evidenz**.
+
+Diese Proben bestätigen den Fix des zuvor unter Windows Clang fehlgeschlagenen Cache-Tests und die Compile-/Syntaxverträglichkeit der Testquellen. **Nicht geprüft** wurden hier Linken, Runtime-Assertions, ganze `tack test`-Suite oder gcov. Diese bleiben **NOT RUN**. Die zuvor Owner-genehmigte RC0.5-HWM Windows **3845/6075**, Linux **3604/5790** und das versionierte 28er-Inventar bleiben unverändert, bis die neue test/source state nach tatsächlichen Gates explizit freigegeben wird. M2 bleibt offen, PR #13 Draft.
+
 ### RC0.6a – Clang-MSVC: `getcwd`-Fehler im ersten Test eingegrenzt, Fix NOT RUN
 
 Owner-Probe auf Feature-HEAD `2528f131da1b472f35989d3aea20c5448e281eaa`: `git diff --check 65544f2..HEAD` ohne Fehler; `clang -std=c89 -pedantic-errors -Wextra -Werror -c src\tack.c -o build\tack-clang-msvc-probe.obj` **PASS**. Die gleiche direkte Strict-C89-Kompilierung des ersten Tests `tests/cache_restore_after_clean_test.c` **FAIL** bei `getcwd` in Zeile 47, Microsoft-UCRT-Attribut `_CRT_NONSTDC_DEPRECATE(_getcwd)` und `[-Werror,-Wdeprecated-declarations]`. Der zuvor angepasste `_CRT_SECURE_NO_WARNINGS`-Guard hat das eigenständige tack-Kompilierungsproblem beseitigt, aber nicht Microsofts separate POSIX-Namens-Deprecation (was beabsichtigt ist).
@@ -237,3 +243,7 @@ Windows Clang 23.1.5 targeted MSVC UCRT and failed at the first test due to Micr
 ### English RC0.6a direct Windows Clang probe
 
 At `2528f13` standalone `src/tack.c` **compiled successfully** with strict C89 Clang/MSVC. The embedded cache test **failed** on the UCRT-deprecated POSIX alias `getcwd`. RC0.6a uses the already-project-standard `_getcwd` Windows call and `getcwd` POSIX call with checked capacity; neither `-Werror` nor other CRT warnings are suppressed. Updated test and full profiles **NOT RUN**; ratchets remain unchanged and Owner-gated.
+
+### English: RC0.6a Owner direct Clang compile probes, 19 November 2026
+
+At `1ba915f3ee48961dd5e2dbbab307ad74b1422f6b`, the Owner verified `git diff --check` and successfully compiled `tests/cache_restore_after_clean_test.c` with Windows Clang 23.1.5 and strict C89 flags. `-fsyntax-only` for all 28 test sources completed without compiler diagnostics or any `CLANG_FAIL`. This **PASS** is limited to direct compile/syntax probes; linking, integrated test execution, gcov and Linux validation are still NOT RUN. Both coverage HWMs and the test inventory remain unchanged and require new Owner review/acceptance on any updated measurements.

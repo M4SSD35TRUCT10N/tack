@@ -18,3 +18,7 @@ Use a documented MSVC-CRT-only opt-out instead of replacing ISO C89 functions or
 ## RC0.6a first direct Clang probe, 2026-11-19
 
 Owner at `2528f13`: standalone strict C89 Clang/MSVC `src/tack.c` compilation **PASS**. Embedded `tests/cache_restore_after_clean_test.c` compilation **FAIL** on POSIX `getcwd` deprecated by MSVC UCRT (`_CRT_NONSTDC_DEPRECATE(_getcwd)`). Candidate RC0.6a selects `_getcwd` under `_WIN32` with `capacity <= INT_MAX` guard; POSIX continues `getcwd`. No `_CRT_NONSTDC_NO_WARNINGS`, no `-Werror` change, no weakening of assertions. **RC0.6a not yet run**, full Windows and Linux tests, coverage and ratchet acceptance pending; current accepted HWM Windows 3845/6075, Linux 3604/5790 unchanged.
+
+## RC0.6a Owner direct compile validation, 2026-11-19
+
+Checkout `1ba915f3ee48961dd5e2dbbab307ad74b1422f6b` fast-forwarded, `git diff --check` passed. Windows Clang 23.1.5 with MSVC target successfully compiled the modified cache test using `-std=c89 -pedantic-errors -Wextra -Werror`, and syntax-checked all 28 `tests/*_test.c` sources with no errors. This validates the header/CRT and `_getcwd` compile correction only. Integrated runtime suites, GCC coverage, explicit ratchet approvals and actual Linux platform gates remain NOT RUN; milestone not accepted.
