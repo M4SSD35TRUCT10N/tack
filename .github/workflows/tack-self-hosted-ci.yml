@@ -32,42 +32,42 @@ jobs:
         shell: bash
         run: |
           set -eu
-          mkdir -p out/ci out/artifacts
+          mkdir -p build/host build/ci build/artifacts
 
       - name: Build tack host binary
         shell: bash
         run: |
           set -eu
-          gcc -std=c89 -pedantic -Werror -o tack src/tack.c
+          gcc -std=c89 -pedantic -Werror -o build/host/tack src/tack.c
 
       - name: Run tack test with CI reports
         shell: bash
         run: |
           set -eu
-          ./tack --config ./tack.ini test \
+          ./build/host/tack --config ./tack.ini test \
             --ci \
-            --events-jsonl ./out/ci/test-events.jsonl \
-            --report-tap ./out/ci/test.tap \
-            --report-junit ./out/ci/test-junit.xml
+            --events-jsonl ./build/ci/test-events.jsonl \
+            --report-tap ./build/ci/test.tap \
+            --report-junit ./build/ci/test-junit.xml
 
       - name: Generate BOM, SBOM and DOC
         shell: bash
         run: |
           set -eu
-          ./tack --config ./tack.ini bom debug
-          ./tack --config ./tack.ini sbom debug
-          ./tack --config ./tack.ini doc debug
+          ./build/host/tack --config ./tack.ini bom debug
+          ./build/host/tack --config ./tack.ini sbom debug
+          ./build/host/tack --config ./tack.ini doc debug
 
       - name: Collect generated artifacts
         shell: bash
         run: |
           set -eu
-          cp -f build/bom.md out/artifacts/ || true
-          cp -f build/bom.html out/artifacts/ || true
-          cp -f build/sbom.json out/artifacts/ || true
+          cp -f build/bom.md build/artifacts/ || true
+          cp -f build/bom.html build/artifacts/ || true
+          cp -f build/sbom.json build/artifacts/ || true
           if [ -d build/doc ]; then
-            rm -rf out/artifacts/doc
-            cp -R build/doc out/artifacts/doc
+            rm -rf build/artifacts/doc
+            cp -R build/doc build/artifacts/doc
           fi
 
       - name: Upload workflow artifacts
@@ -75,10 +75,10 @@ jobs:
         with:
           name: tack-ci-linux-arm64
           path: |
-            out/ci/test-events.jsonl
-            out/ci/test.tap
-            out/ci/test-junit.xml
-            out/artifacts
+            build/ci/test-events.jsonl
+            build/ci/test.tap
+            build/ci/test-junit.xml
+            build/artifacts
           if-no-files-found: error
 
   windows-x64:
@@ -93,39 +93,38 @@ jobs:
       - name: Prepare output directories
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path out\ci | Out-Null
-          New-Item -ItemType Directory -Force -Path out\artifacts | Out-Null
+          New-Item -ItemType Directory -Force -Path build\host, build\ci, build\artifacts | Out-Null
 
       - name: Build tack host binary
         shell: pwsh
         run: |
-          gcc -std=c89 -pedantic -Werror -o tack.exe src\tack.c
+          gcc -std=c89 -pedantic -Werror -o build\host\tack.exe src\tack.c
 
       - name: Run tack test with CI reports
         shell: pwsh
         run: |
-          .\tack.exe --config .\tack.ini test `
+          .\build\host\tack.exe --config .\tack.ini test `
             --ci `
-            --events-jsonl .\out\ci\test-events.jsonl `
-            --report-tap .\out\ci\test.tap `
-            --report-junit .\out\ci\test-junit.xml
+            --events-jsonl .\build\ci\test-events.jsonl `
+            --report-tap .\build\ci\test.tap `
+            --report-junit .\build\ci\test-junit.xml
 
       - name: Generate BOM, SBOM and DOC
         shell: pwsh
         run: |
-          .\tack.exe --config .\tack.ini bom debug
-          .\tack.exe --config .\tack.ini sbom debug
-          .\tack.exe --config .\tack.ini doc debug
+          .\build\host\tack.exe --config .\tack.ini bom debug
+          .\build\host\tack.exe --config .\tack.ini sbom debug
+          .\build\host\tack.exe --config .\tack.ini doc debug
 
       - name: Collect generated artifacts
         shell: pwsh
         run: |
-          if (Test-Path build\bom.md) { Copy-Item build\bom.md out\artifacts\ -Force }
-          if (Test-Path build\bom.html) { Copy-Item build\bom.html out\artifacts\ -Force }
-          if (Test-Path build\sbom.json) { Copy-Item build\sbom.json out\artifacts\ -Force }
+          if (Test-Path build\bom.md) { Copy-Item build\bom.md build\artifacts\ -Force }
+          if (Test-Path build\bom.html) { Copy-Item build\bom.html build\artifacts\ -Force }
+          if (Test-Path build\sbom.json) { Copy-Item build\sbom.json build\artifacts\ -Force }
           if (Test-Path build\doc) {
-            if (Test-Path out\artifacts\doc) { Remove-Item out\artifacts\doc -Recurse -Force }
-            Copy-Item build\doc out\artifacts\doc -Recurse -Force
+            if (Test-Path build\artifacts\doc) { Remove-Item build\artifacts\doc -Recurse -Force }
+            Copy-Item build\doc build\artifacts\doc -Recurse -Force
           }
 
       - name: Upload workflow artifacts
@@ -133,8 +132,8 @@ jobs:
         with:
           name: tack-ci-windows-x64
           path: |
-            out/ci/test-events.jsonl
-            out/ci/test.tap
-            out/ci/test-junit.xml
-            out/artifacts
+            build/ci/test-events.jsonl
+            build/ci/test.tap
+            build/ci/test-junit.xml
+            build/artifacts
           if-no-files-found: error
