@@ -30,3 +30,7 @@ Windows-GCC/gcov ergibt bei echten 28 Tests **3845/6075** (27 PASS / 0 FAIL / 1 
 ## English
 
 Fix the Windows production source freshness fingerprint by accepting native Windows and POSIX separators in `cov_is_production` and regression-testing the actual nonempty workspace state. Owner tests, test inventory acceptance and gcov measurements are required; the accepted Windows and Linux HWMs remain untouched. No C89, warning, test or build-system relaxation; no automatic merge/release.
+
+## RC0.7 Owner outcome, RC0.7b narrow follow-up, 2026-11-19
+
+Windows TinyCC Debug, GCC Release and Clang/MSVC Release all 28 compiled / 27 PASS / 0 FAIL / 1 SKIP; GCC Coverage assertions PASS but `cov_validate_source_scope` rejects native Windows `src\\tack.c` when `gcov` identified `src/tack.c`, yielding FAIL and no current measurement. Owner-approved test inventory blob `61c0eb04778fb1f0f9908af48f1191fa71a50473` is versioned unchanged. RC0.7b must canonicalize only the comparison identity, preserving a hard fail for missing source records; strict C89 and the accepted HWMs untouched. All RC0.7b gates NOT RUN. Separate M2 performance issue: -j N is accepted for test but ignored by build_and_run_tests; implement bounded parallel compile/link (test runtimes still serial until isolation) only as a distinct reviewed work package after coverage integrity is validated. Linux GCC/Clang/gcov NOT RUN.

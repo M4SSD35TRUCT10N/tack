@@ -5904,9 +5904,21 @@ static int cov_source_order(const void *a, const void *b) {
   return strcmp(x->name, y->name);
 }
 
+/* Gcov reports normalized source names (src/tack.c), while directory scans
+ * return native paths (src\\tack.c on Windows). Normalize only the comparison
+ * identity; never rewrite a filesystem path used for actual I/O. */
+static int cov_source_is_instrumented(const CovSet *v, const char *scanned) {
+  char canonical[512];
+  int j;
+  if (!v || cov_relative_source(canonical, sizeof(canonical), scanned, "") != 0) return 0;
+  for (j = 0; j < v->count; j++) {
+    if (streq(v->src[j].name, canonical)) return 1;
+  }
+  return 0;
+}
 static int cov_validate_source_scope(CovSet *v) {
   StrVec names;
-  int i, j, missing = 0;
+  int i, missing = 0;
   sv_init(&names);
   scan_dir_recursive_suffix(&names, "src", ".c");
   scan_dir_recursive_suffix(&names, "src", ".h");
@@ -5914,10 +5926,11 @@ static int cov_validate_source_scope(CovSet *v) {
   sv_sort_unique(&names);
   for (i = 0; i < names.count; i++) {
     const char *n = names.items[i];
-    int found = 0;
     if (!cov_is_production(n)) continue;
-    for (j = 0; j < v->count; j++) if (streq(v->src[j].name, n)) { found = 1; break; }
-    if (!found) { fprintf(stderr, "tack: coverage: production source not instrumented: %s\n", n); missing = 1; }
+    if (!cov_source_is_instrumented(v, n)) {
+      fprintf(stderr, "tack: coverage: production source not instrumented: %s\n", n);
+      missing = 1;
+    }
   }
   sv_free(&names);
   return missing;

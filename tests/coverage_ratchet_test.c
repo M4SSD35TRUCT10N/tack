@@ -49,6 +49,20 @@ int main(void) {
   if (cov_is_production("srcmalicious/tack.c")) failures++;
   if (cov_is_production("include-not-api.h")) failures++;
   if (cov_is_production((const char*)0)) failures++;
+  /* Gcov emits forward slashes; the scope scan uses native Win32 separators.
+   * Require matching real instrumented identities in both spellings while
+   * preserving a hard failure for absent or invalid production entries. */
+  {
+    CovSet scope;
+    cov_set_init(&scope);
+    if (!cov_get_src(&scope, "src/tack.c")) failures++;
+    if (!cov_source_is_instrumented(&scope, "src/tack.c")) failures++;
+    if (!cov_source_is_instrumented(&scope, "src\\\\tack.c")) failures++;
+    if (cov_source_is_instrumented(&scope, "src/other.c")) failures++;
+    if (cov_source_is_instrumented(&scope, "src\\\\other.c")) failures++;
+    if (cov_source_is_instrumented(&scope, "../src/tack.c")) failures++;
+    cov_set_free(&scope);
+  }
   {
     unsigned long production_state = 0ul;
     if (cov_workspace_state(0, &production_state) != 0 ||

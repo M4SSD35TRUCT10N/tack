@@ -1,9 +1,19 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.7 source-state fix candidate, NOT RUN)
+# M2 VALIDATION – tack v0.8.6 (RC0.7b source-scope candidate, NOT RUN)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
 
 ## Deutsch
+
+### RC0.7 Windows Owner: Testassertions PASS, GCC-Coverage-Collector FAIL; RC0.7b Kandidat (NOT RUN)
+
+Owner-Protokoll vom 19.11.2026 auf Commit `24500ef04267e9483eee29c60fd339a0115d0823`: Git sauber, Bootstrap `gcc -std=c89 -pedantic -Werror` PASS. `ratchet tests` erwarteter FAIL nach Teständerung; Owner führte `ratchet tests --owner-approve` aus; Suite bestätigt Inventar PASS. Der **exakte** freigegebene Inventar-Git-Blob ist `61c0eb04778fb1f0f9908af48f1191fa71a50473`, allein `tests/coverage_ratchet_test.c f15851ee -> e79b42df`, ohne Abschwächung einer Assertion; er wird versioniert.
+
+Windows TinyCC Debug, GCC Release und Clang/MSVC Release jeweils **28 compiled / 27 PASS / 0 FAIL / 1 SKIP / 0 NOT RUN**. GCC Coverage-Testassertions ebenfalls 27 PASS, aber Gesamt-Gate **FAIL**: `production source not instrumented: src\tack.c`, `source scope missing`, `FAIL gcov collection incomplete`, `TACK_SUMMARY status=failed`. `coverage/current.txt` existiert nicht, `coverage check` meldet **NOT RUN**. **Keine neue Coverage-Quote wird behauptet**, bisher angenommene HWMs Windows **3845/6075** und Linux **3604/5790** bleiben unberührt.
+
+**Ursache im Code bestätigt:** Das neue `cov_is_production()` erkennt native `src\tack.c`, aber `cov_validate_source_scope()` vergleicht diesen Scan-Namen unverändert mit der von `cov_read_gcov` normalisierten Quelle `src/tack.c`. Bei diesem Bytevergleich fehlt die Instrumentierung nur scheinbar. **RC0.7b Quellkorrektur (NOT RUN):** `cov_source_is_instrumented` gleicht ausschließlich eine kanonische ID über `cov_relative_source` ab und weist fehlende, überlange oder `../`-Quellangaben weiterhin zurück. Native Dateisystempfade und die eigentliche Messung bleiben unberührt; der Test prüft beide Separatoren und abwesende Quellen. Kein HWM-Accept, keine Testabschaltung. P32 weiterhin BLOCKED bis Windows-GCC-Coverage tatsächlich neu gemessen.
+
+**Separater Performance-Befund in M2, noch ohne Implementierung:** `test ... -j N` akzeptiert `jobs` im Argumentparser, aber ruft `build_and_run_tests(target_name, p, verbose, force..., strict, &stats)` **ohne jobs** auf. Innerhalb des Runners folgen Compiler-/Link-Aufrufe und Tests strikt seriell via `run_argv_wait`. `-j 4/8` beschleunigt den Testlauf daher heute nicht; `--rebuild` erzwingt wiederholtes Kompilieren. Geplanter isolierter M2-Folgeschritt: bounded parallele Test-Compile/Link-Jobs mit eindeutigem Ausgabeziel, deterministischer Fail-fast-/Drain-/Reporter-Semantik; Testausführung wegen gemeinsamer Fixtures zunächst sequenziell, Coverage-gcov nach Abschluss. Keine Ausweitung der RC0.7b-Fixquelle um ungeprüftes Thread-/Job-Scheduling. Linux GCC/Clang/gcov unverändert NOT RUN, PR #13 Draft, M2 offen.
 
 ### RC0.7 – Windows-Source-Fingerprint-Integrität: gezielter Korrekturkandidat, NOT RUN
 
@@ -285,3 +295,7 @@ Windows TinyCC Debug, GCC Release and GCC Coverage all ran successfully at the s
 ### English RC0.7 Windows source-state integrity candidate
 
 RC0.6a Windows cross-compiler runtime suites and measured GCC/gcov 3845/6075 PASS remain valid historical evidence. However, Windows native backslash scanning meant `cov_is_production` admitted no production files and `source_state` remained the FNV offset basis. ADR 0005 documents the targeted RC0.7 classifier fix accepting both separators while preserving `include/tests` exclusion, with new strict C89 tests including nonempty actual workspace-state assertion. The RC0.7 suite, ratchet acceptance and fresh Windows/Linux coverage measurement are **NOT RUN**, both HWMs and previously owner-approved inventory remain unmodified. M2 remains BLOCKED, PR Draft.
+
+### English: RC0.7 owner tests and RC0.7b comparison fix
+
+Owner TinyCC Debug, GCC Release and Clang/MSVC Release at `24500ef` all PASS (28 compiled, 27 passed, 0 failed, 1 skipped), GCC Coverage test assertions PASS but **overall collection FAIL** because native Windows scanned `src\\tack.c` mismatches normalized gcov ID `src/tack.c`. No current measurement was produced. Owner-approved test inventory blob `61c0eb04778fb1f0f9908af48f1191fa71a50473` is versioned; both HWMs unchanged. RC0.7b only normalizes comparison identities and regression-tests missing/malformed source mappings, not actual filesystem paths; **NOT RUN**. Separately, `-j` is silently unused by `tack test` and needs a dedicated M2 parallel compile/link phase without concurrently running shared-fixture tests. Linux gates pending.
