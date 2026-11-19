@@ -1,7 +1,7 @@
 # ADR 0004 – Clang-MSVC-UCRT und ISO C89 / Clang MSVC CRT and ISO C89
 
 **Datum / Date:** 2026-11-19
-**Status:** RC0.6 Candidate, NOT RUN / Owner-Abnahme ausstehend
+**Status:** RC0.6a Windows Clang/MSVC integrated suite PASS (Owner 19.11.2026); Windows GCC/TinyCC coverage and Linux gates pending
 **Scope:** tack v0.8.6 M2 only; no release, no M3–M8.
 
 ## Deutsch
@@ -36,3 +36,7 @@ Windows Clang 23.1.5 uses the MSVC UCRT, whose vendor deprecation annotations on
 ### English: RC0.6a Windows getcwd test compatibility
 
 Owner direct compilation of `src/tack.c` under Windows Clang 23.1.5 with `-std=c89 -pedantic-errors -Wextra -Werror` passed. The first embedded test then failed because MSVC UCRT deprecates the POSIX alias `getcwd`. The cache test now selects native `_getcwd` on Windows with a checked `size_t` to `int` conversion and `getcwd` on POSIX, without turning off `_CRT_NONSTDC_DEPRECATE` warnings globally. This candidate has not yet been rerun. Full Windows/Linux suites and fresh test/coverage ratchets are still outstanding.
+
+### Owner Windows Clang runtime acceptance for RC0.6a, 19 November 2026
+
+The MSVC-target Clang 23.1.5 strict C89 integration suite was actually run against RC0.6a with `--ci --rebuild -j 1`, producing **28 compiled, 27 passed, 0 failed, 1 skipped, 0 not run, status=ok**. The corrected `_getcwd` test, process execution fault tests and separate strict C89 compile test all passed. This is an actual Windows Clang runtime PASS, not a Linux test. Source inventory was Owner-approved locally but its exact Git diff remains to be reconciled. GCC/TinyCC RC0.6a reruns, freshly measured Windows GCC/gcov and Linux GCC/Clang/gcov validation remain NOT RUN. No new HWM accepted and no milestone/PR merge.

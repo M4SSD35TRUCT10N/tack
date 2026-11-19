@@ -1,9 +1,19 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.6a Clang-MSVC test compatibility candidate)
+# M2 VALIDATION – tack v0.8.6 (RC0.6a Windows Clang PASS, GCC/coverage/Linux offen)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
 
 ## Deutsch
+
+### RC0.6a – Windows Clang/MSVC Release vollständig PASS, Owner 19.11.2026
+
+**Getesteter Quellstand:** `1ba915f3ee48961dd5e2dbbab307ad74b1422f6b` mit nachträglichem reinem Dokumentationscommit `62d7c640989ac186f2582c4e619f1e46d5be8c38`. Owner `git fetch/pull --ff-only` PASS, `git diff` geprüft, `gcc -std=c89 -pedantic -Werror -o tack.exe src\tack.c` **PASS**.
+
+**Testinventar:** `ratchet tests` meldete ordnungsgemäß **FAIL inventory mismatch** für `tests/cache_restore_after_clean_test.c`; der Owner führte daraufhin ausdrücklich `ratchet tests --owner-approve` aus. Der nachfolgende Clang-Testlauf bestätigte **`PASS versioned source inventory`**. Die vom Owner lokal geänderten Fingerprints sind noch nicht auf GitHub versioniert. Vor einem Commit müssen die exakten `git diff -- coverage/test-inventory.txt` und `git status` geprüft werden; an der vorhandenen Windows-/Linux-HWM ist bis zu einer tatsächlichen neuen GCC-Messung nichts zu ändern.
+
+**Echter Windows-Clang 23.1.5 (MSVC-Ziel):** `set "TACK_CC=clang"` und `tack --config .\tack.ini test release --ci --rebuild -j 1` ergaben **`TACK_SUMMARY version=1 mode=test status=ok profile=release total=28 compiled=28 passed=27 failed=0 skipped=1 not_run=0`**. Alle 28 Testquellen wurden neu übersetzt; `cache_restore_after_clean_test: ok`, `process_execution_test: ok` und `strict_c89_compile_test: ok`. Der eine SKIP (`incremental_link_test`) ist die erwartete non-POSIX-Ausnahme. Im Ratchet-Test auftretende `FAIL`/`BLOCKED` und bei Win32-Fault-Proben absichtlich ausgegebene Diagnosen sind erwartete Negativtests, nicht fehlgeschlagene Assertions.
+
+**Status:** RC0.6a Windows Clang Release **PASS**, nicht nur Syntaxprüfung. RC0.6a TinyCC Debug, GCC Release, GCC Coverage inkl. HWM-Prüfung und POSIX-Linux-GCC/Clang/gcov bleiben **NOT RUN** auf diesem Quellstand. Die von RC0.5 Owner-angenommenen Windows-/Linux-HWMs **3845/6075** und **3604/5790** bleiben versioniert unverändert; geänderter Produktions-Source-State verlangt erneute aktuelle GCC-Coverage-Messung und Ratchet-Review. Kein M2-Gesamtabschluss, PR #13 Draft, kein Merge/Tag/Release.
 
 ### RC0.6a Windows-Clang-Owner-Nachweis 19.11.2026: C89-Compile-Probes PASS
 
@@ -247,3 +257,7 @@ At `2528f13` standalone `src/tack.c` **compiled successfully** with strict C89 C
 ### English: RC0.6a Owner direct Clang compile probes, 19 November 2026
 
 At `1ba915f3ee48961dd5e2dbbab307ad74b1422f6b`, the Owner verified `git diff --check` and successfully compiled `tests/cache_restore_after_clean_test.c` with Windows Clang 23.1.5 and strict C89 flags. `-fsyntax-only` for all 28 test sources completed without compiler diagnostics or any `CLANG_FAIL`. This **PASS** is limited to direct compile/syntax probes; linking, integrated test execution, gcov and Linux validation are still NOT RUN. Both coverage HWMs and the test inventory remain unchanged and require new Owner review/acceptance on any updated measurements.
+
+### English: RC0.6a actual Windows Clang/MSVC runtime test PASS (Owner, 19 November 2026)
+
+Owner fetched tested source `1ba915f` (plus documentation-only `62d7c64`) and built the `tack` host under strict C89 GCC. The inventory correctly rejected changed test sources until the Owner ran `ratchet tests --owner-approve`; following Clang suite reported inventory PASS. Windows Clang 23.1.5/MSVC `test release --ci --rebuild -j 1` returned **status=ok, 28 compiled, 27 passed, 0 failed, 1 skipped, 0 not run**, including process execution, cache restoration and strict C89 tests. The one non-POSIX skip and deliberate negative-test failure diagnostics are expected. The locally approved inventory was not yet committed; exact diff and new GCC coverage remain pending. RC0.6a TinyCC/GCC and true Linux gates are NOT RUN. Existing Windows 3845/6075 and Linux 3604/5790 coverage HWMs remain versioned and unchanged. PR stays Draft, milestone not closed.
