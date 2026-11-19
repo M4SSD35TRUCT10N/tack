@@ -5834,10 +5834,20 @@ static int cov_relative_source(char *out, size_t cap, const char *raw, const cha
   return 0;
 }
 
+/* Workspace scans return native separators: '\' on Windows and '/' on
+ * POSIX. Normalize classification logically without rewriting filesystem
+ * paths, so production source freshness is enforced on both platforms. */
 static int cov_is_production(const char *path) {
-  if (strncmp(path, "src/", 4) == 0) return 1;
-  if (strncmp(path, "include/", 8) == 0 && strncmp(path, "include/tests/", 14) != 0) return 1;
-  return 0;
+  const char *tail;
+  if (!path) return 0;
+  if (strncmp(path, "src", 3) == 0 &&
+      (path[3] == '/' || path[3] == '\\')) return 1;
+  if (strncmp(path, "include", 7) != 0 ||
+      (path[7] != '/' && path[7] != '\\')) return 0;
+  tail = path + 8;
+  if (strncmp(tail, "tests", 5) == 0 &&
+      (tail[5] == '/' || tail[5] == '\\')) return 0;
+  return 1;
 }
 
 static int cov_read_gcov(const char *path, const char *root, CovSet *v) {

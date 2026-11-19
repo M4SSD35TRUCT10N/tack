@@ -35,6 +35,29 @@ int main(void) {
   cur.flags_state++;
   if (cov_compare(&hwm, &cur) != 2) failures++;
 
+  /* Source fingerprint safety regression: native Win32 paths must never be
+   * skipped by the forward-slash-only production filter. This was previously
+   * invisible because source_state stayed at the FNV offset basis on Win32. */
+  if (!cov_is_production("src/tack.c")) failures++;
+  if (!cov_is_production("src\\tack.c")) failures++;
+  if (!cov_is_production("src/m2/nested.c")) failures++;
+  if (!cov_is_production("src\\m2\\nested.c")) failures++;
+  if (!cov_is_production("include/api.h")) failures++;
+  if (!cov_is_production("include\\api.h")) failures++;
+  if (cov_is_production("include/tests/tack_test_embed.h")) failures++;
+  if (cov_is_production("include\\tests\\tack_test_embed.h")) failures++;
+  if (cov_is_production("srcmalicious/tack.c")) failures++;
+  if (cov_is_production("include-not-api.h")) failures++;
+  if (cov_is_production((const char*)0)) failures++;
+  {
+    unsigned long production_state = 0ul;
+    if (cov_workspace_state(0, &production_state) != 0 ||
+        production_state == 2166136261ul) {
+      fprintf(stderr, "coverage_ratchet_test: production source state not fingerprinted\n");
+      failures++;
+    }
+  }
+
   /* Coverage objects, notes and runtime data must share build/obj location.
    * This catches regressions to single-step GCC test linking, which caused
    * MinGW/TDM-GCC to write gcov notes/data into the project root. */

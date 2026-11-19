@@ -1,9 +1,15 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.6a Windows suites PASS; P32 source-state BUG, Linux offen)
+# M2 VALIDATION – tack v0.8.6 (RC0.7 source-state fix candidate, NOT RUN)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
 
 ## Deutsch
+
+### RC0.7 – Windows-Source-Fingerprint-Integrität: gezielter Korrekturkandidat, NOT RUN
+
+Nach vollständigem RC0.6a-Windows-Owner-Nachweis (TinyCC Debug, GCC Release, Clang/MSVC Release, GCC Coverage jeweils **28 kompiliert / 27 PASS / 0 FAIL / 1 SKIP**, Windows gcov **3845/6075 PASS**) ist P32 aufgrund eines zuvor unerkannten Windows-Coverage-Freshness-Problems weiterhin **BLOCKED**. Die in RC0.5 und RC0.6a wiederholte `source_state=811c9dc5` entspricht exakt dem FNV-1a-Startwert: `cov_workspace_state(0)` nutzt unter Windows scannerseitig Backslash-Pfade, `cov_is_production` filtert nur Slash-Pfade. Die tatsächlich gemessene rc0.6a-Coveragequote ist davon unabhängig, aber die zusätzliche Quellfrischeprüfung war wirkungslos. `tests_state=be2d16b1` aus RC0.6a ist ein korrekt frischer Test-State; bei unveränderter Coveragequote ist ein neuer HWM-Accept nicht erforderlich.
+
+**RC0.7 Kandidat nach ADR 0005:** `cov_is_production` akzeptiert `/` und `\` als Trenner hinter `src`/`include`, während `include/tests` bei beiden Schreibweisen ausgeschlossen bleibt. `tests/coverage_ratchet_test.c` sichert ausdrücklich beide Schreibweisen, Prefix-Abgrenzungen und `cov_workspace_state(0) != 0x811c9dc5`. Einzeldatei ISO C89, keine zusätzlichen Abhängigkeiten, unveränderte Prozesse und alle alten Assertions. **RC0.7 Gates, Inventory-Owner-Accept, Windows/Linux Coverage: NOT RUN**. GitHub-HWMs Windows **3845/6075**, Linux **3604/5790** und das bei RC0.6a Owner-angenommene/committete 28er-Inventar **7233bed7f6edfea524eb605d46d37d39eca4be60** bleiben unberührt, bis echte Messungen neue Freigaben rechtfertigen. Kein Merge/Tag/Release.
 
 ### RC0.6a – Windows TinyCC/GCC/GCC-Coverage PASS; Ratchet-Inventar Owner-genehmigt und versioniert (19.11.2026)
 
@@ -275,3 +281,7 @@ Owner fetched tested source `1ba915f` (plus documentation-only `62d7c64`) and bu
 ### English – Owner RC0.6a Windows GCC/TinyCC coverage PASS and fingerprint integrity blocker
 
 Windows TinyCC Debug, GCC Release and GCC Coverage all ran successfully at the same RC0.6a code revision, 28 compiled/27 PASS/0 FAIL/1 SKIP per suite. Clang/MSVC Release had already passed. Fresh GCC/gcov measured **3845/6075 (63.29218%)**; coverage check returned PASS at the unchanged accepted HWM. Local Owner-approved test inventory is blob `7233bed7f6edfea524eb605d46d37d39eca4be60`, with four updated source hashes, including process execution; inventory can be versioned without altering either HWM. **Critical:** Windows `source_state=811c9dc5` equals FNV-1a offset basis because `cov_is_production` only accepts slash-separated `src/`/`include/` but Windows scanner emits native backslashes. Thus production source freshness is NOT actually enforced by that field on Windows, despite measured ratio PASS. P32 is BLOCKED pending a narrowly tested path normalization fix and fresh measured ratchets. Integrated Linux GCC/Clang/gcov remains NOT RUN; no merge/release.
+
+### English RC0.7 Windows source-state integrity candidate
+
+RC0.6a Windows cross-compiler runtime suites and measured GCC/gcov 3845/6075 PASS remain valid historical evidence. However, Windows native backslash scanning meant `cov_is_production` admitted no production files and `source_state` remained the FNV offset basis. ADR 0005 documents the targeted RC0.7 classifier fix accepting both separators while preserving `include/tests` exclusion, with new strict C89 tests including nonempty actual workspace-state assertion. The RC0.7 suite, ratchet acceptance and fresh Windows/Linux coverage measurement are **NOT RUN**, both HWMs and previously owner-approved inventory remain unmodified. M2 remains BLOCKED, PR Draft.
