@@ -6,14 +6,7 @@ on:
       - main
       - master
   workflow_dispatch:
-
-  # Enable this only when the repository and contribution model are trusted
-  # for self-hosted runners. For public repositories, review the GitHub
-  # guidance first and gate this carefully.
-  # pull_request:
-  #   branches:
-  #     - main
-  #     - master
+  # Do not enable pull_request for unreviewed code on self-hosted runners.
 
 permissions:
   contents: read
@@ -22,42 +15,50 @@ jobs:
   linux-arm64:
     name: Linux ARM64 (pi4)
     runs-on: [self-hosted, linux, ARM64, pi4]
-    env:
-      TACK_CC: gcc
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
-
-      - name: Prepare output directories
+      - name: Prepare directories
         shell: bash
         run: |
           set -eu
           mkdir -p build/host build/ci build/artifacts
-
-      - name: Build tack host binary
+      - name: Bootstrap (GCC strict C89)
         shell: bash
         run: |
           set -eu
-          gcc -std=c89 -pedantic -Werror -o build/host/tack src/tack.c
-
-      - name: Run tack test with CI reports
+          gcc -std=c89 -pedantic-errors -Wextra -Werror -o build/host/tack src/tack.c
+      - name: GCC release tests (-j 4)
         shell: bash
+        env:
+          TACK_CC: gcc
         run: |
           set -eu
-          ./build/host/tack --config ./tack.ini test \
-            --ci \
-            --events-jsonl ./build/ci/test-events.jsonl \
-            --report-tap ./build/ci/test.tap \
-            --report-junit ./build/ci/test-junit.xml
-
-      - name: Generate BOM, SBOM and DOC
+          ./build/host/tack --config ./tack.ini test release --ci --rebuild -j 4 --events-jsonl build/ci/linux-gcc.events.jsonl --report-tap build/ci/linux-gcc.tap --report-junit build/ci/linux-gcc.junit.xml
+      - name: Clang release tests (-j 4)
         shell: bash
+        env:
+          TACK_CC: clang
+        run: |
+          set -eu
+          ./build/host/tack --config ./tack.ini test release --ci --rebuild -j 4 --events-jsonl build/ci/linux-clang.events.jsonl --report-tap build/ci/linux-clang.tap --report-junit build/ci/linux-clang.junit.xml
+      - name: GCC/gcov coverage and HWM (-j 4)
+        shell: bash
+        env:
+          TACK_CC: gcc
+        run: |
+          set -eu
+          ./build/host/tack --config ./tack.ini test coverage --ci --rebuild -j 4 --events-jsonl build/ci/linux-gcov.events.jsonl --report-tap build/ci/linux-gcov.tap --report-junit build/ci/linux-gcov.junit.xml
+          ./build/host/tack --config ./tack.ini coverage check
+      - name: Generate BOM SBOM DOC
+        shell: bash
+        env:
+          TACK_CC: gcc
         run: |
           set -eu
           ./build/host/tack --config ./tack.ini bom debug
           ./build/host/tack --config ./tack.ini sbom debug
           ./build/host/tack --config ./tack.ini doc debug
-
       - name: Collect generated artifacts
         shell: bash
         run: |
@@ -69,53 +70,72 @@ jobs:
             rm -rf build/artifacts/doc
             cp -R build/doc build/artifacts/doc
           fi
-
       - name: Upload workflow artifacts
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: tack-ci-linux-arm64
           path: |
-            build/ci/test-events.jsonl
-            build/ci/test.tap
-            build/ci/test-junit.xml
-            build/artifacts
-          if-no-files-found: error
+            build/ci/
+            build/artifacts/
+          if-no-files-found: warn
 
   windows-x64:
     name: Windows x64 (dev-laptop)
     runs-on: [self-hosted, windows, x64, dev-laptop]
-    env:
-      TACK_CC: gcc
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
-
-      - name: Prepare output directories
+      - name: Prepare directories
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build\host, build\ci, build\artifacts | Out-Null
-
-      - name: Build tack host binary
+      - name: Bootstrap (GCC strict C89)
         shell: pwsh
         run: |
-          gcc -std=c89 -pedantic -Werror -o build\host\tack.exe src\tack.c
-
-      - name: Run tack test with CI reports
+          gcc -std=c89 -pedantic-errors -Wextra -Werror -o build\host\tack.exe src\tack.c
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: TinyCC debug tests (-j 4)
         shell: pwsh
+        env:
+          TACK_CC: tcc
         run: |
-          .\build\host\tack.exe --config .\tack.ini test `
-            --ci `
-            --events-jsonl .\build\ci\test-events.jsonl `
-            --report-tap .\build\ci\test.tap `
-            --report-junit .\build\ci\test-junit.xml
-
-      - name: Generate BOM, SBOM and DOC
+          .\build\host\tack.exe --config .\tack.ini test debug --ci --rebuild -j 4 --events-jsonl build\ci\windows-tcc.events.jsonl --report-tap build\ci\windows-tcc.tap --report-junit build\ci\windows-tcc.junit.xml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: GCC release tests (-j 4)
         shell: pwsh
+        env:
+          TACK_CC: gcc
+        run: |
+          .\build\host\tack.exe --config .\tack.ini test release --ci --rebuild -j 4 --events-jsonl build\ci\windows-gcc.events.jsonl --report-tap build\ci\windows-gcc.tap --report-junit build\ci\windows-gcc.junit.xml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Clang/MSVC release tests (-j 4)
+        shell: pwsh
+        env:
+          TACK_CC: clang
+        run: |
+          .\build\host\tack.exe --config .\tack.ini test release --ci --rebuild -j 4 --events-jsonl build\ci\windows-clang.events.jsonl --report-tap build\ci\windows-clang.tap --report-junit build\ci\windows-clang.junit.xml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: GCC/gcov coverage and HWM (-j 4)
+        shell: pwsh
+        env:
+          TACK_CC: gcc
+        run: |
+          .\build\host\tack.exe --config .\tack.ini test coverage --ci --rebuild -j 4 --events-jsonl build\ci\windows-gcov.events.jsonl --report-tap build\ci\windows-gcov.tap --report-junit build\ci\windows-gcov.junit.xml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\build\host\tack.exe --config .\tack.ini coverage check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Generate BOM SBOM DOC
+        shell: pwsh
+        env:
+          TACK_CC: gcc
         run: |
           .\build\host\tack.exe --config .\tack.ini bom debug
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .\build\host\tack.exe --config .\tack.ini sbom debug
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .\build\host\tack.exe --config .\tack.ini doc debug
-
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Collect generated artifacts
         shell: pwsh
         run: |
@@ -126,14 +146,12 @@ jobs:
             if (Test-Path build\artifacts\doc) { Remove-Item build\artifacts\doc -Recurse -Force }
             Copy-Item build\doc build\artifacts\doc -Recurse -Force
           }
-
       - name: Upload workflow artifacts
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: tack-ci-windows-x64
           path: |
-            build/ci/test-events.jsonl
-            build/ci/test.tap
-            build/ci/test-junit.xml
-            build/artifacts
-          if-no-files-found: error
+            build/ci/
+            build/artifacts/
+          if-no-files-found: warn

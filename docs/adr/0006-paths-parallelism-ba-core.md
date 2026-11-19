@@ -22,3 +22,7 @@
 
 ## English
 Keep **native filesystem paths**, **canonical repository source identities** and **display paths** separate. No blind global separator replacement. Validate and bound all conversions, preserving real OS semantics and hard failure for absent instrumentation. Provide deterministic, bounded parallel compile/link with safe process cleanup and serial shared-fixture runtime tests. This is a candidate reusable contract for `ba_core`, not a new automatic dependency or an implemented parallel test runner. Owner architecture acceptance and actual Win/Linux tests remain required.
+
+### RC0.8 Implementierungskandidat (NICHT ABGENOMMEN, 19.11.2026)
+
+Der Pfadvertrag bleibt **PROPOSED**. Eine bounded native Compiler-/Link-Pool-Implementierung innerhalb M2 liegt als ungetesteter Quellkandidat vor, der explizit `-j N` an `build_and_run_tests` weitergibt, runtimes seriell hält und Kindprozesse mit `proc_wait` reaped. Der `ba_core`-Teil ist weiterhin nur ein später zu entscheidender Wiederverwendungsentwurf; keine Bibliothek wurde hinzugefügt. `test_parallel_build_test` prüft -j1/-j4 und einen negativen Compilerpfad, muss noch unter Windows und Linux laufen. Keine ADR-Statusaufwertung vor Owner-Review.

@@ -53,3 +53,14 @@ Owner approved the measured Windows HWM via `tack coverage accept --owner-approv
 ### English: RC0.6 Windows Clang/MSVC candidate
 
 The additional compiler was Windows Clang with the MSVC/UCRT target; Microsoft's vendor deprecation annotations caused the first test compile to fail under `-Werror`. ADR 0004 specifies a narrowly scoped, documented pre-header CRT compatibility opt-out rather than non-C89 `_s` APIs or globally relaxed warnings. This is untested source, no accepted coverage change, and no substitute for true Linux GCC/Clang validation.
+
+
+## M2 RC0.8 Kandidat: paralleles Test-Kompilieren/Linken (19.11.2026, NOT RUN)
+
+Die bestehende normative M2-Prozessausführung bleibt unverändert. Ergänzend wird der bereits vorhandene native `proc_spawn_nowait`/`proc_wait`-Vertrag für Test-Compile-/Link-Aufträge mit `-j N` verwendet. Der CLI-Parser hatte `jobs` bisher nur angenommen, nicht in den Test-Runner geleitet. RC0.8 ergänzt den gebundenen, fail-closed Prozesspool (maximal `TACK_MAX_COMPILER_JOBS`), ohne Kindprozess-Shell, mit vollständigem Reap bei jedem Fehler. Testprogramme laufen weiterhin **in definierter Reihenfolge sequenziell**, da gemeinsame Fixtures noch nicht isoliert sind. GCC-Coverage baut eindeutige `.o/.gcno/.gcda` pro Test in `build/`, linkt separat und sammelt gcov erst nach der Runtime. Eindeutige Basenames werden vor parallelem Build erzwungen. Neues C89-E2E `tests/parallel_test_build_test.c` prüft `-j 1` gegenüber `-j 4`, Mehrfach-Spawn, Inkrementalverhalten, Compilerfehlersituation und isolierte GCC-Links. Source-Scope-ID-Pfade im gcov-Collector werden plattformübergreifend kanonisch verglichen, native OS-Pfade bleiben unangetastet.
+
+**Wichtig:** Dies ist ein **nicht getesteter** RC0.8-Kandidat innerhalb desselben M2-Milestones, kein bestandener Gate-/Coverage-Nachweis. Alte Owner-HWMs Windows 3845/6075 und Linux 3604/5790 und das Testinventar bleiben unverändert; geänderte Testquellen benötigen erneute ausdrückliche Owner-Annahme. Windows TinyCC/GCC/Clang und echte Linux GCC/Clang/gcov-Pflichtfreigaben stehen noch aus. Siehe `docs/plans/M2-RC08-TASK.md` und ADR 0006 (noch PROPOSED).
+
+## English – RC0.8 bounded native test build candidate (NOT RUN)
+
+The M2 spawn/wait invariants remain in force. The `test -j N` option now has a bounded compile/link pool candidate built on native process calls and deterministic child reaping, with serialized runtime tests until fixtures are isolated and unique GCC coverage object/note/data paths under build/. Test source basename collisions are rejected. A C89 regression compares -j1 and -j4 and checks incremental runs, failure draining and GCC dual-stage linking. Canonical source-ID comparison fixes Win32 gcov scope matching without rewriting filesystem paths. None of the RC0.8 compiler, test or gcov gates has run; Owner ratchet approval and actual Windows/Linux/Clang reference validation are pending.

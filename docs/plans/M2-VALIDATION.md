@@ -1,9 +1,20 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.7b source-scope candidate, NOT RUN)
+# M2 VALIDATION – tack v0.8.6 (RC0.8 parallel build + source-scope candidate, NOT RUN)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
 
 ## Deutsch
+
+### M2 RC0.8 – gebündelter, noch ungeprüfter Parallel-Test-Build und Coverage-Identity-Fix (19.11.2026)
+
+**Status: Kandidat, alle neuen Gates NOT RUN.** Ausgangspunkt der Owner-Lognachweise ist M2 RC0.7 `24500ef`: Windows TinyCC Debug, GCC Release, Clang/MSVC Release je **28 compiled / 27 PASS / 0 FAIL / 1 SKIP**. GCC Coverage-Testassertions ebenfalls PASS, aber **gcov-Collector FAIL** wegen Windows `src\tack.c` gegenüber normalisiertem `src/tack.c`; daher kein neues `coverage/current.txt`. RC0.7b `d9ee32b` hat den Quellvergleich korrigiert, wurde jedoch noch nicht getestet. Die letzte Owner-freigegebene und versionierte 28er-Testinventardatei hat Blob `61c0eb04778fb1f0f9908af48f1191fa71a50473`. Baselines Windows **3845/6075**, Linux **3604/5790** unverändert.
+
+**RC0.8 fasst zusammengehörige M2-Änderungen in einer größeren Runde zusammen:** Korrigiertes C89-Testliteral für genau **einen** Windows-Backslash und negativer Doppelseparator-Test in `coverage_ratchet_test.c`. `tack test -j N` leitet `jobs` nun als Kandidat tatsächlich weiter und setzt für `N>1` einen begrenzten Prozess-Pool ein: alle neu zu bauenden Test-Executables werden mit eindeutigen Dateinamen aus den existierenden Base-IDs gestartet, bei `coverage` erst alle unabhängigen `.o/.gcno`, danach die entsprechenden Link-Prozesse. Jeder Compile-/Link-Prozess wird vor dem Test-Start reaped. **Die Test-Runtime bleibt strikt sequenziell**, damit gemeinsame `build/`-Fixtures sicher bleiben. Duplicate Basenames/Spawn-/Compile-/Link-Fehler müssen mit FAIL, vollständigem Prozess-Drain und korrekter not_run-/TAP-/JUnit-Policy enden. `-j 1` verbleibt beim bisherigen seriellen Weg.
+
+**Neue Tests:** `tests/parallel_test_build_test.c` vergleicht `-j 1` und `-j 4` mit vier synthetischen C89-Tests, kontrolliert mehrere pending Kindcompiler, Inkrementalpfad, absichtlichen Compile-Fail (kein stilles Weiterlaufen), und die GCC-Coverage-Zweistufen-Buildpfade separat unter `build/`. `functional_smoke_test` passt seinen direkten Aufruf an die neue Funktionssignatur an. `coverage_ratchet_test` prüft native/einfache/zweifache Separatoren und fehlende Source-Scope-Namen. **Keine Tests abgeschwächt, keine neuen Abhängigkeiten oder CMake/Python, keine Änderung an HWMs.** Neue Testquellen/Fingerprints sind **noch nicht ownerangenommen** und dürfen vom Agenten nicht automatisch ins Inventar geschrieben werden.
+
+**Vor Freigabe:** Owner prüft alle Source-/Test-Diffs und gibt `ratchet tests --owner-approve` ausdrücklich frei, sofern korrekt. Erst gezielte GCC-Coverage-Reparaturprobe, danach Windows TinyCC/GCC/Clang mit `-j 4`, Windows GCC/gcov mit `-j 4` und Prüfung `source_state != 811c9dc5` und gemessener HWM. Erneut `-j 1`-Referenzlauf und E2E-Pool-Tests samt Failfast/CI-Ausgabe. Anschließend echte Linux GCC/Clang/gcov-Läufe; Clang ist verpflichtendes Release-Gate. **Nichts davon ist auf RC0.8 bereits PASS**, M2 bleibt BLOCKED, PR #13 Draft, kein Merge/Tag/Release. 0.8.6-Release braucht zusätzlich >=90 % echten Produktionszeilen auf beiden OS.
+
 
 ### RC0.7 Windows Owner: Testassertions PASS, GCC-Coverage-Collector FAIL; RC0.7b Kandidat (NOT RUN)
 
@@ -299,3 +310,7 @@ RC0.6a Windows cross-compiler runtime suites and measured GCC/gcov 3845/6075 PAS
 ### English: RC0.7 owner tests and RC0.7b comparison fix
 
 Owner TinyCC Debug, GCC Release and Clang/MSVC Release at `24500ef` all PASS (28 compiled, 27 passed, 0 failed, 1 skipped), GCC Coverage test assertions PASS but **overall collection FAIL** because native Windows scanned `src\\tack.c` mismatches normalized gcov ID `src/tack.c`. No current measurement was produced. Owner-approved test inventory blob `61c0eb04778fb1f0f9908af48f1191fa71a50473` is versioned; both HWMs unchanged. RC0.7b only normalizes comparison identities and regression-tests missing/malformed source mappings, not actual filesystem paths; **NOT RUN**. Separately, `-j` is silently unused by `tack test` and needs a dedicated M2 parallel compile/link phase without concurrently running shared-fixture tests. Linux gates pending.
+
+### English – M2 RC0.8 larger coherent batch candidate
+
+RC0.8 combines the already untested RC0.7b Windows gcov canonical source identity correction with a fix to a double-backslash regression test literal, and introduces bounded, native-process parallel test compile/link for `test -j N`. It retains serial test execution due shared fixtures and defers gcov collection until all test children exit. The existing `-j 1` path remains serial. A new embedded C89 regression covers `-j 1/4`, an actual multiple-pending-compiler measure, incremental no-rebuild, compile-failure drain, and GCC two-stage gcov object/link jobs isolated under build/. Only historical RC0.7 Windows TinyCC/GCC/Clang runtime passes are available; RC0.7 coverage collection FAILED and **all RC0.8 gates including Linux are NOT RUN**. New test inventory owner approval is REQUIRED; both HWMs unchanged. No claim of >=90% attainment, no milestone closure.

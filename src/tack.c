@@ -5531,7 +5531,203 @@ static void test_coverage_artifact_paths(const char *objdir, const char *test_ba
   path_join(gcno_path, gcno_cap, objdir, filename);
 }
 
-static int build_and_run_tests(const char *target_name, Profile p, int verbose, int force, int strict, TestRunStats *stats) {
+/* Test binaries may use shared build/ fixtures. Only compile/link processes run
+ * concurrently: executing tests stays ordered and single-process until each
+ * fixture has a proven isolated namespace. Each compiler gets its own output. */
+typedef struct {
+  Proc proc;
+  int test_index;
+} TestBuildProcess;
+
+#ifdef TACK_TEST
+static int g_test_compile_peak_pending = 0;
+#endif
+
+static void test_build_exe_path(char *out, size_t cap,
+                                const char *bin_dir, const char *source) {
+  const char *base = path_base(source);
+  char stem[512];
+  char *dot;
+  tack_copy(stem, sizeof(stem), base);
+  dot = strrchr(stem, '.');
+  if (dot) *dot = '\0';
+#ifdef _WIN32
+  tack_cat(stem, sizeof(stem), ".exe");
+#endif
+  path_join(out, cap, bin_dir, stem);
+}
+
+static void test_build_reap_all(TestBuildProcess *active, int count) {
+  int k;
+  for (k = 0; k < count; k++) (void)proc_wait(&active[k].proc);
+}
+
+/* Reap in planned test order. Never promote a child failure to success even
+ * when a younger compile finished first. A failed job is already reaped. */
+static int test_build_wait_oldest(TestBuildProcess *active, int *count,
+                                  int *failed_index) {
+  int i, rc, id;
+  if (!active || !count || *count < 1 || !failed_index) return 1;
+  id = active[0].test_index;
+  rc = proc_wait(&active[0].proc);
+  for (i = 1; i < *count; i++) active[i - 1] = active[i];
+  (*count)--;
+  if (rc != 0) {
+    fprintf(stderr, "tack: test compile/link failed: %d (exit=%d)\n", id, rc);
+    *failed_index = id;
+    return 1;
+  }
+  return 0;
+}
+
+/* Separate, bounded stages: compile all needed test sources, then (coverage
+ * only) link their unique objects. This prevents .gcno/.gcda sharing and
+ * ensures no test executes while any sibling is still building. */
+static int test_build_parallel(const StrVec *tests, const char *cc, Profile p,
+                               const EffectiveOverride *ov,
+                               const char * const *incs, const char *bin_dir,
+                               const char *obj_dir, int force, int strict,
+                               int verbose, int jobs, int *built,
+                               int *compiled_count, int *failed_index) {
+  TestBuildProcess *active;
+  int active_n = 0, i, stage, stages, peak = 0;
+  if (!tests || !cc || !ov || !incs || !built || !compiled_count ||
+      !failed_index || jobs < 2 || jobs > TACK_MAX_COMPILER_JOBS) return 1;
+  *failed_index = 0;
+  *compiled_count = 0;
+#ifdef TACK_TEST
+  g_test_compile_peak_pending = 0;
+#endif
+  /* The legacy bin naming is basename-based. Reject collisions rather than
+   * compiling two different source files into one executable in parallel. */
+  for (i = 0; i < tests->count; i++) {
+    int k;
+    for (k = 0; k < i; k++) {
+      if (streq(path_base(tests->items[i]), path_base(tests->items[k]))) {
+        fprintf(stderr, "tack: test: duplicate test basename: %s\n",
+                path_base(tests->items[i]));
+        *failed_index = i;
+        return 1;
+      }
+    }
+  }
+  active = (TestBuildProcess*)xmalloc((size_t)jobs * sizeof(*active));
+  stages = (p == PROF_COVERAGE) ? 2 : 1;
+  for (stage = 0; stage < stages; stage++) {
+    for (i = 0; i < tests->count; i++) {
+      char out_exe[1024], obj_path[1024], gcno_path[1024];
+      const char *source = tests->items[i];
+      Argv av;
+      int k;
+      test_build_exe_path(out_exe, sizeof(out_exe), bin_dir, source);
+      if (stage == 0) {
+        if (!force && file_exists(out_exe) &&
+            file_mtime(source) <= file_mtime(out_exe)) continue;
+      } else if (!built[i]) {
+        continue;
+      }
+      if (p == PROF_COVERAGE) {
+        test_coverage_artifact_paths(obj_dir, path_base(source),
+                                     obj_path, sizeof(obj_path),
+                                     gcno_path, sizeof(gcno_path));
+        if (stage == 1 && !file_exists(gcno_path)) {
+          fprintf(stderr, "tack: coverage: missing test gcno: %s\n", gcno_path);
+          *failed_index = i;
+          test_build_reap_all(active, active_n);
+          free(active);
+          return 1;
+        }
+      }
+      if (active_n >= jobs && test_build_wait_oldest(active, &active_n, failed_index) != 0) {
+        test_build_reap_all(active, active_n);
+        free(active);
+        return 1;
+      }
+      av_init(&av);
+      av_push(&av, cc);
+      if (stage == 0) {
+        push_common_warnings_for_cc(&av, strict, cc);
+        push_profile_flags_for_cc(&av, p, cc);
+        av_push_list(&av, ov->cflags);
+        for (k = 0; incs[k]; k++) {
+          av_push(&av, "-I");
+          av_push(&av, incs[k]);
+        }
+        if (p == PROF_COVERAGE) {
+          av_push(&av, "-c");
+          av_push(&av, "-o");
+          av_push(&av, obj_path);
+        } else {
+          av_push(&av, "-o");
+          av_push(&av, out_exe);
+        }
+        av_push(&av, source);
+      } else {
+        av_push(&av, "-o");
+        av_push(&av, out_exe);
+        av_push(&av, obj_path);
+        av_push_list(&av, ov->ldflags);
+      }
+      av_terminate(&av);
+      if (verbose) print_argv(av.a);
+      /* Fail closed: never let a compiler that exits 0 without writing an
+       * output accidentally run the previous executable for this test. */
+      if (file_exists(out_exe) && remove(out_exe) != 0) {
+        fprintf(stderr, "tack: test: cannot remove prior output: %s\n", out_exe);
+        *failed_index = i;
+        av_free(&av);
+        test_build_reap_all(active, active_n);
+        free(active);
+        return 1;
+      }
+      if (proc_spawn_nowait(av.a, &active[active_n].proc) != 0) {
+        fprintf(stderr, "tack: test compiler spawn failed: %s (errno=%d)\n",
+                cc, errno);
+        *failed_index = i;
+        av_free(&av);
+        test_build_reap_all(active, active_n);
+        free(active);
+        return 1;
+      }
+      active[active_n].test_index = i;
+      active_n++;
+      if (active_n > peak) peak = active_n;
+      if (stage == 0) {
+        built[i] = 1;
+        (*compiled_count)++;
+      }
+      av_free(&av);
+    }
+    while (active_n > 0) {
+      if (test_build_wait_oldest(active, &active_n, failed_index) != 0) {
+        test_build_reap_all(active, active_n);
+        free(active);
+        return 1;
+      }
+    }
+  }
+  /* Every successful compiler/link must actually have created its own
+   * executable, even if the tool returned a misleading zero exit status. */
+  for (i = 0; i < tests->count; i++) {
+    char executable[1024];
+    if (!built[i]) continue;
+    test_build_exe_path(executable, sizeof(executable), bin_dir, tests->items[i]);
+    if (!file_exists(executable)) {
+      fprintf(stderr, "tack: test: compiler produced no output: %s\n", executable);
+      *failed_index = i;
+      free(active);
+      return 1;
+    }
+  }
+#ifdef TACK_TEST
+  g_test_compile_peak_pending = peak;
+#endif
+  if (verbose) printf("tack: test-build: peak_pending=%d jobs=%d\n", peak, jobs);
+  free(active);
+  return 0;
+}
+
+static int build_and_run_tests(const char *target_name, Profile p, int verbose, int force, int jobs, int strict, TestRunStats *stats) {
   StrVec tests;
   int i;
   const char *cc;
@@ -5542,6 +5738,7 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
   char tests_obj[512];
 
   const char *inc_common[4];
+  int *prebuilt = 0;
 
   if (stats) memset(stats, 0, sizeof(*stats));
 
@@ -5557,7 +5754,7 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
   tap_write_plan(tests.count);
   if (tests.count == 0) {
     printf("tack: test: no tests found under %s\n", g_tests_dir);
-    sv_free(&tests);
+    free(prebuilt); sv_free(&tests);
     return 0;
   }
 
@@ -5567,14 +5764,14 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
   path_join(tests_root, sizeof(tests_root), tests_root, profile_name(p));
   ensure_dir(tests_root);
   path_join(tests_bin, sizeof(tests_bin), tests_root, "bin");
-  if (p == PROF_COVERAGE && file_exists(tests_bin) && rm_rf(tests_bin) != 0) { sv_free(&tests); return 1; }
+  if (p == PROF_COVERAGE && file_exists(tests_bin) && rm_rf(tests_bin) != 0) { free(prebuilt); sv_free(&tests); return 1; }
   ensure_dir(tests_bin);
   /* GCC may place gcov notes in the working directory when compiling and
    * linking a .c file in one step on Windows. Compile an explicit object
    * under build/ first; both .gcno and runtime .gcda belong beside it. */
   path_join(tests_obj, sizeof(tests_obj), tests_root, "obj");
   if (p == PROF_COVERAGE) {
-    if (file_exists(tests_obj) && rm_rf(tests_obj) != 0) { sv_free(&tests); return 1; }
+    if (file_exists(tests_obj) && rm_rf(tests_obj) != 0) { free(prebuilt); sv_free(&tests); return 1; }
     ensure_dir(tests_obj);
   }
 
@@ -5583,12 +5780,44 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
   inc_common[2] = g_src_dir;
   inc_common[3] = 0;
 
+  if (jobs > 1) {
+    int failed_index = 0, compiled_count = 0;
+    if ((size_t)tests.count > (size_t)-1 / sizeof(*prebuilt)) {
+      fprintf(stderr, "tack: test: excessive test inventory size\n");
+      sv_free(&tests);
+      return 1;
+    }
+    prebuilt = (int*)xmalloc((size_t)tests.count * sizeof(*prebuilt));
+    memset(prebuilt, 0, (size_t)tests.count * sizeof(*prebuilt));
+    if (test_build_parallel(&tests, cc, p, &test_ov, inc_common,
+                            tests_bin, tests_obj, force, strict, verbose, jobs,
+                            prebuilt, &compiled_count, &failed_index) != 0) {
+      const char *bad_src = tests.items[failed_index];
+      const char *bad_base = path_base(bad_src);
+      if (stats) {
+        stats->compiled = compiled_count;
+        stats->failed++;
+        stats->not_run = stats->total - stats->failed;
+      }
+      events_write_test_started(bad_base, bad_src);
+      events_write_test_finished(bad_base, "failed", prebuilt[failed_index], 0ul);
+      tap_write_test_result(failed_index + 1, bad_base, "failed", bad_src,
+                            prebuilt[failed_index], 0ul);
+      (void)junit_cases_push(bad_base, bad_src, "failed", "compile failed",
+                             prebuilt[failed_index], 0ul);
+      tap_write_bail_out("tack fail-fast after compile failure");
+      free(prebuilt); sv_free(&tests);
+      return 1;
+    }
+    if (stats) stats->compiled = compiled_count;
+  }
+
   for (i = 0; i < tests.count; i++) {
     const char *src = tests.items[i];
     const char *base = path_base(src);
     char out_exe[1024];
     unsigned long test_start_ms = tack_now_ms();
-    int compiled_now = 0;
+    int compiled_now = prebuilt ? prebuilt[i] : 0;
 
     events_write_test_started(base, src);
 
@@ -5613,7 +5842,7 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
     }
 #endif
 
-    if (force || !file_exists(out_exe) || file_mtime(src) > file_mtime(out_exe)) {
+    if (!prebuilt && (force || !file_exists(out_exe) || file_mtime(src) > file_mtime(out_exe))) {
       Argv av;
       int rc;
       char obj_path[1024];
@@ -5683,11 +5912,11 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
         events_write_test_finished(base, "failed", compiled_now, tack_elapsed_ms(test_start_ms));
         tap_write_test_result(i + 1, base, "failed", src, compiled_now, tack_elapsed_ms(test_start_ms));
         if (junit_cases_push(base, src, "failed", "compile failed", compiled_now, tack_elapsed_ms(test_start_ms)) != 0) {
-          sv_free(&tests);
+          free(prebuilt); sv_free(&tests);
           return 1;
         }
         tap_write_bail_out("tack fail-fast after compile failure");
-        sv_free(&tests);
+        free(prebuilt); sv_free(&tests);
         return 1;
       }
     }
@@ -5702,13 +5931,13 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
       if (run_rc == 77 && p == PROF_COVERAGE && !((!strcmp(base, "path_join_test.c") && !strcmp(cov_os_name(), "linux")) || (!strcmp(base, "incremental_link_test.c") && !strcmp(cov_os_name(), "windows")))) {
         fprintf(stderr, "tack: coverage: BLOCKED unexpected skipped test: %s\n", base);
         if (stats) { stats->failed++; stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped); }
-        sv_free(&tests); return 1;
+        free(prebuilt); sv_free(&tests); return 1;
       }
       if (run_rc == 77) {
         if (stats) stats->skipped++;
         events_write_test_finished(base, "skipped", compiled_now, tack_elapsed_ms(test_start_ms));
         tap_write_test_result(i + 1, base, "skipped", src, compiled_now, tack_elapsed_ms(test_start_ms));
-        if (junit_cases_push(base, src, "skipped", "not applicable", compiled_now, tack_elapsed_ms(test_start_ms)) != 0) { sv_free(&tests); return 1; }
+        if (junit_cases_push(base, src, "skipped", "not applicable", compiled_now, tack_elapsed_ms(test_start_ms)) != 0) { free(prebuilt); sv_free(&tests); return 1; }
         continue;
       }
       if (run_rc != 0) {
@@ -5716,25 +5945,25 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
         events_write_test_finished(base, "failed", compiled_now, tack_elapsed_ms(test_start_ms));
         tap_write_test_result(i + 1, base, "failed", src, compiled_now, tack_elapsed_ms(test_start_ms));
         if (junit_cases_push(base, src, "failed", "test failed", compiled_now, tack_elapsed_ms(test_start_ms)) != 0) {
-          sv_free(&tests);
+          free(prebuilt); sv_free(&tests);
           return 1;
         }
         tap_write_bail_out("tack fail-fast after test failure");
-        sv_free(&tests);
+        free(prebuilt); sv_free(&tests);
         return 1;
       }
       if (stats) stats->passed++;
       events_write_test_finished(base, "passed", compiled_now, tack_elapsed_ms(test_start_ms));
       tap_write_test_result(i + 1, base, "passed", src, compiled_now, tack_elapsed_ms(test_start_ms));
       if (junit_cases_push(base, src, "passed", "", compiled_now, tack_elapsed_ms(test_start_ms)) != 0) {
-        sv_free(&tests);
+        free(prebuilt); sv_free(&tests);
         return 1;
       }
     }
   }
 
   if (stats) stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped);
-  sv_free(&tests);
+  free(prebuilt); sv_free(&tests);
   return 0;
 }
 
@@ -11566,7 +11795,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "tack: coverage: cannot clear stale current measurement\n");
         events_close(); junit_close(); tap_close(); tv_free(&tv); config_free(); return 2;
       }
-      rc = build_and_run_tests(target_name, p, verbose, force || p == PROF_COVERAGE, strict, &stats);
+      rc = build_and_run_tests(target_name, p, verbose, force || p == PROF_COVERAGE, jobs, strict, &stats);
       if (rc == 0 && p == PROF_COVERAGE) rc = cov_generate_gcov(p, &stats);
       duration_ms = tack_elapsed_ms(start_ms);
       events_write_run_finished("test", p, (rc == 0) ? "ok" : "failed", duration_ms);
