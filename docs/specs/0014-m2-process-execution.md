@@ -1,6 +1,6 @@
 # SPEC 0014 – tack v0.8.6 M2: Prozessausführung / Process execution
 
-**Stand:** 2026-11-19 (RC0.5 Windows-Tests PASS; neue HWM BLOCKED) | **Status:** Implementierungskandidat, NICHT abgenommen / implementation candidate, NOT accepted
+**Stand:** 2026-11-19 (RC0.5 Windows-Tests und HWM PASS; Linux offen) | **Status:** Implementierungskandidat, NICHT abgenommen / implementation candidate, NOT accepted
 **Ausgangsbasis:** dev/v0.8.6 @ `39daf5047038dd88cfd7ca5521ceb97d951a929c`
 **Referenzen:** AGENTS.md, docs/adr/*, docs/plans/0.8.6-coverage.md, BA-STD-C89 v0.5 DRAFT (nicht ratifiziert).
 
@@ -37,3 +37,7 @@ P17 instruments actual OS spawn and wait calls in the test harness, validates th
 ### English: RC0.5 Owner Windows gates, 2026-11-19
 
 TinyCC debug, GCC release and GCC coverage test assertions all passed 27, failed zero, skipped one across 28 compiled tests. P17/P19/P20 have passed in the Windows process test. The RC0.5 inventory change was owner-approved locally. The newly measured Windows coverage 3845/6075 exceeds the accepted 3844/6075 HWM by one covered production line and is BLOCKED until a separate HWM acceptance and joint ratchet commit. Linux tests are NOT RUN; M2 is pending.
+
+### English: RC0.5 accepted Windows HWM
+
+Owner approved the measured Windows HWM via `tack coverage accept --owner-approve`, then ran `coverage check`, yielding **PASS HWM retained: 3845/6075**. The updated 28-source inventory with `process_execution_test.c` fingerprint `53d637eb` was approved separately. Both ratchet artifacts are committed together. Linux full integrated gates remain NOT RUN; milestone closure is pending.

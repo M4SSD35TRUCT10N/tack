@@ -2,12 +2,12 @@ tack-coverage-v1
 profile=windows-gcc-10.3.0-gcov-10.3.0-coverage-v1
 os=windows
 compiler=gcc
-covered=3844
+covered=3845
 total=6075
 sources_hash=39ea236e
 source_count=1
 source_state=811c9dc5
-tests_state=ee1bba53
+tests_state=bd1ac24d
 flags_state=36eb9e95
 tests_total=28
 tests_passed=27

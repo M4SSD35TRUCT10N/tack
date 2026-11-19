@@ -1,9 +1,22 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.5 Windows PASS; neue HWM pending)
+# M2 VALIDATION – tack v0.8.6 (RC0.5 Windows PASS / HWM angenommen; Linux offen)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
 
 ## Deutsch
+
+### RC0.5 – Windows-HWM ausdrücklich durch Owner angenommen (19.11.2026)
+
+Der Owner führte auf dem bereits erfolgreich getesteten RC0.5-Quellenstand `99ba12660ce3ff968706094fbd96b42f3d0979f4` nach Annahme des geänderten Testinventars ausdrücklich `tack --config .\tack.ini coverage accept --owner-approve` aus. Ausgabe: `accepted measured high-water mark: coverage/hwm-windows.txt`. Der unmittelbar anschließende `coverage check` meldete **`PASS HWM retained: 3845/6075`**. `ratchet tests` bestätigte ebenfalls PASS. `git diff --check` meldete ausschließlich die bekannten Windows-LF/CRLF-Konvertierungswarnungen, keine Whitespace-Fehler.
+
+Die bestätigte aktuelle Messung lautet `3845/6075 (63.29218%)`, `source_state=811c9dc5`, `tests_state=bd1ac24d`, `flags_state=36eb9e95`, `sources_hash=39ea236e`, 28 Tests (27 PASS, 1 SKIP). Das ist eine um **1 Produktionszeile höhere HWM** gegenüber der bereits angenommenen RC0.4-HWM `3844/6075`. **Die HWM wurde nicht stillschweigend erhöht; die Owner-Ausführung von `coverage accept --owner-approve` ist belegt.**
+
+Die gemeinsam versionierten RC0.5-Ratchet-Artefakte sind:
+
+- `coverage/hwm-windows.txt`: Git-Blob `79d0806a53414fd5a093421e9df44228e0557bb4`, aus unverändertem alten HWM-Record plus den durch `coverage/current.txt` belegten Änderungen `covered=3845` und `tests_state=bd1ac24d`. Der vollständige neue HWM-Diff wurde in dieser Owner-Nachricht nicht nochmals ausgegeben; der gespeicherte Record folgt den nachgewiesenen Messfeldern.
+- `coverage/test-inventory.txt`: Git-Blob `1dc6e302fd31fd241fdf3d77ad20e4341df2cc11`, 28 unverändert gezählte Quellen, `tests/process_execution_test.c 53d637eb`. Der Git-Blob-Präfix `1dc6e30` wurde bereits im Owner-Windows-Log ausgewiesen und stimmt exakt.
+
+Beide Dateien werden in derselben Revision des Feature-Branches gespeichert. `src/tack.c` und Linux-HWM `3604/5790` bleiben unverändert. **P17/P19/P20 Windows PASS, Linux weiterhin NOT RUN, M2 als Ganzes noch nicht abgenommen.** PR #13 bleibt Draft; kein Merge oder Release.
 
 ### RC0.5 Windows Owner-Evidenz, 19.11.2026: P17/P19/P20 PASS, neue HWM noch BLOCKED
 
@@ -196,3 +209,7 @@ RC0.5 modifies **only the C89 M2 process regression test**. It instruments nativ
 ### English: RC0.5 Windows Owner results (19 November 2026)
 
 At `99ba12660ce3ff968706094fbd96b42f3d0979f4`, Windows TinyCC debug, GCC release and GCC coverage suites compiled 28 tests and each reported 27 PASS, 0 FAIL, 1 SKIP. P17/P19/P20 assertions passed. The Owner accepted the revised inventory locally, with new process test fingerprint `53d637eb`; it is not committed yet. Current Windows production coverage is **3845/6075 (63.29218%)** against accepted **3844/6075 (63.27572%)**, a one-covered-line gain at unchanged denominator. HWM check remains BLOCKED until a separate Owner acceptance and joint versioning of inventory and HWM. Linux gates remain NOT RUN; M2 not complete.
+
+### English RC0.5 Owner HWM acceptance, 19 November 2026
+
+Owner explicitly executed `tack coverage accept --owner-approve`; it wrote `coverage/hwm-windows.txt`. The next `tack coverage check` returned **PASS HWM retained: 3845/6075**. The modified test inventory had already been Owner-approved and passed `ratchet tests`. The accepted Windows HWM is 3845/6075 (63.29218%), plus one covered production line against RC0.4. Both approved ratchets are versioned together (HWM blob `79d0806a53414fd5a093421e9df44228e0557bb4`; inventory blob `1dc6e302fd31fd241fdf3d77ad20e4341df2cc11`). No Linux gate is claimed and M2 is not accepted overall.

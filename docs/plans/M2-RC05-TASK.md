@@ -22,3 +22,7 @@ A targeted M2 RC0.5 strict-C89 test-only task implementing bounded native proces
 ## RC0.5 Windows Owner evidence, 2026-11-19
 
 Owner checked out `99ba12660ce3ff968706094fbd96b42f3d0979f4`, inspected the diff, and ratchet-accepted the new 28-test inventory locally (`tests/process_execution_test.c` hash `53d637eb`). Windows TinyCC debug, GCC release and GCC coverage suites each **28 compiled, 27 PASS, 0 FAIL, 1 SKIP, 0 NOT RUN**. P17/P19/P20 are PASS Windows. New measured Windows production line coverage `3845/6075 (63.29218%)` against accepted `3844/6075 (63.27572%)`, so coverage ratchet remains BLOCKED until separate Owner acceptance and joint commit. Linux reference, Linux gcov and total M2 milestone remain NOT RUN/BLOCKED. Evidence only, no scope or source change in this documentation revision.
+
+## Owner acceptance – RC0.5 Windows ratchets (2026-11-19)
+
+Owner explicitly ran `tack --config .\tack.ini coverage accept --owner-approve` and obtained `accepted measured high-water mark: coverage/hwm-windows.txt`; next `coverage check` returned **PASS HWM retained: 3845/6075**. `ratchet tests` PASS with previously Owner-approved 28-source test inventory. Ratchets jointly committed with inventory test hash `53d637eb`; Windows production code HWM now `3845/6075`. Source and 27 previous tests unchanged. Linux tests and coverage NOT RUN; no M2 milestone acceptance, merge, release or tag.
