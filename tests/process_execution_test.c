@@ -1,5 +1,14 @@
 /* M2 process execution: real child-received argv, errors and -j cleanup.
  * ISO C89; fault wrappers are compiled only into this test. */
+/* Clang targeting the MSVC UCRT: use ISO C89 CRT APIs without Microsoft's
+ * vendor-only 'unsafe' deprecation annotations. This opt-out must precede
+ * ALL CRT/Windows headers; it does not disable -Werror or other diagnostics.
+ * fopen_s/getenv_s/strerror_s are not ISO C89 replacements. */
+#if defined(_WIN32) && defined(_MSC_VER) && defined(__clang__)
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS 1
+#endif
+#endif
 #include <stdio.h>
 #ifdef _WIN32
 #include <windows.h>

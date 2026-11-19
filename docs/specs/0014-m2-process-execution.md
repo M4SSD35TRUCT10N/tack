@@ -1,10 +1,14 @@
 # SPEC 0014 – tack v0.8.6 M2: Prozessausführung / Process execution
 
-**Stand:** 2026-11-19 (RC0.5 Windows-Tests und HWM PASS; Linux offen) | **Status:** Implementierungskandidat, NICHT abgenommen / implementation candidate, NOT accepted
+**Stand:** 2026-11-19 (RC0.6 Clang-MSVC compatibility candidate; Windows RC0.5 PASS) | **Status:** Implementierungskandidat, NICHT abgenommen / implementation candidate, NOT accepted
 **Ausgangsbasis:** dev/v0.8.6 @ `39daf5047038dd88cfd7ca5521ceb97d951a929c`
 **Referenzen:** AGENTS.md, docs/adr/*, docs/plans/0.8.6-coverage.md, BA-STD-C89 v0.5 DRAFT (nicht ratifiziert).
 
 ## Deutsch
+
+### RC0.6 – Zusatzcompiler Clang mit MSVC-UCRT (noch NOT RUN)
+
+Windows-Clang 23.1.5 hatte Target `x86_64-pc-windows-msvc`, nicht Linux, und scheiterte bereits bei C89-Standardbibliotheksfunktionen, die Microsofts UCRT mit vendor-only Deprecation-Attributen versieht. ADR 0004 erlaubt nur für `_WIN32 && _MSC_VER && __clang__` ein ausdrücklich dokumentiertes `_CRT_SECURE_NO_WARNINGS` vor CRT-Headern; C89, `-Werror` und Prozesslogik bleiben erhalten. Änderungen an Source-/Testfingerprints verlangen neue Owner-Ratchets. RC0.6 und echte Linux-Gates bleiben NOT RUN.
 
 ### Geltung und Sicherheitsvertrag
 
@@ -41,3 +45,7 @@ TinyCC debug, GCC release and GCC coverage test assertions all passed 27, failed
 ### English: RC0.5 accepted Windows HWM
 
 Owner approved the measured Windows HWM via `tack coverage accept --owner-approve`, then ran `coverage check`, yielding **PASS HWM retained: 3845/6075**. The updated 28-source inventory with `process_execution_test.c` fingerprint `53d637eb` was approved separately. Both ratchet artifacts are committed together. Linux full integrated gates remain NOT RUN; milestone closure is pending.
+
+### English: RC0.6 Windows Clang/MSVC candidate
+
+The additional compiler was Windows Clang with the MSVC/UCRT target; Microsoft's vendor deprecation annotations caused the first test compile to fail under `-Werror`. ADR 0004 specifies a narrowly scoped, documented pre-header CRT compatibility opt-out rather than non-C89 `_s` APIs or globally relaxed warnings. This is untested source, no accepted coverage change, and no substitute for true Linux GCC/Clang validation.

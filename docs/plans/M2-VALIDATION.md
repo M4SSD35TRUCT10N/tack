@@ -1,9 +1,17 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.5 Windows PASS / HWM angenommen; Linux offen)
+# M2 VALIDATION – tack v0.8.6 (RC0.6 Clang-MSVC candidate, NOT RUN)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
 
 ## Deutsch
+
+### RC0.6 Clang-MSVC/UCRT-Kompatibilitätskandidat, 19.11.2026 (NOT RUN)
+
+**Ist-Zustand aus Owner-Log auf `65544f2fa56a978979c6ee4e3564432612d0f5e8`:** Windows Clang **23.1.5** meldet Ziel `x86_64-pc-windows-msvc` und **FAIL** durch standardkonforme C89-API-Aufrufe (`fopen`, `getenv`, `strerror`), die Microsofts UCRT als vendor-deprecated annotiert. `-Werror` stoppt beim ersten Test: `total=28 compiled=1 passed=0 failed=1 skipped=0 not_run=27`. Dieser Windows-Lauf ist **keine Linux-Referenzprüfung**. Im selben Owner-Log: Windows GCC Debug / Release / Coverage je **27 PASS, 0 FAIL, 1 SKIP**, Coverage `3845/6075`, `coverage check PASS`. Die Meldungen des `coverage_ratchet_test` sind erwartete Negativtests, keine Suitefehler.
+
+**RC0.6-Korrektur gemäß ADR 0004:** `_CRT_SECURE_NO_WARNINGS` ist explizit auf `_WIN32 && _MSC_VER && __clang__` begrenzt und wird vor CRT-/Windows-Headern in Single-File-tack, Test-Embed-Header und drei Früh-Header-Tests gesetzt. C89, alle vorherigen Assertions, `-Werror`, -j-Grenzen und Prozessaufrufe bleiben unverändert. Die erste Clang-Fehlerliste ist auf 20 Diagnosen begrenzt; weitere Probleme können nach deren Behebung sichtbar werden.
+
+**Freigabestatus:** RC0.6 Windows TinyCC Debug, GCC Release, Clang MSC Release und GCC Coverage sowie Linux GCC/Clang/gcov **NOT RUN**. Geänderte `src/tack.c` und drei Testdateien verlangen neue lokale Owner-Inventar-Ratchet und echte Messung. **Windows-HWM 3845/6075, Linux-HWM 3604/5790 und versioniertes Inventar bleiben unverändert; kein automatisches Ratchet-Accept.** P17/P19/P20 Windows RC0.5 bleiben historische PASS, aber nicht neu als RC0.6 bestanden ausgegeben. M2 weiterhin offen, PR #13 Draft.
 
 ### RC0.5 – Windows-HWM ausdrücklich durch Owner angenommen (19.11.2026)
 
@@ -213,3 +221,7 @@ At `99ba12660ce3ff968706094fbd96b42f3d0979f4`, Windows TinyCC debug, GCC release
 ### English RC0.5 Owner HWM acceptance, 19 November 2026
 
 Owner explicitly executed `tack coverage accept --owner-approve`; it wrote `coverage/hwm-windows.txt`. The next `tack coverage check` returned **PASS HWM retained: 3845/6075**. The modified test inventory had already been Owner-approved and passed `ratchet tests`. The accepted Windows HWM is 3845/6075 (63.29218%), plus one covered production line against RC0.4. Both approved ratchets are versioned together (HWM blob `79d0806a53414fd5a093421e9df44228e0557bb4`; inventory blob `1dc6e302fd31fd241fdf3d77ad20e4341df2cc11`). No Linux gate is claimed and M2 is not accepted overall.
+
+### English RC0.6 Clang MSVC CRT compatibility candidate
+
+Windows Clang 23.1.5 targeted MSVC UCRT and failed at the first test due to Microsoft-specific deprecation attributes on standard C89 `fopen`, `getenv`, `strerror` under `-Werror` (1 compiled / 1 failed / 27 not run). This was not Linux validation. RC0.6 adds an explicitly documented narrow CRT opt-out before all relevant includes; C89, `-Werror`, process code and test assertions are unchanged. Windows GCC RC0.5 PASS remains historical evidence only. All RC0.6 and Linux gates NOT RUN; owner-gated inventory/HWM remain untouched until fresh measurement. See ADR 0004.
