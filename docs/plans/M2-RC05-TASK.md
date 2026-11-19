@@ -18,3 +18,7 @@
 ## English
 
 A targeted M2 RC0.5 strict-C89 test-only task implementing bounded native process overlap accounting, deterministic output completion-order fixtures, and spawn-failure drain while the first child has verifiably started. No production changes or accepted coverage-baseline changes. All RC0.5 gate claims remain NOT RUN pending Owner actual Windows/Linux rerun and ratchet acceptance.
+
+## RC0.5 Windows Owner evidence, 2026-11-19
+
+Owner checked out `99ba12660ce3ff968706094fbd96b42f3d0979f4`, inspected the diff, and ratchet-accepted the new 28-test inventory locally (`tests/process_execution_test.c` hash `53d637eb`). Windows TinyCC debug, GCC release and GCC coverage suites each **28 compiled, 27 PASS, 0 FAIL, 1 SKIP, 0 NOT RUN**. P17/P19/P20 are PASS Windows. New measured Windows production line coverage `3845/6075 (63.29218%)` against accepted `3844/6075 (63.27572%)`, so coverage ratchet remains BLOCKED until separate Owner acceptance and joint commit. Linux reference, Linux gcov and total M2 milestone remain NOT RUN/BLOCKED. Evidence only, no scope or source change in this documentation revision.

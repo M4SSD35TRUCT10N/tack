@@ -1,6 +1,6 @@
 # SPEC 0014 – tack v0.8.6 M2: Prozessausführung / Process execution
 
-**Stand:** 2026-11-18 (RC0.5 Testkandidat) | **Status:** Implementierungskandidat, NICHT abgenommen / implementation candidate, NOT accepted
+**Stand:** 2026-11-19 (RC0.5 Windows-Tests PASS; neue HWM BLOCKED) | **Status:** Implementierungskandidat, NICHT abgenommen / implementation candidate, NOT accepted
 **Ausgangsbasis:** dev/v0.8.6 @ `39daf5047038dd88cfd7ca5521ceb97d951a929c`
 **Referenzen:** AGENTS.md, docs/adr/*, docs/plans/0.8.6-coverage.md, BA-STD-C89 v0.5 DRAFT (nicht ratifiziert).
 
@@ -16,9 +16,9 @@ M2 ändert ausschließlich vorhandene Prozessaufrufe, Argumentübergabe und -beg
 - **P22-P29:** Die bisherige CreateProcessA-Quotierung wird einheitlich von generischem Prozessstarter und Formatter benutzt; vor jedem Formatter-Start wird ein angefordertes Arbeitsverzeichnis geprüft. Misslingt der Rückwechsel, wird der gesamte Aufruf als Fehler gewertet. Windows verwendet weiterhin ANSI-`CreateProcessA` mit bekannten Unicode- und Long-Path-Grenzen. Keine Wide-API-Migration.
 - **P31-P32:** Alte Regressionen, HWM-Dateien und das 27-Test-Inventar dürfen nicht abgeschwächt werden. Der neue Test blockiert die Test-Ratchet, bis der Owner seine Quellen-/Assertion-Änderungen ausdrücklich annimmt. Eine stärkere Coverage-Messung bleibt bis zur Owner-HWM-Annahme BLOCKED.
 
-### RC0.5 Regressionserweiterung P17/P19/P20 (noch NOT RUN)
+### RC0.5 Regressionserweiterung P17/P19/P20 (Windows PASS, Linux NOT RUN)
 
-Die elternseitige Betriebssystem-Spawn-/Wait-Instrumentierung in `tests/process_execution_test.c` zählt exakt die gestarteten/eingesammelten Fake-Compiler-Kinder. P17 benutzt eine bounded Zwei-Kind-Barrier zur Unterscheidung echter Parallelität von bloßer Anzahl Slot-Einträge. P19 erzwingt durch echten Child-Output-/Completionmarker die erfolgreiche Fertigstellung des schnellen Kindprozesses vor der langsamen Compilerarbeit in beiden Inputreihenfolgen; OS-Exit-Reihenfolge wird nicht behauptet. P20 injiziert einen Spawn-Fehler beim zweiten Start erst nach einem echten Ready-Marker des ersten noch laufenden Child und prüft Drain, Prozesszähler und ausbleibende Erfolgsmetadaten. Nur die Testquelle ändert sich, nicht die bereits geprüfte Windows-RC0.4-Implementierung. Neue Test-Ratchet, alle Windows-/Linux-Läufe und ggf. neue Windows-Coverage-HWM benötigen eigene Owner-Abnahme.
+Die elternseitige Betriebssystem-Spawn-/Wait-Instrumentierung in `tests/process_execution_test.c` zählt exakt die gestarteten/eingesammelten Fake-Compiler-Kinder. P17 benutzt eine bounded Zwei-Kind-Barrier zur Unterscheidung echter Parallelität von bloßer Anzahl Slot-Einträge. P19 erzwingt durch echten Child-Output-/Completionmarker die erfolgreiche Fertigstellung des schnellen Kindprozesses vor der langsamen Compilerarbeit in beiden Inputreihenfolgen; OS-Exit-Reihenfolge wird nicht behauptet. P20 injiziert einen Spawn-Fehler beim zweiten Start erst nach einem echten Ready-Marker des ersten noch laufenden Child und prüft Drain, Prozesszähler und ausbleibende Erfolgsmetadaten. Nur die Testquelle ändert sich, nicht die bereits geprüfte Windows-RC0.4-Implementierung. Der Owner hat das RC0.5-Testinventar lokal angenommen und alle Windows-Tests mit 27 PASS / 0 FAIL / 1 SKIP in TinyCC Debug, GCC Release und GCC Coverage ausgeführt. Die neue Windows-Coverage von 3845/6075 ist noch nicht als HWM angenommen. Linux-Gesamtsuite und Linux-HWM-Gate bleiben NOT RUN.
 
 ### Regressionen und Freigabe
 
@@ -33,3 +33,7 @@ The requirement matrix is `docs/plans/M2-REQUIREMENTS.tsv`, the platform evidenc
 ### English: RC0.5 strictly scoped test-only extension
 
 P17 instruments actual OS spawn and wait calls in the test harness, validates the active/unreaped count against `-j 2` and uses two paired child start barriers to establish actual concurrency. P19 verifies successful compiler outputs with a forced fast-before-slow completion-marker dependency in both input orders, without pretending the marker is an OS-exit timestamp. P20 injects failure at the second child spawn only after the first child reports readiness, then verifies its release, reaping and absence of a success `.meta` record. Only the test source is modified. The existing accepted Windows/ Linux coverage HWMs and production code are untouched; new platform gates remain NOT RUN and the changed test inventory awaits fresh Owner approval.
+
+### English: RC0.5 Owner Windows gates, 2026-11-19
+
+TinyCC debug, GCC release and GCC coverage test assertions all passed 27, failed zero, skipped one across 28 compiled tests. P17/P19/P20 have passed in the Windows process test. The RC0.5 inventory change was owner-approved locally. The newly measured Windows coverage 3845/6075 exceeds the accepted 3844/6075 HWM by one covered production line and is BLOCKED until a separate HWM acceptance and joint ratchet commit. Linux tests are NOT RUN; M2 is pending.

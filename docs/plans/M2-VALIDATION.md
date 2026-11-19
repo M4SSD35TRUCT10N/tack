@@ -1,9 +1,29 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.5 tests pending)
+# M2 VALIDATION – tack v0.8.6 (RC0.5 Windows PASS; neue HWM pending)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
 
 ## Deutsch
+
+### RC0.5 Windows Owner-Evidenz, 19.11.2026: P17/P19/P20 PASS, neue HWM noch BLOCKED
+
+**Geprüfter Commit:** `99ba12660ce3ff968706094fbd96b42f3d0979f4`. Alle drei Suites verwenden die geänderte reine C89-Testquelle ohne Änderung an `src/tack.c`. Der Owner führte `git diff --check` ohne Befund aus, prüfte den Quell-Diff und nahm das neue Inventar explizit mit `tack --config .\tack.ini ratchet tests --owner-approve` lokal an. Folge-Suites melden `PASS versioned source inventory`. Alle 28 Testquellen wurden kompiliert; die neue Testquelle hat den Fingerprint `53d637eb` statt `0750f9e5`, lokaler Git-Diff-Blob-Prefix `1dc6e30`. Die Inventardatei bleibt zunächst nur lokal modifiziert.
+
+| Windows-Gate | Owner-Nachweis | Bewertung |
+| --- | --- | --- |
+| TinyCC Debug | `TACK_SUMMARY status=ok total=28 compiled=28 passed=27 failed=0 skipped=1 not_run=0` | **PASS** |
+| TDM-GCC Release | `TACK_SUMMARY status=ok total=28 compiled=28 passed=27 failed=0 skipped=1 not_run=0` | **PASS** |
+| TDM-GCC Coverage-Testassertions | `process_execution_test: ok`, 27 bestanden, 0 fehlgeschlagen, 1 SKIP | **PASS** |
+| P17 Native -j-Prozesszählung | Erweiterte Instrumentierung in `process_execution_test: ok` enthalten | **PASS Windows / Linux NOT RUN** |
+| P19 Fast-before-slow Marker | Beide Quellreihenfolgen in `process_execution_test: ok` enthalten; OS-Exit-Zeitpunkt nicht behauptet | **PASS Windows / Linux NOT RUN** |
+| P20 Spawn-Fehler mit lebendem Geschwister | Erwartete `CreateProcessA`- und `compiler spawn failed`-Diagnosen; Test meldet `ok` | **PASS Windows / Linux NOT RUN** |
+| Testinventar RC0.5 | Owner-angenommen, lokal noch nicht versioniert | **PASS lokal / Commit offen** |
+| Windows Coverage Gesamtlauf und `coverage check` | Neue Ratio über angenommener HWM | **BLOCKED, kein Test-Assertion-FAIL** |
+| Linux GCC/Clang Referenz und Linux Coverage | Kein Linux-Lauf im Owner-Log | **NOT RUN** |
+
+**Windows gcov:** `coverage/current.txt` enthält `profile=windows-gcc-10.3.0-gcov-10.3.0-coverage-v1`, `covered=3845`, `total=6075` (**63.29218 %**), `sources_hash=39ea236e`, `source_count=1`, `source_state=811c9dc5`, `tests_state=bd1ac24d`, `flags_state=36eb9e95`, `tests_total=28`, `tests_passed=27`, `tests_skipped=1`. Gegen die weiterhin akzeptierte Windows-HWM **3844/6075 (63.27572 %)** sind es **+1 ausgeführte Produktionszeile** bei gleichem Nenner, rund **+0.01646 Prozentpunkte**. Die Testquellenmessung 97.22 % von 432 Zeilen für `process_execution_test.c` ist separat und nicht die Produktionscode-HWM.
+
+**Ausstehende Abnahme:** Der Owner muss bei Anerkennung dieser Messung separat `tack --config .\tack.ini coverage accept --owner-approve` und anschließend `tack --config .\tack.ini coverage check` ausführen. Erst danach werden die beiden genehmigten Ratchet-Dateien zusammen in derselben Revision versioniert. Linux-HWM 3604/5790 bleibt unverändert. Kein M2-Gesamtabschluss, kein Merge oder Release. Die erwarteten Negativdiagnosen aus `coverage_ratchet_test` und P20 sind keine fehlgeschlagenen Testassertions.
 
 ### RC0.5 – P17/P19/P20 erweiterte Parallelprozessproben (18.11.2026, Kandidat)
 
@@ -172,3 +192,7 @@ The Owner explicitly ran `tack coverage accept --owner-approve` and then `tack c
 ### English – RC0.5 parallel subprocess proof candidates
 
 RC0.5 modifies **only the C89 M2 process regression test**. It instruments native parent-side spawn/wait accounting for P17, adds a bounded two-child start barrier to prove real concurrency, checks fast-before-slow completion-marker ordering in both launch orders for P19, and injects the second spawn failure only once the first held child is confirmed running for P20. The held child is released and must be reaped without a success metadata record. The verified RC0.4 Windows HWM **3844/6075** and 28-test inventory remain untouched. All RC0.5 Windows/Linux gates and fresh ratchets are **NOT RUN / BLOCKED** pending Owner review. No complete milestone acceptance.
+
+### English: RC0.5 Windows Owner results (19 November 2026)
+
+At `99ba12660ce3ff968706094fbd96b42f3d0979f4`, Windows TinyCC debug, GCC release and GCC coverage suites compiled 28 tests and each reported 27 PASS, 0 FAIL, 1 SKIP. P17/P19/P20 assertions passed. The Owner accepted the revised inventory locally, with new process test fingerprint `53d637eb`; it is not committed yet. Current Windows production coverage is **3845/6075 (63.29218%)** against accepted **3844/6075 (63.27572%)**, a one-covered-line gain at unchanged denominator. HWM check remains BLOCKED until a separate Owner acceptance and joint versioning of inventory and HWM. Linux gates remain NOT RUN; M2 not complete.
