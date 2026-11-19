@@ -1,9 +1,17 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.6 Clang-MSVC candidate, NOT RUN)
+# M2 VALIDATION – tack v0.8.6 (RC0.6a Clang-MSVC test compatibility candidate)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
 
 ## Deutsch
+
+### RC0.6a – Clang-MSVC: `getcwd`-Fehler im ersten Test eingegrenzt, Fix NOT RUN
+
+Owner-Probe auf Feature-HEAD `2528f131da1b472f35989d3aea20c5448e281eaa`: `git diff --check 65544f2..HEAD` ohne Fehler; `clang -std=c89 -pedantic-errors -Wextra -Werror -c src\tack.c -o build\tack-clang-msvc-probe.obj` **PASS**. Die gleiche direkte Strict-C89-Kompilierung des ersten Tests `tests/cache_restore_after_clean_test.c` **FAIL** bei `getcwd` in Zeile 47, Microsoft-UCRT-Attribut `_CRT_NONSTDC_DEPRECATE(_getcwd)` und `[-Werror,-Wdeprecated-declarations]`. Der zuvor angepasste `_CRT_SECURE_NO_WARNINGS`-Guard hat das eigenständige tack-Kompilierungsproblem beseitigt, aber nicht Microsofts separate POSIX-Namens-Deprecation (was beabsichtigt ist).
+
+RC0.6a führt **nur im Cache-Test** eine C89-kompatible `read_cwd_local`-Funktion ein: `_getcwd` mit geprüftem `INT_MAX` unter Windows, `getcwd` unter POSIX. Kein globaler `_CRT_NONSTDC_NO_WARNINGS`-Schalter, keine Verringerung von `-Werror`, keine weiteren Compileroptionen oder Änderungen der Prozesslogik. Andere geprüfte Tests verwenden unter Windows bereits `_getcwd`.
+
+**RC0.6a Tests/Gates noch NOT RUN.** Das Windows-Clang-Gesamtprofil hat weiterhin kein PASS; der vorherige RC0.6-Einzeltest ist FAIL. RC0.5 Windows GCC/TinyCC/Coverage bleibt historisch PASS. Die akzeptierten Windows-/Linux-Coverage-HWMs 3845/6075 und 3604/5790 sowie die versionierte Testinventar-Ratchet bleiben unverändert, bis neuer vollständiger Lauf und Owner-Freigaben vorliegen.
 
 ### RC0.6 Clang-MSVC/UCRT-Kompatibilitätskandidat, 19.11.2026 (NOT RUN)
 
@@ -225,3 +233,7 @@ Owner explicitly executed `tack coverage accept --owner-approve`; it wrote `cove
 ### English RC0.6 Clang MSVC CRT compatibility candidate
 
 Windows Clang 23.1.5 targeted MSVC UCRT and failed at the first test due to Microsoft-specific deprecation attributes on standard C89 `fopen`, `getenv`, `strerror` under `-Werror` (1 compiled / 1 failed / 27 not run). This was not Linux validation. RC0.6 adds an explicitly documented narrow CRT opt-out before all relevant includes; C89, `-Werror`, process code and test assertions are unchanged. Windows GCC RC0.5 PASS remains historical evidence only. All RC0.6 and Linux gates NOT RUN; owner-gated inventory/HWM remain untouched until fresh measurement. See ADR 0004.
+
+### English RC0.6a direct Windows Clang probe
+
+At `2528f13` standalone `src/tack.c` **compiled successfully** with strict C89 Clang/MSVC. The embedded cache test **failed** on the UCRT-deprecated POSIX alias `getcwd`. RC0.6a uses the already-project-standard `_getcwd` Windows call and `getcwd` POSIX call with checked capacity; neither `-Werror` nor other CRT warnings are suppressed. Updated test and full profiles **NOT RUN**; ratchets remain unchanged and Owner-gated.

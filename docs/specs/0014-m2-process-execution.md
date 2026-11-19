@@ -6,6 +6,10 @@
 
 ## Deutsch
 
+### RC0.6a – Windows Clang/MSVC `getcwd`-Testkompatibilität (noch NOT RUN)
+
+Die Owner-Einzelprobe `src/tack.c` mit strict Clang-C89 ist auf RC0.6 PASS, die anschließende erste Testübersetzung scheitert an `getcwd` (POSIX-Name als veraltet unter MSVC-UCRT). Der Cache-Test verwendet unter Windows nun `_getcwd` mit geprüftem `size_t`-zu-`int`-Cast und unter POSIX weiterhin `getcwd`. Kein globales `_CRT_NONSTDC_NO_WARNINGS`, keine Änderung an `-Werror` oder M2-Prozesslogik. RC0.6a Compiler-/Test-/Coverage-Gates noch NOT RUN; Ratchet-Genehmigungen erneut erforderlich.
+
 ### RC0.6 – Zusatzcompiler Clang mit MSVC-UCRT (noch NOT RUN)
 
 Windows-Clang 23.1.5 hatte Target `x86_64-pc-windows-msvc`, nicht Linux, und scheiterte bereits bei C89-Standardbibliotheksfunktionen, die Microsofts UCRT mit vendor-only Deprecation-Attributen versieht. ADR 0004 erlaubt nur für `_WIN32 && _MSC_VER && __clang__` ein ausdrücklich dokumentiertes `_CRT_SECURE_NO_WARNINGS` vor CRT-Headern; C89, `-Werror` und Prozesslogik bleiben erhalten. Änderungen an Source-/Testfingerprints verlangen neue Owner-Ratchets. RC0.6 und echte Linux-Gates bleiben NOT RUN.
