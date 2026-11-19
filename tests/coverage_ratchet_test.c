@@ -63,6 +63,8 @@ int main(void) {
     /* Two physical separators are not a canonical single separator. */
     if (cov_source_is_instrumented(&scope, "src\\\\tack.c")) failures++;
     if (cov_source_is_instrumented(&scope, "../src/tack.c")) failures++;
+    if (cov_source_is_instrumented(&scope, "/src/tack.c")) failures++;
+    if (cov_source_is_instrumented(&scope, "C:\\src\\tack.c")) failures++;
     cov_set_free(&scope);
   }
   {

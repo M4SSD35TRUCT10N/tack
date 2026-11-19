@@ -6139,7 +6139,10 @@ static int cov_source_order(const void *a, const void *b) {
 static int cov_source_is_instrumented(const CovSet *v, const char *scanned) {
   char canonical[512];
   int j;
-  if (!v || cov_relative_source(canonical, sizeof(canonical), scanned, "") != 0) return 0;
+  /* Only repository-relative production identities belong to gcov scope.
+   * An absolute path must not turn into a false src/ match. */
+  if (!v || !cov_is_production(scanned) ||
+      cov_relative_source(canonical, sizeof(canonical), scanned, "") != 0) return 0;
   for (j = 0; j < v->count; j++) {
     if (streq(v->src[j].name, canonical)) return 1;
   }
