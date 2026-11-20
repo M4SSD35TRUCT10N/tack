@@ -6,6 +6,12 @@
 **PR:** #13, Draft bis zur ausdrücklichen Owner-Gesamtabnahme  
 **CI-Entscheidung:** GitHub Actions ist bewusst deaktiviert; praeco ist noch nicht bereit. Keine Abhängigkeit von praeco, keine neue CI-Implementierung und keine Reaktivierung eines GitHub-Workflows in M2.
 
+## Neuester Stand: Linux-gcov-Messung vorhanden, HWM BLOCKED (20.11.2026)
+
+Debian 13 Trixie/WSL2 x64: GCC und Clang Release jeweils `29 compiled / 28 PASS / 0 FAIL / 1 SKIP`, beide Gesamtläufe PASS. GCC Coverage `--ci --rebuild -j 4`: **`3919/6010 = 65.20799 %`** echte Produktionszeilen, 29 compiled / 28 PASS / 0 FAIL / 1 SKIP; `TACK_SUMMARY status=failed` **nur** wegen nicht Owner-angenommener höherer Linux-HWM (BLOCKED). Bisherige Linux-HWM **3604/5790**, unverändert; Quellen-/Teststatus `source_state=6ac94196`, `tests_state=a93396cc`. GitHub-Testinventar **bereits angenommen und versioniert**: Blob `40245f1940326245746391f2f0467482d5e844f3`, `process_execution_test.c a68ce17a`; alte Hinweise auf fehlenden Push unten sind historisch. Keine erneute Inventar-Annahme nötig, solange sich Tests nicht ändern.
+
+**Nächster Owner-Schritt nach Review der Messung:** `./build/host/tack --config ./tack.ini coverage accept --owner-approve`, danach `git diff -- coverage/hwm-linux.txt` auf präzisen Scope/Ratio/Hashes kontrollieren und `./build/host/tack --config ./tack.ini coverage check`. Nur bei korrektem, explizit genehmigtem Stand die Linux-HWM committen/pushen. Eine Regression niemals akzeptieren, keine HWM auto-accept durch Agenten. Windows HWM bleibt unverändert. `gcov`-Zeitstempelwarnungen unter beiden Betriebssystemen nachweislich beobachtet; vor endgültiger Milestone-Abnahme Ursachen/Einfluss klären. `-j1`/`-j4`-Laufzeitvergleich weiterhin offen. GitHub Actions bleibt deaktiviert und PR #13 Draft.
+
 ## Aktueller Zusatz: Debian-Trixie-Fehler und Folgeprüfung (20.11.2026)
 
 **Nachtrag zu den obigen historischen Fehlläufen:** Zwei weitere echte Linux-Owner-Läufe nach dem C89-Fix sind **GCC Release PASS** und **Clang Release PASS**, je `29 compiled / 28 passed / 0 failed / 1 skipped / 0 not_run`. GCC `duration_ms=36980`, Clang `duration_ms=34184`; `process_execution_test` und `parallel_test_build_test` jeweils PASS. Lokales `ratchet tests` PASS; der genaue lokale Git-Status und die Remote-Versionierung des seit `1b43b87` geänderten Testinventars sind weiterhin zu prüfen. **Linux GCC/gcov NOT RUN, keine neue Linux-Coverage behauptet.** Details siehe `M2-VALIDATION.md`.
@@ -34,7 +40,7 @@ Der reproduzierte Coverage-Lauf meldete `tack: coverage: PASS HWM retained: 4036
 
 ## 2. Verbindlicher manueller Linux-Prüflauf
 
-**Status: NOT RUN.** Die folgenden Befehle sind eine Abnahmeanleitung, kein Nachweis, dass sie bereits ausgeführt wurden. Auf einem Linux-Rechner mit GCC, Clang und `gcov` im Checkout des Feature-Branches ausführen. Die ausführbare Datei bleibt unter `build/`. Shell-Befehle sind nur Aufrufanweisungen, keine neue Projekt-Skriptabhängigkeit.
+**Status: Release-Gates PASS; GCC/gcov gemessen, HWM BLOCKED bis Owner-Annahme.** Die folgenden Befehle sind eine Abnahmeanleitung, kein Nachweis, dass sie bereits ausgeführt wurden. Auf einem Linux-Rechner mit GCC, Clang und `gcov` im Checkout des Feature-Branches ausführen. Die ausführbare Datei bleibt unter `build/`. Shell-Befehle sind nur Aufrufanweisungen, keine neue Projekt-Skriptabhängigkeit.
 
 ```sh
 git fetch origin
