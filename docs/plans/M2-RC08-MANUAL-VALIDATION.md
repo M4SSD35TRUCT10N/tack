@@ -6,6 +6,12 @@
 **PR:** #13, Draft bis zur ausdrücklichen Owner-Gesamtabnahme  
 **CI-Entscheidung:** GitHub Actions ist bewusst deaktiviert; praeco ist noch nicht bereit. Keine Abhängigkeit von praeco, keine neue CI-Implementierung und keine Reaktivierung eines GitHub-Workflows in M2.
 
+## Aktueller Zusatz: Debian-Trixie-Fehler und Folgeprüfung (20.11.2026)
+
+**Beobachtung:** Die ersten beiden Debian-Trixie-/WSL2-GCC-Release-Versuche schlugen **vor der Testausführung** beim Übersetzen von `tests/process_execution_test.c` fehl (29 Tests, compiled=28, failed=1, passed=0, not_run=28). Die ursprüngliche Linux-only-Deklaration `char *noexec[]` ist zum `m2_spawn(const char * const *, Proc *)`-Aufruf nicht qualifikatorkorrekt. **Fix-Commit `1b43b87`** ändert ausschließlich diese Deklaration in `const char * const noexec[]`. Die beiden vollständigen GCC-Fehlläufe sind nicht nachträglich PASS. Der vermeintliche Clang-Lauf mit `set TACK_CC=clang` ist unter Bash **kein Clang-Nachweis**.
+
+**Vor weiteren Tests:** auf Linux `git pull --ff-only` ausführen und mit `git diff 1b43b87^ 1b43b87 -- tests/process_execution_test.c` exakt die eine Änderung prüfen. Die Testinventarprüfung muss wegen der geänderten Testquelle zunächst bewusst fehlschlagen. **Erst nach Owner-Review und ausdrücklicher Genehmigung** auf diesem Linux-Checkout `./build/host/tack --config ./tack.ini ratchet tests --owner-approve` ausführen, `git diff -- coverage/test-inventory.txt` inspizieren und den akzeptierten Inventarzustand anschließend auf dem Feature-Branch versionieren. Keine automatische Inventaränderung durch Agenten. Erst dann GCC Release, Clang Release und GCC/gcov/HWM erneut ausführen. Clang **als** `TACK_CC=clang ./build/host/tack ...` starten, nicht `set TACK_CC=clang`. Windows-Gates nach Annahme des neuen Inventars erneut prüfen, bevor formale M2-Abnahme behauptet wird. Keine HWM-Absenkung und keine Änderung an GitHub Actions.
+
 ## 1. Belegte Windows-Evidenz (Owner, 20.11.2026)
 
 Die Messungen sind durchgeführt und nicht als Planwerte zu verstehen:
