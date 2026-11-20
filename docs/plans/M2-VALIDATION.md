@@ -1,9 +1,19 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.8 Windows PASS; Linux GCC/Clang PASS; Linux HWM BLOCKED)
+# M2 VALIDATION – tack v0.8.6 (Windows PASS; Linux GCC/Clang PASS; Linux HWM locally accepted; rerun pending)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
 
 ## Deutsch
+
+### RC0.8 Debian Trixie/WSL2: Owner-Linux-HWM lokal akzeptiert, check PASS (20.11.2026)
+
+**Neue Owner-Evidenz nach Linux-gcov-Erstmessung:** `./build/host/tack --config ./tack.ini coverage accept --owner-approve` wurde ausdrücklich durch den Owner ausgeführt und meldete `accepted measured high-water mark: coverage/hwm-linux.txt`. Anschließendes `coverage check`: **PASS HWM retained: 3919/6010**. Geprüfter lokaler Diff `coverage/hwm-linux.txt`: `covered=3604 -> 3919`, `total=5790 -> 6010`, `source_state=6cf1bb03 -> 6ac94196`, `tests_state=142b4c94 -> a93396cc`, `tests_total=27 -> 29`, `tests_passed=26 -> 28`; `profile=linux-gcc-14.2.0-gcov-14.2.0-coverage-v1`, `sources_hash=39ea236e`, `source_count=1`, `flags_state=36eb9e95`, `tests_skipped=1` unverändert. Die **lokale** Coverage-Baseline liegt jetzt bei **3919/6010 = 65.20799 %**.
+
+**Keine vorschnelle Release-Bestätigung:** Der zuletzt vor Owner-Accept gezeigte vollständige `test coverage --ci --rebuild -j 4`-Lauf hatte `status=failed` ausschließlich wegen der noch offenen HWM. Ein **vollständiger Nachlauf nach HWM-Akzeptanz** mit `TACK_SUMMARY status=ok` wurde noch nicht geliefert. Der GitHub-Feature-Branch enthält zum Dokumentationszeitpunkt in `coverage/hwm-linux.txt` **noch 3604/5790** (Git-Blob `d14f274cd2ec3fab0189f12bf8362396c02a9174`); der akzeptierte lokale HWM-Diff muss **durch den Owner committet und gepusht werden**, bevor die Linux-HWM auch im Remote-Branch als versioniert gilt. Keine direkte/automatische HWM-Schreiboperation des Agenten.
+
+**Zeitstempel-Untersuchung:** Owner meldet `date -u` 19:06:22 UTC; `src/tack.c` mtime 15:34:11 +0100, `tests/process_execution_test.c` mtime 16:50:27 +0100, `build/tests/coverage/obj/process_execution_test.gcno` mtime 19:04:26 +0100. Nach diesen Dateisystemwerten ist die `.gcno` **jünger als beide Quellen**. Trotzdem meldete `gcov` beim zuvor erfolgten Lauf `source file is newer than notes file`. Die drei `stat`-Werte sind kein Beweis für ein inkonsistentes Coverage-Ergebnis und erklären die gcov-Warnung nicht; genaue Ursache und Auswirkung weiterhin zu klären, keine Unterdrückung. Die übrigen Linux GCC/Clang Release-Suites waren bereits 28/0/1 PASS; Linux ARM64 bleibt separat offen.
+
+**Status:** Linux-GCC-/Clang-Release PASS; Linux-Coverage-HWM **lokal PASS, Remote-Versionierung und voller Nachlauf offen**; `-j1`/`-j4`-Performancevergleich offen; **M2 noch BLOCKED und PR #13 Draft**. GitHub Actions bleibt bewusst deaktiviert.
 
 ### RC0.8 Debian Trixie/WSL2 Linux GCC/gcov – 20.11.2026, gemessen; HWM-Freigabe offen
 
