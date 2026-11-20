@@ -1,3 +1,5 @@
+**Status 20.11.2026 / Current:** RC0.8 Windows GCC/TinyCC/Clang `-j4` Testläufe PASS, gemessene Windows-GCC/gcov-Quote 4036/6233 = 64.75213%; **Coverage-HWM-Freigabe noch BLOCKED**, Linux GCC/Clang/gcov NOT RUN. Details: [M2 RC0.8-Abnahme](plans/M2-VALIDATION.md). Ältere unten stehende Versionsstände sind historische Momentaufnahmen.
+
 # Docs (DE/EN)
 
 **Backlinks:** [README](../README.md) • [FAQ](../FAQ.md) • [Roadmap](../ROADMAP.md) • [Release Notes](../RELEASENOTES.md)

@@ -1,9 +1,29 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.8 parallel build + source-scope candidate, NOT RUN)
+# M2 VALIDATION – tack v0.8.6 (RC0.8 Windows suites PASS; Windows coverage HWM BLOCKED; Linux NOT RUN)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
 
 ## Deutsch
+
+### RC0.8 Owner-Abnahme Windows, 20.11.2026, Source-Commit `712ba87bbb71230fbc3578cfc76a7d0a776125c7`
+
+**Quellrevision und Bootstrap:** `git rev-parse HEAD=712ba87bbb71230fbc3578cfc76a7d0a776125c7`, `git diff --check 308f0b9..HEAD` PASS, Git-Checkout vor Ratchet sauber. `gcc -std=c89 -pedantic-errors -Wextra -Werror -o build\host\tack.exe src\tack.c` PASS, Host-Executable ausschließlich unter `build/host/`. Owner prüfte Quell-/Test-/Workflow-Diff und führte ausdrücklich `build\host\tack.exe --config .\tack.ini ratchet tests --owner-approve` aus; danach `ratchet tests` **PASS**. Der Git-Blob für genau diese lokal genehmigte 29er-Inventardatei ist **`3a800818492bc8ce07762a79b13f36c20073a31c`**, identisch mit dem Owner-Diff-Präfix `3a80081`: `coverage_ratchet_test.c e79b42df→8ac01234`, `functional_smoke_test.c be6f01b0→a6eb8827`, neuer `parallel_test_build_test.c 11ccc21b`. Andere 26 Einträge unverändert. Dieses Owner-Inventar ist versioniert, **nicht** still automatisch angenommen.
+
+| Windows `-j 4` | Gesamtstatus | compiled | passed | failed | skipped | not_run | Dauer |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| GCC Release | **PASS** | 29 | 28 | 0 | 1 | 0 | 68438 ms |
+| TinyCC Debug | **PASS** | 29 | 27 | 0 | 2 | 0 | 39438 ms |
+| Clang/MSVC Release | **PASS** | 29 | 28 | 0 | 1 | 0 | 61625 ms |
+| GCC/gcov-Testassertions | **PASS** | 29 | 28 | 0 | 1 | 0 | 88562 ms |
+| GCC/gcov Gesamt-/HWM-Gate | **BLOCKED** (verbesserte HWM noch nicht Owner-angenommen) | 29 | 28 | 0 | 1 | 0 | 88562 ms |
+
+**Gesicherte Coverage-Messung:** `coverage/current.txt` wurde erfolgreich erzeugt: `profile=windows-gcc-10.3.0-gcov-10.3.0-coverage-v1`, `covered=4036`, `total=6233`, **64.75213 %**, `source_count=1`, `sources_hash=39ea236e`, `source_state=2e423671` (**nicht** der alte leere FNV-Wert `811c9dc5`), `tests_state=d3433506`, `flags_state=36eb9e95`, `tests_total=29`, `tests_passed=28`, `tests_skipped=1`. Älteste akzeptierte Windows-HWM weiterhin **3845/6075 = 63.29218 %**: **+191 ausgeführte und +158 ausführbare Zeilen, +1.45995 Prozentpunkte**. `coverage check` meldet ausdrücklich **BLOCKED improved coverage requires HWM increase in same accepted revision**, also keine vollständige Release-Coverage-Freigabe. Die akzeptierte Linux-HWM bleibt **3604/5790**; echte Linux GCC/Clang/gcov RC0.8-Gates **NOT RUN**. Keine HWM-Datei geändert oder angenommen.
+
+**M2-Pool:** `parallel_test_build_test: ok` unter GCC Release, GCC Coverage, TinyCC Debug und Clang Release. Echte `-j 4`-Compiler-/Link-Jobs, synthetische `-j 1`/`-j 4`-Vergleichsprüfung, inkrementeller Build, Failfast/Drain und GCC-Coverage-Zweistufen-Link mit unabsichtlich verhindertem falschem Erfolg bestehen; die absichtlich ungültige C89-Quelle und die Meldung 'compiler produced no output' gehören zu den Negativtests. Test-Runtimes bleiben sequenziell. **Es liegt noch kein gemessener vollständiger `-j 1`-gegen-`-j 4`-Laufzeitvergleich vor**, daher kein belegter Speedup. Die `gcov`-Warnung 'Quelldatei ist neuer als Hinweis-Datei' ist auf diesem neu gebauten Quellstand sichtbar; die Messung selbst und Quell-ID sind jedoch vollständig. Frühere Probleme mit `src\tack.c` versus `src/tack.c` sind im Windows-Sammlerpfad damit funktional behoben.
+
+**Root-Status:** Am Ende des Owner-Logs erscheint neben der legitimen lokal geänderten `coverage/test-inventory.txt` die unversionierte Datei **`tatus --short --branch`**. Ihre Entstehung/Inhalte sind nicht geklärt; nichts automatisch löschen oder mit `git clean` entfernen. Das Artefakt zuerst mit `dir /a` und `type` inspizieren, dann nur bewusst ggf. `del /p` ausführen. Der akzeptierte Inventar-Diff darf nach fast-forward Pull nicht wieder in denselben Checkout eingespielt werden.
+
+**Offen:** (1) gesonderte Owner-Annahme der neuen **Windows-HWM 4036/6233** mit `coverage accept --owner-approve` und reproduzierbarem `coverage check`, (2) Git-Versionierung des exakt angenommenen Windows-HWM-Blobs, (3) echte Linux GCC/Clang/gcov-Matrix auf demselben Source-Commit, (4) repräsentativer Laufzeitvergleich `-j 1` vs. `-j 4`, (5) für v0.8.6 später >=90 % Produktionszeilenabdeckung auf beiden OS. M2 noch **BLOCKED**, PR #13 Draft, kein Merge/Tag/Release.
 
 ### M2 RC0.8 – gebündelter, noch ungeprüfter Parallel-Test-Build und Coverage-Identity-Fix (19.11.2026)
 
@@ -314,3 +334,7 @@ Owner TinyCC Debug, GCC Release and Clang/MSVC Release at `24500ef` all PASS (28
 ### English – M2 RC0.8 larger coherent batch candidate
 
 RC0.8 combines the already untested RC0.7b Windows gcov canonical source identity correction with a fix to a double-backslash regression test literal, and introduces bounded, native-process parallel test compile/link for `test -j N`. It retains serial test execution due shared fixtures and defers gcov collection until all test children exit. The existing `-j 1` path remains serial. A new embedded C89 regression covers `-j 1/4`, an actual multiple-pending-compiler measure, incremental no-rebuild, compile-failure drain, and GCC two-stage gcov object/link jobs isolated under build/. Only historical RC0.7 Windows TinyCC/GCC/Clang runtime passes are available; RC0.7 coverage collection FAILED and **all RC0.8 gates including Linux are NOT RUN**. New test inventory owner approval is REQUIRED; both HWMs unchanged. No claim of >=90% attainment, no milestone closure.
+
+### English: RC0.8 Owner Windows actual run (20 Nov 2026)
+
+Commit `712ba87` passed strict GCC C89 bootstrap and `git diff --check`; Owner explicitly approved the 29-test inventory, exact Git blob `3a800818492bc8ce07762a79b13f36c20073a31c`. All Windows `-j4` suites passed their assertions: GCC Release 28/0/1, TinyCC Debug 27/0/2, Clang/MSVC Release 28/0/1, GCC/gcov tests 28/0/1, all 29 compiled. Actual Windows gcov `4036/6233 = 64.75213%`, `source_state=2e423671`, 29 tests, 1 source; collection PASS, while **overall HWM gate is BLOCKED** pending a separate explicit Owner `coverage accept --owner-approve`. Accepted prior Windows 3845/6075 and Linux 3604/5790 HWMs were not changed. Integrated Linux GCC/Clang/gcov and a full `-j1` vs. `-j4` speed comparison remain NOT RUN. Untracked local file `tatus --short --branch` must be inspected before deletion; no automated cleanup. PR remains Draft; M2 not accepted.

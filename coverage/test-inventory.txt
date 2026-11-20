@@ -3,7 +3,7 @@ tests/ci_summary_output_test.c	3099232d
 tests/compiler_profile_flags_test.c	eb95fccd
 tests/compiler_selection_policy_test.c	43c60eee
 tests/compiler_target_profile_selection_test.c	a539dfeb
-tests/coverage_ratchet_test.c	e79b42df
+tests/coverage_ratchet_test.c	8ac01234
 tests/doc_css_relative_path_test.c	30cef6fe
 tests/doc_grouped_navigation_test.c	8e778317
 tests/doc_inline_link_rewrite_test.c	2961163c
@@ -12,12 +12,13 @@ tests/doc_markdown_ux_test.c	3b09ed1c
 tests/docs_bilingual_contract_test.c	83fa0efc
 tests/events_jsonl_output_test.c	76c7aff4
 tests/fmt_ini_parser_test.c	7f6df63f
-tests/functional_smoke_test.c	be6f01b0
+tests/functional_smoke_test.c	a6eb8827
 tests/help_doctor_output_test.c	23c75b68
 tests/incremental_link_test.c	a608c026
 tests/init_doc_search_template_test.c	04311998
 tests/init_scaffold_version_test.c	87c11ee2
 tests/junit_report_output_test.c	85b8ce25
+tests/parallel_test_build_test.c	11ccc21b
 tests/path_filesystem_safety_test.c	a5793c36
 tests/path_join_test.c	870aac0a
 tests/path_safety_test.c	561426f1

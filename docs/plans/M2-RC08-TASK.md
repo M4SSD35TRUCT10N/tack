@@ -2,7 +2,7 @@
 
 **Datum:** 19. November 2026
 **Produktversion:** tack v0.8.6, ausschließlich Milestone M2
-**Status:** C89-Quell-/Testkandidat, **alle RC0.8-Compiler-, Runtime- und Coverage-Gates NOT RUN**
+**Status:** Windows RC0.8 vier Testprofil-Läufe bestanden; GCC/gcov-Messung vorhanden, **HWM-Freigabe BLOCKED**; Linux GCC/Clang/gcov NOT RUN (Owner 20.11.2026)
 **Ausgangsbasis:** Feature-Branch `feature/v0.8.6-m2-process-execution`, seit dem ungetesteten RC0.7b auf `308f0b9305e0ff1a7f62c774c3822f30464bdd0f`
 **Release:** PR #13 bleibt Draft, kein Merge/Tag/Release ohne Owner.
 
@@ -79,3 +79,7 @@ Danach auf **echtem Linux**: GCC Release, Clang Release, GCC/gcov Coverage und H
 ## English
 
 RC0.8 is a **single, larger M2 candidate**, not a succession of small release claims. It fixes the untested RC0.7b Windows gcov source-ID test literal and provides native bounded parallel compile/link for `tack test -j N` while retaining serialized runtime tests and fail-closed process draining. A new strict C89 test exercises `-j1`/`-j4`, incremental builds, expected compile failure and isolated GCC coverage object/link artifacts. All source/test inventory ratchets and Windows/Linux GCC/gcov HWMs retain Owner control. Mandatory Windows TinyCC/GCC/Clang and actual Linux GCC/Clang/gcov release gates are **NOT RUN**; 90% production line coverage remains an unmet v0.8.6 goal.
+
+## Owner-Nachlauf RC0.8, 20.11.2026: Windows test PASS / HWM BLOCKED
+
+Owner führte `-j4` auf Source `712ba87` in allen vier Windows-Profilen aus: GCC Release 29 compiled/28 PASS/0 FAIL/1 SKIP (68.438 s); GCC Coverage-Testassertions 29/28/0/1 (88.562 s), aber Gesamtlauf status=failed **ausschließlich wegen der HWM-Annahmesperre**; TinyCC Debug 29/27/0/2 (39.438 s); Clang/MSVC Release 29/28/0/1 (61.625 s). `parallel_test_build_test: ok` viermal, einschließlich erzwungenem Compilerfehler und fehlendem Output. GCC/gcov hat den Coverage-Sammler und den Windows-/POSIX-Quell-ID-Vergleich tatsächlich wieder vollständig durchlaufen. Gemessen: `covered=4036`, `total=6233`, `source_count=1`, `source_state=2e423671` statt FNV-Initialwert, `tests_state=d3433506`. Windows-HWM 3845/6075 unverändert; `coverage check` BLOCKED bis separate Owner-Annahme. Owner hat das 29er-**Testinventar** dagegen bereits ausdrücklich angenommen, exakter Blob `3a800818492bc8ce07762a79b13f36c20073a31c`, und dieser wird versioniert. Linux-HWM 3604/5790 unverändert; Linux-/Clang-/gcov-Gesamtläufe NOT RUN. Auch voller `-j1`-Laufzeitvergleich ausstehend. Keine HWM-Änderung, kein Merge/Release. Unversionierte Datei `tatus --short --branch` im Log nur manuell nach Sichtprüfung entfernen.
