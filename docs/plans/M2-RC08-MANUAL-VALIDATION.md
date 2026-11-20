@@ -6,7 +6,13 @@
 **PR:** #13, Draft bis zur ausdrücklichen Owner-Gesamtabnahme  
 **CI-Entscheidung:** GitHub Actions ist bewusst deaktiviert; praeco ist noch nicht bereit. Keine Abhängigkeit von praeco, keine neue CI-Implementierung und keine Reaktivierung eines GitHub-Workflows in M2.
 
-## Neuester Stand: Linux-gcov-Messung vorhanden, HWM BLOCKED (20.11.2026)
+## Neuester Stand: Owner-Linux-HWM lokal angenommen, Check PASS (20.11.2026)
+
+Nach `coverage accept --owner-approve` meldet der lokale Linux-Checkout `coverage check: PASS HWM retained 3919/6010`. Git-Diff aktualisiert ausschließlich die gemessenen Linux-HWM-Felder `covered=3919`, `total=6010`, `source_state=6ac94196`, `tests_state=a93396cc`, `tests_total=29`, `tests_passed=28`, bisheriger Compiler-/Quellen-Scope unverändert. **Noch kein Commit/Push dieses Diffs im GitHub-Feature-Branch bestätigt**: dort liegt weiterhin `3604/5790`. Owner muss den HWM-Diff versionieren und den vollständigen GCC-Coverage-Lauf nach Akzeptanz erneut durchführen; danach `TACK_SUMMARY status=ok` und `coverage check PASS` protokollieren.
+
+`stat` ergab `src/tack.c` 15:34:11 +0100, `tests/process_execution_test.c` 16:50:27 +0100 und `process_execution_test.gcno` 19:04:26 +0100. Damit ist die Notes-Datei im Dateisystem neuer; warum gcov dennoch „source newer“ meldete, bleibt offen. Warnung nicht unterdrücken, Scope/Ergebnis prüfen. Linux ARM64 und vollständiger identischer GCC-`-j1/-j4`-Vergleich weiterhin ausstehend. PR Draft, Actions aus.
+
+## Historischer Zwischenstand: Linux-gcov-Messung vorhanden, HWM zunächst BLOCKED (20.11.2026)
 
 Debian 13 Trixie/WSL2 x64: GCC und Clang Release jeweils `29 compiled / 28 PASS / 0 FAIL / 1 SKIP`, beide Gesamtläufe PASS. GCC Coverage `--ci --rebuild -j 4`: **`3919/6010 = 65.20799 %`** echte Produktionszeilen, 29 compiled / 28 PASS / 0 FAIL / 1 SKIP; `TACK_SUMMARY status=failed` **nur** wegen nicht Owner-angenommener höherer Linux-HWM (BLOCKED). Bisherige Linux-HWM **3604/5790**, unverändert; Quellen-/Teststatus `source_state=6ac94196`, `tests_state=a93396cc`. GitHub-Testinventar **bereits angenommen und versioniert**: Blob `40245f1940326245746391f2f0467482d5e844f3`, `process_execution_test.c a68ce17a`; alte Hinweise auf fehlenden Push unten sind historisch. Keine erneute Inventar-Annahme nötig, solange sich Tests nicht ändern.
 
