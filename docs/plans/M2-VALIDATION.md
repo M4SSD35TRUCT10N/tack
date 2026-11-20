@@ -5,6 +5,14 @@
 
 ## Deutsch
 
+### RC0.8 Debian Trixie/WSL2 Owner-Gates: GCC und Clang Release PASS (20.11.2026)
+
+**Neue tatsächliche Owner-Laufprotokolle nach Linux-Const-Korrektur `1b43b87`:** `TACK_CC=gcc ./build/host/tack --config ./tack.ini test release --ci --rebuild -j 4` meldete `TACK_SUMMARY version=1 mode=test status=ok profile=release total=29 compiled=29 passed=28 failed=0 skipped=1 not_run=0 duration_ms=36980`. Der gesonderte **echte** Clang-Aufruf `TACK_CC=clang ...` meldete denselben PASS-/SKIP-Stand bei `duration_ms=34184`. `process_execution_test: ok` und `parallel_test_build_test: ok` unter beiden Compilern; `path_join_test` aus Plattformgrund auf POSIX SKIP. Erwartete negative Compiler-/Spawn-/Signal-/Wait-Diagnosen sind von den Tests abgefangen.
+
+Beide Logs melden `tack: test-ratchet: PASS versioned source inventory` im **lokalen WSL2-Checkout**. **GitHub-Revision und lokaler Git-Status dieser Läufe wurden nicht mitgeliefert.** Die GitHub-Datei `coverage/test-inventory.txt` enthält bei dieser Dokumentation weiterhin den alten Eintrag `tests/process_execution_test.c\t9ba06b3c` (Blob `3a800818...`), obwohl `tests/process_execution_test.c` durch Commit `1b43b87` geändert wurde. Damit ist die **Owner-Akzeptanz und Versionierung des aktualisierten Inventars auf dem Remote-Branch noch nicht belegt**. Den lokalen Inventar-Diff prüfen und nach Owner-Freigabe committen/pushen; Ratchet niemals automatisch annehmen oder umgehen.
+
+**Weiter offen:** Linux GCC/gcov Coverage-Lauf + Linux-HWM-Check; Linux-Coverage-Quote und Status **NOT RUN**. Vergleich der Gesamtlaufzeiten `-j1` gegenüber `-j4` auf demselben Compiler **NOT RUN**. Windows-Gates sind historische PASS auf älterem Testinventar und müssen gegen die neue Testquellrevision bestätigt werden, falls dies nach Freigaberegel erforderlich ist. GitHub Actions bleibt deaktiviert; M2 **BLOCKED**, PR #13 **Draft**. Es wurden keinerlei neuen Produktionsfunktionen implementiert.
+
 ### RC0.8 Linux GCC Build-FAIL auf Debian Trixie/WSL2; isolierter C89-Fix 1b43b87 (20.11.2026)
 
 **Owner-Probe vor dem Fix:** Zweimal `TACK_CC=gcc ... test release --ci --rebuild -j 4` unter Debian Trixie/WSL2. Beide Läufe **FAIL** bei `tests/process_execution_test.c:514` (`char *noexec[]` verliert `const`) und `:520` (unvereinbarer Argumentzeigertyp gegenüber `m2_spawn(const char * const *, Proc *)`). Zusammenfassung jeweils `total=29 compiled=28 passed=0 failed=1 skipped=0 not_run=28 status=failed`. **Clang-Release NOT RUN:** `set TACK_CC=clang` ist keine Bash-Variablenzuweisung; der dritte Lauf zeigt erneut GCC-Diagnostik und ist kein Clang-Nachweis.
