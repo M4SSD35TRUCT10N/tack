@@ -511,7 +511,7 @@ static void m2_process_cases(const char *self) {
 #else
   {
     const char *sig[] = {0, "--m2-signal", 0};
-    char *noexec[] = {"build/m2-process/noexec", 0};
+    const char * const noexec[] = {"build/m2-process/noexec", 0};
     sig[0] = self;
     m2_assert(m2_spawn(missing, &p) != 0 && errno == ENOENT,
               "failed execvp ENOENT differs from real exit 127");
