@@ -1,9 +1,13 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.8 Windows suites PASS; Windows coverage HWM BLOCKED; Linux NOT RUN)
+# M2 VALIDATION – tack v0.8.6 (RC0.8 Windows suites + coverage PASS; Linux NOT RUN)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
 
 ## Deutsch
+
+### M2 RC0.8 – Windows-HWM akzeptiert; manuelle Linux-Validierung noch offen (20.11.2026)
+
+**Aktueller Nachtrag, ältere RC-Einträge bleiben historische Evidenz:** Der Owner hat Windows-GCC/gcov nach ausdrücklicher Annahme der HWM **4036/6233 (64,75213 %)** mit `test coverage --ci --rebuild -j 4` erneut ausgeführt: `TACK_SUMMARY status=ok`, 29 kompiliert, 28 PASS, 0 FAIL, 1 SKIP; anschließendes `coverage check`: **PASS HWM retained 4036/6233**. Windows-Source-/Test-Identitäten `source_state=2e423671`, `tests_state=d3433506`; Windows-HWM Git-Blob `b776991ce11aa5d5c2b0f53930148640b9f4864b`, Owner-Commit `998e753`. Windows GCC Release, TinyCC Debug und Clang/MSVC Release bleiben PASS, Testinventar ebenfalls PASS. **Linux GCC/Clang/gcov RC0.8 NOT RUN; Linux-HWM 3604/5790 unverändert; voller -j1/-j4-Laufzeitvergleich NOT RUN.** GitHub Actions wurde vom Owner bis zur Fertigstellung von praeco bewusst deaktiviert und ist kein M2-Produktgate; Linux-Prüfungen erfolgen manuell, ohne sie als bereits ausgeführt darzustellen. Der Windows-gcov-Zeitstempelhinweis wird beobachtet und getrennt bewertet. Ein lokal unversioniertes `"tatus --short --branch"` nur nach Inhaltsprüfung entfernen. **M2-Gesamtfreigabe BLOCKED; PR #13 Draft, kein Merge/Release.** Ausführungsprotokoll und Befehle: `docs/plans/M2-RC08-MANUAL-VALIDATION.md`.
 
 ### RC0.8 Owner-Abnahme Windows, 20.11.2026, Source-Commit `712ba87bbb71230fbc3578cfc76a7d0a776125c7`
 
