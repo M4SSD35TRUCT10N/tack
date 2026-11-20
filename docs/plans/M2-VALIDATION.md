@@ -1,9 +1,21 @@
-# M2 VALIDATION – tack v0.8.6 (RC0.8 Windows suites + coverage PASS; Linux NOT RUN)
+# M2 VALIDATION – tack v0.8.6 (RC0.8 Windows PASS; Linux GCC/Clang PASS; Linux HWM BLOCKED)
 
 **Baseline:** `39daf5047038dd88cfd7ca5521ceb97d951a929c`, feature branch `feature/v0.8.6-m2-process-execution`.
 **Gate statuses:** PASS, FAIL, SKIP, NOT RUN, BLOCKED only. No historical evidence is reinterpreted as current.
 
 ## Deutsch
+
+### RC0.8 Debian Trixie/WSL2 Linux GCC/gcov – 20.11.2026, gemessen; HWM-Freigabe offen
+
+**Owner-Log nach zwei bestandenen Linux-x64-Release-Suites:** `TACK_CC=gcc ./build/host/tack --config ./tack.ini test coverage --ci --rebuild -j 4` kompiliert 29 Tests, 28 PASS, 0 FAIL, 1 SKIP (`path_join_test` Windows-only), 0 NOT RUN. `process_execution_test: ok` und `parallel_test_build_test: ok`. **Tatsächliche produktive Linux-gcov-Zeilenabdeckung:** `3919/6010 = 65.20799 %`, `source_count=1`, `sources_hash=39ea236e`, `source_state=6ac94196`, `tests_state=a93396cc`, `flags_state=36eb9e95`, Profil `linux-gcc-14.2.0-gcov-14.2.0-coverage-v1`. `coverage/current.txt` liegt lokal vor. Testgesamtlauf `duration_ms=43888`. `TACK_SUMMARY status=failed` resultiert **ausschließlich aus dem Coverage-HWM-Gate**: `BLOCKED improved coverage requires HWM increase in same accepted revision`; nachfolgendes `coverage check` identisch BLOCKED. Es liegt **kein** Testassertion-FAIL vor.
+
+**Noch unveränderte, akzeptierte Linux-HWM:** `3604/5790 = 62.24525 %`, Git-Blob `d14f274cd2ec3fab0189f12bf8362396c02a9174`. Neue Messung: **+315 ausgeführte Produktionszeilen**, **+220 ausführbare Produktionszeilen**, **+2.96274 Prozentpunkte**. Die Verbesserung ist **nicht angenommen**; `coverage/hwm-linux.txt` bleibt unverändert, bis der Owner nach Review ausdrücklich `coverage accept --owner-approve` ausführt, den exakten HWM-Diff kontrolliert und versioniert. Keine automatische HWM-Modifikation.
+
+**GitHub-Inventar inzwischen verifiziert:** `coverage/test-inventory.txt` Blob `40245f1940326245746391f2f0467482d5e844f3` enthält genau `tests/process_execution_test.c\ta68ce17a`. In GCC-, Clang-Release- und GCC-Coverage-Lauf `test-ratchet: PASS`; der vorher in diesem Dokument geschilderte nicht gepushte Inventar-Fingerprint ist historischer Zwischenstand und inzwischen überholt. Exakter lokaler Checkout-HEAD zum Coverage-Lauf im Log nicht separat angegeben.
+
+**Messhinweis:** gcov meldet auch unter Linux bei zahlreichen Quellen `source file is newer than notes file` (zugehörige `.gcno` trotz `--rebuild`). Derselbe Diagnosetyp war unter Windows sichtbar. Ohne Untersuchung der Build-/Quelldateizeitstempel kein stilles Wegunterdrücken oder Behaupten einer ungültigen Messung. Diese Warnungen für die finale M2-Abnahme nachvollziehbar prüfen.
+
+**Stand:** Linux GCC Release PASS, Linux Clang Release PASS, Linux GCC/gcov-Testassertions PASS; Linux-Coverage-HWM-Gate BLOCKED bis ausdrücklicher Owner-Annahme, keine Linux-Coverage-Gesamtfreigabe. Windows HWM 4036/6233 historisch PASS. Vollständiger gleichartiger `-j1`/`-j4`-Performancevergleich weiterhin NOT RUN; Linux ARM64 nicht durch WSL2/x64 abgedeckt. M2 noch BLOCKED, PR #13 Draft, GitHub Actions bewusst deaktiviert.
 
 ### RC0.8 Debian Trixie/WSL2 Owner-Gates: GCC und Clang Release PASS (20.11.2026)
 
