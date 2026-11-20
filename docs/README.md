@@ -1,3 +1,5 @@
+**Status 20.11.2026 / Current:** RC0.8 Windows GCC/TinyCC/Clang `-j4` Testläufe PASS, gemessene Windows-GCC/gcov-Quote 4036/6233 = 64.75213%; **Coverage-HWM-Freigabe noch BLOCKED**, Linux GCC/Clang/gcov NOT RUN. Details: [M2 RC0.8-Abnahme](plans/M2-VALIDATION.md). Ältere unten stehende Versionsstände sind historische Momentaufnahmen.
+
 # Docs (DE/EN)
 
 **Backlinks:** [README](../README.md) • [FAQ](../FAQ.md) • [Roadmap](../ROADMAP.md) • [Release Notes](../RELEASENOTES.md)
@@ -37,6 +39,11 @@
 - [Externe Formatter-Ausführung: Integrationsprüfung](guides/formatter-external-validation.md)
 - [tack.ini: vollständige Schlüsselreferenz](reference/tack-ini.md)
 - [v0.8.6: Coverage-Ziele und Testmatrix (Plan)](plans/0.8.6-coverage.md)
+- [v0.8.6: Größere Arbeitspakete, Clang-Freigabe und Testparallelisierung](plans/0.8.6-execution-contract.md)
+- [M2 RC0.8: begrenzter Compiler-/Linker-Pool, Coverage-Fix (NICHT GETESTET)](plans/M2-RC08-TASK.md)
+- [ADR 0006: Pfadidentitäten, native Pfade und Parallelisierung (Vorschlag)](adr/0006-paths-parallelism-ba-core.md)
+- [Host-Artefakte: Build-Binary und CI-Ausgaben unter build/](guides/host-artifacts.md)
+- [v0.8.7: Code-/Dokumentationsreview und Lesefluss (DRAFT)](plans/0.8.7-code-documentation-review.md)
 - [v0.8.6 M1 RC0.3: Abnahmeakte (Windows/Linux HWMs akzeptiert, S15 offen)](plans/M1-VALIDATION.md)
 - [v0.8.6 M1 RC0.3: Lieferung und Integration](plans/M1-DELIVERY.md)
 - [v0.8.6 M1: Linux-Coverage-Nachweis ohne Root-Rechte](plans/M1-LINUX-EVIDENCE.txt)
@@ -96,6 +103,11 @@ Unterverzeichnisse unterhalb von `docs/` werden von `tack doc` als eigene Dokume
 - [Formatter: external integration check](guides/formatter-external-validation.md)
 - [tack.ini: complete key reference](reference/tack-ini.md)
 - [v0.8.6: coverage targets and traceability plan](plans/0.8.6-coverage.md)
+- [v0.8.6: larger batches, Clang release gates and test parallelism](plans/0.8.6-execution-contract.md)
+- [M2 RC0.8: bounded parallel compiler/link pool and coverage identity (NOT RUN)](plans/M2-RC08-TASK.md)
+- [ADR 0006: native paths, source identities and parallel jobs (proposal)](adr/0006-paths-parallelism-ba-core.md)
+- [Bootstrap and CI output under build/](guides/host-artifacts.md)
+- [v0.8.7: code/documentation consistency and reading flow (DRAFT)](plans/0.8.7-code-documentation-review.md)
 - [GitHub self-hosted runners – workflow starter](guides/github-self-hosted-runners.md)
 - [GitHub self-hosted runner installation on Windows x64](guides/github-runner-install-windows.md)
 - [GitHub self-hosted runner installation on Linux ARM64](guides/github-runner-install-linux-arm64.md)

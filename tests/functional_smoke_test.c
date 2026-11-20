@@ -298,7 +298,7 @@ int main(void) {
       failures++;
     }
 
-    if (build_and_run_tests(default_target_name(), PROF_DEBUG, 0, 1, 0, NULL) != 0) {
+    if (build_and_run_tests(default_target_name(), PROF_DEBUG, 0, 1, 1, 0, NULL) != 0) {
       fprintf(stderr, "build_and_run_tests failed\n");
       failures++;
     }

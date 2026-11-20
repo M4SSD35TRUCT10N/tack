@@ -37,6 +37,15 @@
  *   tcc -run src/tack.c build release --target tool:foo
  */
 
+/* Clang targeting the MSVC UCRT: use ISO C89 CRT APIs without Microsoft's
+ * vendor-only 'unsafe' deprecation annotations. This opt-out must precede
+ * ALL CRT/Windows headers; it does not disable -Werror or other diagnostics.
+ * fopen_s/getenv_s/strerror_s are not ISO C89 replacements. */
+#if defined(_WIN32) && defined(_MSC_VER) && defined(__clang__)
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS 1
+#endif
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -72,6 +81,9 @@
   #include <dirent.h>
   #include <unistd.h>
   #include <sys/wait.h>
+  #include <fcntl.h>
+  #include <signal.h>
+  extern int kill(pid_t pid, int sig); /* strict C89 POSIX declaration */
   #define PATH_SEP '/'
   #define STAT_FN stat
   #define STAT_ST struct stat
@@ -1778,45 +1790,228 @@ static void print_argv(char **argv) {
 }
 
 #ifdef _WIN32
+/* The Windows process command line must be quoted with the same exact
+ * CRT-compatible rules used by tack fmt. _spawnvp silently changes some
+ * valid argument boundaries on supported Windows CRTs (M2 owner probe).
+ * Reuse the proven Windows quoting primitive for all child processes. */
+static char *fmt_windows_quote_cmd_arg(const char *arg);
+static char *proc_windows_commandline(char **argv) {
+  StrVec quoted;
+  char *cmdline;
+  size_t used, n, pos;
+  int i;
+  if (!argv || !argv[0] || !argv[0][0]) {
+    errno = EINVAL;
+    return 0;
+  }
+  sv_init(&quoted);
+  used = 0u;
+  for (i = 0; argv[i]; i++) {
+    char *q;
+    if (i >= 8191) {
+      sv_free(&quoted);
+      tack_die("process: too many arguments");
+    }
+    q = fmt_windows_quote_cmd_arg(argv[i]);
+    n = strlen(q);
+    if (used > 32766u || (i && used == 32766u) ||
+        n > 32766u - used - (i ? 1u : 0u)) {
+      free(q);
+      sv_free(&quoted);
+      tack_die("process: Windows command line too long");
+    }
+    used += n + (i ? 1u : 0u);
+    sv_push_own(&quoted, q);
+  }
+  cmdline = (char*)xmalloc(used + 1u);
+  pos = 0u;
+  for (i = 0; i < quoted.count; i++) {
+    n = strlen(quoted.items[i]);
+    if (i) cmdline[pos++] = ' ';
+    memcpy(cmdline + pos, quoted.items[i], n);
+    pos += n;
+  }
+  cmdline[pos] = '\0';
+  sv_free(&quoted);
+  return cmdline;
+}
 typedef struct { intptr_t pid; } Proc;
 static int proc_spawn_nowait(char **argv, Proc *out) {
-  intptr_t pid = _spawnvp(_P_NOWAIT, argv[0], (const char * const *)argv);
-  if (pid == -1) return 1;
-  out->pid = pid;
+  STARTUPINFOA startup;
+  PROCESS_INFORMATION child;
+  DWORD win_error;
+  char *cmdline;
+  BOOL ok;
+  if (!argv || !argv[0] || !argv[0][0] || !out) {
+    errno = EINVAL;
+    return 1;
+  }
+  cmdline = proc_windows_commandline(argv);
+  if (!cmdline) return 1;
+  memset(&startup, 0, sizeof(startup));
+  memset(&child, 0, sizeof(child));
+  startup.cb = sizeof(startup);
+  ok = CreateProcessA(NULL, cmdline, NULL, NULL, FALSE, 0,
+                      NULL, NULL, &startup, &child);
+  win_error = ok ? 0u : GetLastError();
+  free(cmdline);
+  if (!ok) {
+    fprintf(stderr, "tack: process CreateProcessA failed (winerr=%lu): %s\n",
+            (unsigned long)win_error, argv[0]);
+    if (win_error == ERROR_FILE_NOT_FOUND || win_error == ERROR_PATH_NOT_FOUND ||
+        win_error == ERROR_BAD_PATHNAME) errno = ENOENT;
+    else if (win_error == ERROR_ACCESS_DENIED ||
+             win_error == ERROR_SHARING_VIOLATION) errno = EACCES;
+    else errno = EIO;
+    return 1;
+  }
+  if (!CloseHandle(child.hThread)) {
+    win_error = GetLastError();
+    fprintf(stderr, "tack: process CloseHandle(thread) failed (winerr=%lu)\n",
+            (unsigned long)win_error);
+    (void)TerminateProcess(child.hProcess, 1u);
+    (void)WaitForSingleObject(child.hProcess, INFINITE);
+    (void)CloseHandle(child.hProcess);
+    errno = EIO;
+    return 1;
+  }
+  out->pid = (intptr_t)child.hProcess;
   return 0;
 }
 static int proc_wait(Proc *p) {
-  int status = 0;
-  intptr_t r = _cwait(&status, p->pid, 0);
-  if (r == -1) return 1;
-  return status;
+  HANDLE process;
+  DWORD wait_result, code, win_error;
+  BOOL status_ok, close_ok;
+  if (!p || p->pid == 0 || p->pid == -1) {
+    errno = EINVAL;
+    return 1;
+  }
+  process = (HANDLE)p->pid;
+  wait_result = WaitForSingleObject(process, INFINITE);
+  if (wait_result != WAIT_OBJECT_0) {
+    win_error = GetLastError();
+    fprintf(stderr, "tack: process wait failed (winerr=%lu)\n",
+            (unsigned long)win_error);
+    (void)CloseHandle(process);
+    p->pid = 0;
+    errno = EIO;
+    return 1;
+  }
+  code = 0u;
+  status_ok = GetExitCodeProcess(process, &code);
+  win_error = status_ok ? 0u : GetLastError();
+  close_ok = CloseHandle(process);
+  p->pid = 0;
+  if (!status_ok) {
+    fprintf(stderr, "tack: process exit status unavailable (winerr=%lu)\n",
+            (unsigned long)win_error);
+    errno = EIO;
+    return 1;
+  }
+  if (!close_ok) {
+    fprintf(stderr, "tack: process CloseHandle(process) failed\n");
+    errno = EIO;
+    return 1;
+  }
+  if (code > (DWORD)INT_MAX) {
+    fprintf(stderr, "tack: process exit code out of int range (%lu)\n",
+            (unsigned long)code);
+    return 1;
+  }
+  return (int)code;
 }
 #else
 typedef struct { pid_t pid; } Proc;
+/* A close-on-exec error pipe distinguishes failed execvp from an executable
+ * that legitimately exits with 127. The child uses async-signal-safe calls. */
 static int proc_spawn_nowait(char **argv, Proc *out) {
-  pid_t pid = fork();
-  if (pid < 0) return 1;
+  int fds[2];
+  int flags, child_errno = 0, saved_errno, status;
+  size_t got;
+  ssize_t n;
+  pid_t pid, waited;
+  if (!argv || !argv[0] || !argv[0][0] || !out) { errno = EINVAL; return 1; }
+  if (pipe(fds) != 0) return 1;
+  flags = fcntl(fds[1], F_GETFD);
+  if (flags < 0 || fcntl(fds[1], F_SETFD, flags | FD_CLOEXEC) < 0) {
+    saved_errno = errno;
+    (void)close(fds[0]); (void)close(fds[1]);
+    errno = saved_errno;
+    return 1;
+  }
+  pid = fork();
+  if (pid < 0) {
+    saved_errno = errno;
+    (void)close(fds[0]); (void)close(fds[1]);
+    errno = saved_errno;
+    return 1;
+  }
   if (pid == 0) {
+    const char *bytes;
+    size_t sent;
+    (void)close(fds[0]);
     execvp(argv[0], argv);
+    child_errno = errno;
+    bytes = (const char*)&child_errno;
+    sent = 0u;
+    while (sent < sizeof(child_errno)) {
+      n = write(fds[1], bytes + sent, sizeof(child_errno) - sent);
+      if (n < 0 && errno == EINTR) continue;
+      if (n <= 0) break;
+      sent += (size_t)n;
+    }
     _exit(127);
   }
-  out->pid = pid;
-  return 0;
+  (void)close(fds[1]);
+  got = 0u;
+  n = 0;
+  while (got < sizeof(child_errno)) {
+    n = read(fds[0], ((char*)&child_errno) + got, sizeof(child_errno) - got);
+    if (n < 0 && errno == EINTR) continue;
+    if (n <= 0) break;
+    got += (size_t)n;
+  }
+  saved_errno = (got == sizeof(child_errno)) ? child_errno : EIO;
+  if (got == 0u && n == 0) {
+    (void)close(fds[0]);
+    out->pid = pid;
+    return 0;
+  }
+  if (got != sizeof(child_errno)) (void)kill(pid, SIGKILL);
+  (void)close(fds[0]);
+  do { waited = waitpid(pid, &status, 0); } while (waited < 0 && errno == EINTR);
+  errno = saved_errno;
+  return 1;
 }
 static int proc_wait(Proc *p) {
   int status = 0;
-  if (waitpid(p->pid, &status, 0) < 0) return 1;
+  pid_t r;
+  if (!p) { errno = EINVAL; return 1; }
+  do { r = waitpid(p->pid, &status, 0); } while (r < 0 && errno == EINTR);
+  if (r < 0) {
+    fprintf(stderr, "tack: waitpid failed: errno=%d (%s)\n", errno, strerror(errno));
+    return 1;
+  }
   if (WIFEXITED(status)) return WEXITSTATUS(status);
+  if (WIFSIGNALED(status)) {
+    int sig = WTERMSIG(status);
+    fprintf(stderr, "tack: child terminated by signal %d\n", sig);
+    return 128 + sig;
+  }
+  fprintf(stderr, "tack: child terminated without exit status\n");
   return 1;
 }
 #endif
 
 static int run_argv_wait(char **argv, int verbose) {
   Proc p;
+  if (!argv || !argv[0] || !argv[0][0]) {
+    fprintf(stderr, "tack: spawn failed: missing program\n");
+    return 1;
+  }
   if (verbose) print_argv(argv);
   if (proc_spawn_nowait(argv, &p) != 0) {
-    const char *cmd0 = (argv && argv[0]) ? argv[0] : "(null)";
-    fprintf(stderr, "tack: spawn failed: %s\n", cmd0);
+    fprintf(stderr, "tack: spawn failed: %s\n", argv[0]);
     fprintf(stderr, "tack: errno: %d (%s)\n", errno, strerror(errno));
     return 1;
   }
@@ -1835,8 +2030,10 @@ static void av_init(Argv *v) { v->a = 0; v->n = 0; v->cap = 0; }
 static void av_free(Argv *v) { free(v->a); v->a = 0; v->n = 0; v->cap = 0; }
 
 static void av_push(Argv *v, const char *s) {
+  if (v->n >= 8192) tack_die("process: too many arguments");
   if (v->n + 1 > v->cap) {
     int ncap = v->cap ? v->cap * 2 : 32;
+    if (ncap > 8192) ncap = 8192;
     v->a = (char**)xrealloc(v->a, (size_t)ncap * sizeof(char*));
     v->cap = ncap;
   }
@@ -4842,6 +5039,7 @@ static void push_common_warnings(Argv *av, int strict) {
 }
 
 /* spawn compile jobs with -j pool */
+#define TACK_MAX_COMPILER_JOBS 256
 typedef struct {
   Proc proc;
   char obj_path[1024];
@@ -4850,6 +5048,13 @@ typedef struct {
   char cache_key[64];
   int cache_enabled;
 } CompileJob;
+
+/* Reap outstanding siblings after a failed compiler, metadata operation, or
+ * spawn. Do not record cache success for jobs abandoned after an error. */
+static void compile_jobs_drain(CompileJob *running, int from, int count) {
+  int k;
+  for (k = from; k < count; k++) (void)proc_wait(&running[k].proc);
+}
 
 static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const char *depd,
                            const char * const *inc_common,
@@ -4865,6 +5070,10 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
 
   touched = 0;
   if (jobs < 1) jobs = 1;
+  if (jobs > TACK_MAX_COMPILER_JOBS) {
+    fprintf(stderr, "tack: compiler jobs exceed limit (%d)\n", TACK_MAX_COMPILER_JOBS);
+    return 1;
+  }
 
   running = (CompileJob*)xmalloc((size_t)jobs * sizeof(CompileJob));
   running_n = 0;
@@ -4888,6 +5097,7 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
     sv_push(out_objs, obj_path);
 
     if (update_depfile_for_source(src, dep_path, inc_common, inc_extra) != 0) {
+      compile_jobs_drain(running, 0, running_n);
       free(running);
       return 1;
     }
@@ -4988,9 +5198,9 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
           }
           for (m = 1; m < running_n; m++) running[m - 1] = running[m];
           running_n--;
-          if (rcw != 0) { sv_free(&tmp_defs); av_free(&av); free(running); return 1; }
+          if (rcw != 0) { sv_free(&tmp_defs); av_free(&av); compile_jobs_drain(running, 0, running_n); free(running); return 1; }
         }
-        if (proc_spawn_nowait(av.a, &running[running_n].proc) != 0) { sv_free(&tmp_defs); av_free(&av); free(running); return 1; }
+        if (proc_spawn_nowait(av.a, &running[running_n].proc) != 0) { fprintf(stderr, "tack: compiler spawn failed: %s: errno=%d (%s)\n", cc, errno, strerror(errno)); sv_free(&tmp_defs); av_free(&av); compile_jobs_drain(running, 0, running_n); free(running); return 1; }
         running[running_n].cache_enabled = cache_enabled;
         tack_copy(running[running_n].obj_path, sizeof(running[running_n].obj_path), obj_path);
         tack_copy(running[running_n].dep_path, sizeof(running[running_n].dep_path), dep_path);
@@ -5016,7 +5226,7 @@ static int compile_sources(const char *cc, StrVec *srcs, const char *objd, const
       if (rc == 0 && running[k].cache_enabled) {
         cache_store(running[k].cache_key, running[k].obj_path, running[k].dep_path);
       }
-      if (rc != 0) { free(running); return 1; }
+      if (rc != 0) { compile_jobs_drain(running, k + 1, running_n); free(running); return 1; }
     }
   }
 
@@ -5321,7 +5531,203 @@ static void test_coverage_artifact_paths(const char *objdir, const char *test_ba
   path_join(gcno_path, gcno_cap, objdir, filename);
 }
 
-static int build_and_run_tests(const char *target_name, Profile p, int verbose, int force, int strict, TestRunStats *stats) {
+/* Test binaries may use shared build/ fixtures. Only compile/link processes run
+ * concurrently: executing tests stays ordered and single-process until each
+ * fixture has a proven isolated namespace. Each compiler gets its own output. */
+typedef struct {
+  Proc proc;
+  int test_index;
+} TestBuildProcess;
+
+#ifdef TACK_TEST
+static int g_test_compile_peak_pending = 0;
+#endif
+
+static void test_build_exe_path(char *out, size_t cap,
+                                const char *bin_dir, const char *source) {
+  const char *base = path_base(source);
+  char stem[512];
+  char *dot;
+  tack_copy(stem, sizeof(stem), base);
+  dot = strrchr(stem, '.');
+  if (dot) *dot = '\0';
+#ifdef _WIN32
+  tack_cat(stem, sizeof(stem), ".exe");
+#endif
+  path_join(out, cap, bin_dir, stem);
+}
+
+static void test_build_reap_all(TestBuildProcess *active, int count) {
+  int k;
+  for (k = 0; k < count; k++) (void)proc_wait(&active[k].proc);
+}
+
+/* Reap in planned test order. Never promote a child failure to success even
+ * when a younger compile finished first. A failed job is already reaped. */
+static int test_build_wait_oldest(TestBuildProcess *active, int *count,
+                                  int *failed_index) {
+  int i, rc, id;
+  if (!active || !count || *count < 1 || !failed_index) return 1;
+  id = active[0].test_index;
+  rc = proc_wait(&active[0].proc);
+  for (i = 1; i < *count; i++) active[i - 1] = active[i];
+  (*count)--;
+  if (rc != 0) {
+    fprintf(stderr, "tack: test compile/link failed: %d (exit=%d)\n", id, rc);
+    *failed_index = id;
+    return 1;
+  }
+  return 0;
+}
+
+/* Separate, bounded stages: compile all needed test sources, then (coverage
+ * only) link their unique objects. This prevents .gcno/.gcda sharing and
+ * ensures no test executes while any sibling is still building. */
+static int test_build_parallel(const StrVec *tests, const char *cc, Profile p,
+                               const EffectiveOverride *ov,
+                               const char * const *incs, const char *bin_dir,
+                               const char *obj_dir, int force, int strict,
+                               int verbose, int jobs, int *built,
+                               int *compiled_count, int *failed_index) {
+  TestBuildProcess *active;
+  int active_n = 0, i, stage, stages, peak = 0;
+  if (!tests || !cc || !ov || !incs || !built || !compiled_count ||
+      !failed_index || jobs < 2 || jobs > TACK_MAX_COMPILER_JOBS) return 1;
+  *failed_index = 0;
+  *compiled_count = 0;
+#ifdef TACK_TEST
+  g_test_compile_peak_pending = 0;
+#endif
+  /* The legacy bin naming is basename-based. Reject collisions rather than
+   * compiling two different source files into one executable in parallel. */
+  for (i = 0; i < tests->count; i++) {
+    int k;
+    for (k = 0; k < i; k++) {
+      if (streq(path_base(tests->items[i]), path_base(tests->items[k]))) {
+        fprintf(stderr, "tack: test: duplicate test basename: %s\n",
+                path_base(tests->items[i]));
+        *failed_index = i;
+        return 1;
+      }
+    }
+  }
+  active = (TestBuildProcess*)xmalloc((size_t)jobs * sizeof(*active));
+  stages = (p == PROF_COVERAGE) ? 2 : 1;
+  for (stage = 0; stage < stages; stage++) {
+    for (i = 0; i < tests->count; i++) {
+      char out_exe[1024], obj_path[1024], gcno_path[1024];
+      const char *source = tests->items[i];
+      Argv av;
+      int k;
+      test_build_exe_path(out_exe, sizeof(out_exe), bin_dir, source);
+      if (stage == 0) {
+        if (!force && file_exists(out_exe) &&
+            file_mtime(source) <= file_mtime(out_exe)) continue;
+      } else if (!built[i]) {
+        continue;
+      }
+      if (p == PROF_COVERAGE) {
+        test_coverage_artifact_paths(obj_dir, path_base(source),
+                                     obj_path, sizeof(obj_path),
+                                     gcno_path, sizeof(gcno_path));
+        if (stage == 1 && !file_exists(gcno_path)) {
+          fprintf(stderr, "tack: coverage: missing test gcno: %s\n", gcno_path);
+          *failed_index = i;
+          test_build_reap_all(active, active_n);
+          free(active);
+          return 1;
+        }
+      }
+      if (active_n >= jobs && test_build_wait_oldest(active, &active_n, failed_index) != 0) {
+        test_build_reap_all(active, active_n);
+        free(active);
+        return 1;
+      }
+      av_init(&av);
+      av_push(&av, cc);
+      if (stage == 0) {
+        push_common_warnings_for_cc(&av, strict, cc);
+        push_profile_flags_for_cc(&av, p, cc);
+        av_push_list(&av, ov->cflags);
+        for (k = 0; incs[k]; k++) {
+          av_push(&av, "-I");
+          av_push(&av, incs[k]);
+        }
+        if (p == PROF_COVERAGE) {
+          av_push(&av, "-c");
+          av_push(&av, "-o");
+          av_push(&av, obj_path);
+        } else {
+          av_push(&av, "-o");
+          av_push(&av, out_exe);
+        }
+        av_push(&av, source);
+      } else {
+        av_push(&av, "-o");
+        av_push(&av, out_exe);
+        av_push(&av, obj_path);
+        av_push_list(&av, ov->ldflags);
+      }
+      av_terminate(&av);
+      if (verbose) print_argv(av.a);
+      /* Fail closed: never let a compiler that exits 0 without writing an
+       * output accidentally run the previous executable for this test. */
+      if (file_exists(out_exe) && remove(out_exe) != 0) {
+        fprintf(stderr, "tack: test: cannot remove prior output: %s\n", out_exe);
+        *failed_index = i;
+        av_free(&av);
+        test_build_reap_all(active, active_n);
+        free(active);
+        return 1;
+      }
+      if (proc_spawn_nowait(av.a, &active[active_n].proc) != 0) {
+        fprintf(stderr, "tack: test compiler spawn failed: %s (errno=%d)\n",
+                cc, errno);
+        *failed_index = i;
+        av_free(&av);
+        test_build_reap_all(active, active_n);
+        free(active);
+        return 1;
+      }
+      active[active_n].test_index = i;
+      active_n++;
+      if (active_n > peak) peak = active_n;
+      if (stage == 0) {
+        built[i] = 1;
+        (*compiled_count)++;
+      }
+      av_free(&av);
+    }
+    while (active_n > 0) {
+      if (test_build_wait_oldest(active, &active_n, failed_index) != 0) {
+        test_build_reap_all(active, active_n);
+        free(active);
+        return 1;
+      }
+    }
+  }
+  /* Every successful compiler/link must actually have created its own
+   * executable, even if the tool returned a misleading zero exit status. */
+  for (i = 0; i < tests->count; i++) {
+    char executable[1024];
+    if (!built[i]) continue;
+    test_build_exe_path(executable, sizeof(executable), bin_dir, tests->items[i]);
+    if (!file_exists(executable)) {
+      fprintf(stderr, "tack: test: compiler produced no output: %s\n", executable);
+      *failed_index = i;
+      free(active);
+      return 1;
+    }
+  }
+#ifdef TACK_TEST
+  g_test_compile_peak_pending = peak;
+#endif
+  if (verbose) printf("tack: test-build: peak_pending=%d jobs=%d\n", peak, jobs);
+  free(active);
+  return 0;
+}
+
+static int build_and_run_tests(const char *target_name, Profile p, int verbose, int force, int jobs, int strict, TestRunStats *stats) {
   StrVec tests;
   int i;
   const char *cc;
@@ -5332,6 +5738,7 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
   char tests_obj[512];
 
   const char *inc_common[4];
+  int *prebuilt = 0;
 
   if (stats) memset(stats, 0, sizeof(*stats));
 
@@ -5347,7 +5754,7 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
   tap_write_plan(tests.count);
   if (tests.count == 0) {
     printf("tack: test: no tests found under %s\n", g_tests_dir);
-    sv_free(&tests);
+    free(prebuilt); sv_free(&tests);
     return 0;
   }
 
@@ -5357,14 +5764,14 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
   path_join(tests_root, sizeof(tests_root), tests_root, profile_name(p));
   ensure_dir(tests_root);
   path_join(tests_bin, sizeof(tests_bin), tests_root, "bin");
-  if (p == PROF_COVERAGE && file_exists(tests_bin) && rm_rf(tests_bin) != 0) { sv_free(&tests); return 1; }
+  if (p == PROF_COVERAGE && file_exists(tests_bin) && rm_rf(tests_bin) != 0) { free(prebuilt); sv_free(&tests); return 1; }
   ensure_dir(tests_bin);
   /* GCC may place gcov notes in the working directory when compiling and
    * linking a .c file in one step on Windows. Compile an explicit object
    * under build/ first; both .gcno and runtime .gcda belong beside it. */
   path_join(tests_obj, sizeof(tests_obj), tests_root, "obj");
   if (p == PROF_COVERAGE) {
-    if (file_exists(tests_obj) && rm_rf(tests_obj) != 0) { sv_free(&tests); return 1; }
+    if (file_exists(tests_obj) && rm_rf(tests_obj) != 0) { free(prebuilt); sv_free(&tests); return 1; }
     ensure_dir(tests_obj);
   }
 
@@ -5373,12 +5780,44 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
   inc_common[2] = g_src_dir;
   inc_common[3] = 0;
 
+  if (jobs > 1) {
+    int failed_index = 0, compiled_count = 0;
+    if ((size_t)tests.count > (size_t)-1 / sizeof(*prebuilt)) {
+      fprintf(stderr, "tack: test: excessive test inventory size\n");
+      sv_free(&tests);
+      return 1;
+    }
+    prebuilt = (int*)xmalloc((size_t)tests.count * sizeof(*prebuilt));
+    memset(prebuilt, 0, (size_t)tests.count * sizeof(*prebuilt));
+    if (test_build_parallel(&tests, cc, p, &test_ov, inc_common,
+                            tests_bin, tests_obj, force, strict, verbose, jobs,
+                            prebuilt, &compiled_count, &failed_index) != 0) {
+      const char *bad_src = tests.items[failed_index];
+      const char *bad_base = path_base(bad_src);
+      if (stats) {
+        stats->compiled = compiled_count;
+        stats->failed++;
+        stats->not_run = stats->total - stats->failed;
+      }
+      events_write_test_started(bad_base, bad_src);
+      events_write_test_finished(bad_base, "failed", prebuilt[failed_index], 0ul);
+      tap_write_test_result(failed_index + 1, bad_base, "failed", bad_src,
+                            prebuilt[failed_index], 0ul);
+      (void)junit_cases_push(bad_base, bad_src, "failed", "compile failed",
+                             prebuilt[failed_index], 0ul);
+      tap_write_bail_out("tack fail-fast after compile failure");
+      free(prebuilt); sv_free(&tests);
+      return 1;
+    }
+    if (stats) stats->compiled = compiled_count;
+  }
+
   for (i = 0; i < tests.count; i++) {
     const char *src = tests.items[i];
     const char *base = path_base(src);
     char out_exe[1024];
     unsigned long test_start_ms = tack_now_ms();
-    int compiled_now = 0;
+    int compiled_now = prebuilt ? prebuilt[i] : 0;
 
     events_write_test_started(base, src);
 
@@ -5403,7 +5842,7 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
     }
 #endif
 
-    if (force || !file_exists(out_exe) || file_mtime(src) > file_mtime(out_exe)) {
+    if (!prebuilt && (force || !file_exists(out_exe) || file_mtime(src) > file_mtime(out_exe))) {
       Argv av;
       int rc;
       char obj_path[1024];
@@ -5473,11 +5912,11 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
         events_write_test_finished(base, "failed", compiled_now, tack_elapsed_ms(test_start_ms));
         tap_write_test_result(i + 1, base, "failed", src, compiled_now, tack_elapsed_ms(test_start_ms));
         if (junit_cases_push(base, src, "failed", "compile failed", compiled_now, tack_elapsed_ms(test_start_ms)) != 0) {
-          sv_free(&tests);
+          free(prebuilt); sv_free(&tests);
           return 1;
         }
         tap_write_bail_out("tack fail-fast after compile failure");
-        sv_free(&tests);
+        free(prebuilt); sv_free(&tests);
         return 1;
       }
     }
@@ -5492,13 +5931,13 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
       if (run_rc == 77 && p == PROF_COVERAGE && !((!strcmp(base, "path_join_test.c") && !strcmp(cov_os_name(), "linux")) || (!strcmp(base, "incremental_link_test.c") && !strcmp(cov_os_name(), "windows")))) {
         fprintf(stderr, "tack: coverage: BLOCKED unexpected skipped test: %s\n", base);
         if (stats) { stats->failed++; stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped); }
-        sv_free(&tests); return 1;
+        free(prebuilt); sv_free(&tests); return 1;
       }
       if (run_rc == 77) {
         if (stats) stats->skipped++;
         events_write_test_finished(base, "skipped", compiled_now, tack_elapsed_ms(test_start_ms));
         tap_write_test_result(i + 1, base, "skipped", src, compiled_now, tack_elapsed_ms(test_start_ms));
-        if (junit_cases_push(base, src, "skipped", "not applicable", compiled_now, tack_elapsed_ms(test_start_ms)) != 0) { sv_free(&tests); return 1; }
+        if (junit_cases_push(base, src, "skipped", "not applicable", compiled_now, tack_elapsed_ms(test_start_ms)) != 0) { free(prebuilt); sv_free(&tests); return 1; }
         continue;
       }
       if (run_rc != 0) {
@@ -5506,25 +5945,25 @@ static int build_and_run_tests(const char *target_name, Profile p, int verbose, 
         events_write_test_finished(base, "failed", compiled_now, tack_elapsed_ms(test_start_ms));
         tap_write_test_result(i + 1, base, "failed", src, compiled_now, tack_elapsed_ms(test_start_ms));
         if (junit_cases_push(base, src, "failed", "test failed", compiled_now, tack_elapsed_ms(test_start_ms)) != 0) {
-          sv_free(&tests);
+          free(prebuilt); sv_free(&tests);
           return 1;
         }
         tap_write_bail_out("tack fail-fast after test failure");
-        sv_free(&tests);
+        free(prebuilt); sv_free(&tests);
         return 1;
       }
       if (stats) stats->passed++;
       events_write_test_finished(base, "passed", compiled_now, tack_elapsed_ms(test_start_ms));
       tap_write_test_result(i + 1, base, "passed", src, compiled_now, tack_elapsed_ms(test_start_ms));
       if (junit_cases_push(base, src, "passed", "", compiled_now, tack_elapsed_ms(test_start_ms)) != 0) {
-        sv_free(&tests);
+        free(prebuilt); sv_free(&tests);
         return 1;
       }
     }
   }
 
   if (stats) stats->not_run = stats->total - (stats->passed + stats->failed + stats->skipped);
-  sv_free(&tests);
+  free(prebuilt); sv_free(&tests);
   return 0;
 }
 
@@ -5624,10 +6063,20 @@ static int cov_relative_source(char *out, size_t cap, const char *raw, const cha
   return 0;
 }
 
+/* Workspace scans return native separators: '\' on Windows and '/' on
+ * POSIX. Normalize classification logically without rewriting filesystem
+ * paths, so production source freshness is enforced on both platforms. */
 static int cov_is_production(const char *path) {
-  if (strncmp(path, "src/", 4) == 0) return 1;
-  if (strncmp(path, "include/", 8) == 0 && strncmp(path, "include/tests/", 14) != 0) return 1;
-  return 0;
+  const char *tail;
+  if (!path) return 0;
+  if (strncmp(path, "src", 3) == 0 &&
+      (path[3] == '/' || path[3] == '\\')) return 1;
+  if (strncmp(path, "include", 7) != 0 ||
+      (path[7] != '/' && path[7] != '\\')) return 0;
+  tail = path + 8;
+  if (strncmp(tail, "tests", 5) == 0 &&
+      (tail[5] == '/' || tail[5] == '\\')) return 0;
+  return 1;
 }
 
 static int cov_read_gcov(const char *path, const char *root, CovSet *v) {
@@ -5684,9 +6133,24 @@ static int cov_source_order(const void *a, const void *b) {
   return strcmp(x->name, y->name);
 }
 
+/* Gcov reports normalized source names (src/tack.c), while directory scans
+ * return native paths (src\\tack.c on Windows). Normalize only the comparison
+ * identity; never rewrite a filesystem path used for actual I/O. */
+static int cov_source_is_instrumented(const CovSet *v, const char *scanned) {
+  char canonical[512];
+  int j;
+  /* Only repository-relative production identities belong to gcov scope.
+   * An absolute path must not turn into a false src/ match. */
+  if (!v || !cov_is_production(scanned) ||
+      cov_relative_source(canonical, sizeof(canonical), scanned, "") != 0) return 0;
+  for (j = 0; j < v->count; j++) {
+    if (streq(v->src[j].name, canonical)) return 1;
+  }
+  return 0;
+}
 static int cov_validate_source_scope(CovSet *v) {
   StrVec names;
-  int i, j, missing = 0;
+  int i, missing = 0;
   sv_init(&names);
   scan_dir_recursive_suffix(&names, "src", ".c");
   scan_dir_recursive_suffix(&names, "src", ".h");
@@ -5694,10 +6158,11 @@ static int cov_validate_source_scope(CovSet *v) {
   sv_sort_unique(&names);
   for (i = 0; i < names.count; i++) {
     const char *n = names.items[i];
-    int found = 0;
     if (!cov_is_production(n)) continue;
-    for (j = 0; j < v->count; j++) if (streq(v->src[j].name, n)) { found = 1; break; }
-    if (!found) { fprintf(stderr, "tack: coverage: production source not instrumented: %s\n", n); missing = 1; }
+    if (!cov_source_is_instrumented(v, n)) {
+      fprintf(stderr, "tack: coverage: production source not instrumented: %s\n", n);
+      missing = 1;
+    }
   }
   sv_free(&names);
   return missing;
@@ -10349,9 +10814,9 @@ static char *fmt_expand_token(const char *tok, const char *file, const char *roo
   return s5;
 }
 
-/* Build a Windows command line with exact CRT argument boundaries for the
- * external formatter only.  The general tack build runner is unchanged.
- * CreateProcessA receives one fully terminated, mutable command line. */
+/* Encode one Win32 argument with the Windows CRT parsing rules. The shared
+ * general-process and formatter launchers both use this routine, preserving
+ * empty values, embedded quotes, and terminal backslashes. */
 #ifdef _WIN32
 static char *fmt_windows_quote_cmd_arg(const char *arg) {
   size_t n, i, used;
@@ -10388,43 +10853,18 @@ static char *fmt_windows_quote_cmd_arg(const char *arg) {
 #endif
 
 #ifdef _WIN32
-/* Win32 does not accept an argv array: construct the command line explicitly.
- * _spawnvp on some Windows CRTs corrupts or splits formatter path arguments
- * even after per-argument quoting.  This function is formatter-only. */
+/* The formatter's existing synchronous Win32 launcher now uses the same
+ * bounded commandline encoder as the generic asynchronous process API. */
 static int fmt_run_win32(char **argv, int verbose) {
-  StrVec quoted;
   STARTUPINFOA startup;
   PROCESS_INFORMATION child;
   DWORD wait_result, child_exit, win_error;
   char *cmdline;
-  size_t used, n, pos;
-  int i, ok;
+  int ok;
 
   if (!argv || !argv[0] || !argv[0][0]) return 1;
-  sv_init(&quoted);
-  used = 0u;
-  for (i = 0; argv[i]; i++) {
-    char *q = fmt_windows_quote_cmd_arg(argv[i]);
-    n = strlen(q);
-    if (used > 32766u || (i && used == 32766u) ||
-        n > 32766u - used - (i ? 1u : 0u)) {
-      free(q);
-      sv_free(&quoted);
-      tack_die("fmt: Windows command line too long");
-    }
-    used += n + (i ? 1u : 0u);
-    sv_push_own(&quoted, q);
-  }
-
-  cmdline = (char*)xmalloc(used + 1u);
-  pos = 0u;
-  for (i = 0; i < quoted.count; i++) {
-    n = strlen(quoted.items[i]);
-    if (i) cmdline[pos++] = ' ';
-    memcpy(cmdline + pos, quoted.items[i], n);
-    pos += n;
-  }
-  cmdline[pos] = '\0';
+  cmdline = proc_windows_commandline(argv);
+  if (!cmdline) return 1;
 
   if (verbose) print_argv(argv);
   memset(&startup, 0, sizeof(startup));
@@ -10437,12 +10877,10 @@ static int fmt_run_win32(char **argv, int verbose) {
     fprintf(stderr, "tack: fmt: CreateProcess failed (winerr=%lu): %s\n",
             (unsigned long)win_error, argv[0]);
     free(cmdline);
-    sv_free(&quoted);
     return 1;
   }
 
   free(cmdline);
-  sv_free(&quoted);
   wait_result = WaitForSingleObject(child.hProcess, INFINITE);
   if (wait_result != WAIT_OBJECT_0) {
     fprintf(stderr, "tack: fmt: formatter process wait failed (winerr=%lu)\n",
@@ -10498,19 +10936,18 @@ static int fmt_exec_cmd(const char *cmd, const char *file, const char *root, con
     av_push(&av, argv_own.items[i]);
   av_terminate(&av);
 
-#ifdef _WIN32
-  _getcwd(cwd0, (int)sizeof(cwd0));
-#else
-  getcwd(cwd0, sizeof(cwd0));
-#endif
-  cwd0[sizeof(cwd0) - 1] = '\0';
-
+  cwd0[0] = '\0';
   if (workdir && workdir[0]) {
 #ifdef _WIN32
-    _chdir(workdir);
+    if (!_getcwd(cwd0, (int)sizeof(cwd0)) || _chdir(workdir) != 0) {
 #else
-    chdir(workdir);
+    if (!getcwd(cwd0, sizeof(cwd0)) || chdir(workdir) != 0) {
 #endif
+      fprintf(stderr, "tack: fmt: cannot enter workdir: %s: %s\n",
+              workdir, strerror(errno));
+      av_free(&av); sv_free(&toks); sv_free(&argv_own);
+      return 1;
+    }
   }
 
 #ifdef _WIN32
@@ -10521,10 +10958,13 @@ static int fmt_exec_cmd(const char *cmd, const char *file, const char *root, con
 
   if (workdir && workdir[0]) {
 #ifdef _WIN32
-    _chdir(cwd0);
+    if (_chdir(cwd0) != 0) {
 #else
-    chdir(cwd0);
+    if (chdir(cwd0) != 0) {
 #endif
+      fprintf(stderr, "tack: fmt: cannot restore workdir: %s\n", cwd0);
+      rc = 1;
+    }
   }
 
   av_free(&av);
@@ -11317,7 +11757,7 @@ int main(int argc, char **argv) {
         int v;
         if (argi + 1 >= argc) { fprintf(stderr, "tack: -j needs N\n"); tv_free(&tv); config_free(); return 2; }
         v = parse_int(argv[++argi]);
-        if (v < 1) { fprintf(stderr, "tack: invalid -j %s\n", argv[argi]); tv_free(&tv); config_free(); return 2; }
+        if (v < 1 || v > TACK_MAX_COMPILER_JOBS) { fprintf(stderr, "tack: invalid -j %s\n", argv[argi]); tv_free(&tv); config_free(); return 2; }
         jobs = v;
       } else {
         /* run: allow args without -- (best effort) */
@@ -11358,7 +11798,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "tack: coverage: cannot clear stale current measurement\n");
         events_close(); junit_close(); tap_close(); tv_free(&tv); config_free(); return 2;
       }
-      rc = build_and_run_tests(target_name, p, verbose, force || p == PROF_COVERAGE, strict, &stats);
+      rc = build_and_run_tests(target_name, p, verbose, force || p == PROF_COVERAGE, jobs, strict, &stats);
       if (rc == 0 && p == PROF_COVERAGE) rc = cov_generate_gcov(p, &stats);
       duration_ms = tack_elapsed_ms(start_ms);
       events_write_run_finished("test", p, (rc == 0) ? "ok" : "failed", duration_ms);

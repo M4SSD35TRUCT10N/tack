@@ -1,4 +1,13 @@
 /* Regression guard for SPEC 0001: paired DE and EN sections in normative docs. */
+/* Clang targeting the MSVC UCRT: use ISO C89 CRT APIs without Microsoft's
+ * vendor-only 'unsafe' deprecation annotations. This opt-out must precede
+ * ALL CRT/Windows headers; it does not disable -Werror or other diagnostics.
+ * fopen_s/getenv_s/strerror_s are not ISO C89 replacements. */
+#if defined(_WIN32) && defined(_MSC_VER) && defined(__clang__)
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS 1
+#endif
+#endif
 #include <stdio.h>
 #include <string.h>
 

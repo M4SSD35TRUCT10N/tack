@@ -35,6 +35,18 @@ static int change_dir_local(const char *path) {
 #endif
 }
 
+/* MSVC's CRT deprecates the POSIX getcwd alias: use its documented
+ * Windows name, with the checked size_t-to-int conversion. POSIX keeps
+ * its native getcwd declaration. Both branches remain strict C89. */
+static int read_cwd_local(char *out, size_t capacity) {
+#ifdef _WIN32
+  if (capacity > (size_t)INT_MAX) return 1;
+  return _getcwd(out, (int)capacity) == 0;
+#else
+  return getcwd(out, capacity) == 0;
+#endif
+}
+
 int main(void) {
   int failures = 0;
   char cwd[1024];
@@ -44,7 +56,7 @@ int main(void) {
   const char *header_path = "include/common.h";
   const char *key = "cache-clean-test";
 
-  if (!getcwd(cwd, (int)sizeof(cwd))) {
+  if (read_cwd_local(cwd, sizeof(cwd)) != 0) {
     fprintf(stderr, "getcwd failed\n");
     return 1;
   }

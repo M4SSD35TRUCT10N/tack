@@ -187,6 +187,16 @@ Testinventar und Coverage-Gates sind implementiert. Die Windows/GCC-Release- und
 - Vollständiges versioniertes Testinventar sowie eine reviewed Anforderungs-/Funktions-Testmatrix (Ziel ≥90 % belegte Anforderungen, alle kritischen Sicherheitsregeln getestet).
 - Branch-Coverage erst messen und separat baseline-bilden; nicht mit Anzahl bestandenener Tests gleichsetzen.
 - Risikobasierte zusätzliche Negativ- und CLI-E2E-Tests, jeweils ein Meilenstein und eine echte Ratchet-Messung. Siehe [Plan](docs/plans/0.8.6-coverage.md).
+- **Pflichtfreigabe:** Windows TinyCC/GCC/**Clang** plus GCC/gcov, Linux GCC/**Clang** plus GCC/gcov. Größere fachlich zusammenhängende Batches, unveränderte Owner-Ratchets, >=90 % ausführbare Produktionszeilen auf jeder Plattform.
+- **M2-Infrastruktur:** tatsächliche parallele Test-Compile-/Link-Jobs über `-j N`, bislang nicht implementiert; Dateisystempfade von kanonischen IDs trennen, künftige `ba_core`-Wiederverwendbarkeit planen; Root-Binaries nach `build/host`. [Execution contract](docs/plans/0.8.6-execution-contract.md), [ADR 0006](docs/adr/0006-paths-parallelism-ba-core.md).
+
+### Vorgesehen: v0.8.7 – ausführliches Code-Dokumentationsreview
+
+- Aussagen von README, Guides, Reference, SPECs, ADRs, CLI und INI gegen tatsächlichen Programmcode und Tests prüfen; Lücken und Widersprüche dokumentieren.
+- Status `draft`, `accepted`, `implemented` nur mit Owner-/Implementierungsnachweis ändern.
+- README und Dokument-Navigation nach natürlichem Lesefluss umorganisieren, historische Details in Referenz/Changelog verschieben, DE/EN konsistent halten.
+- [0.8.7 Review-Plan](docs/plans/0.8.7-code-documentation-review.md): DRAFT, **erst nach 0.8.6-Abnahme beginnen**.
+
 
 ## English (Roadmap)
 
@@ -370,4 +380,14 @@ Versioned test inventory and measured coverage gates are implemented. The owner 
 - Complete versioned test inventory and reviewed traceability matrix covering ≥90% of defined testable requirements, with all critical security cases covered.
 - Measure branch coverage separately; successful test count is not a code or requirements coverage ratio.
 - Risk-prioritized negative and CLI E2E tests, one milestone and real measured ratchet increase at a time. See the [plan](docs/plans/0.8.6-coverage.md).
+- **Release gates:** Windows TinyCC/GCC/**Clang** plus GCC/gcov; Linux GCC/**Clang** plus GCC/gcov. Larger coherent batches, unchanged Owner ratchets, >=90% executable production line coverage on each OS.
+- **M2 infrastructure:** actual bounded `test -j N` parallel compile/link (currently not implemented); separate native OS paths and canonical IDs, define a potential `ba_core` contract; root host binaries under `build/host`. [Execution contract](docs/plans/0.8.6-execution-contract.md), [ADR 0006](docs/adr/0006-paths-parallelism-ba-core.md).
+
+### Planned: v0.8.7 – comprehensive source/documentation review
+
+- Check README, guides, reference, specs, ADRs, CLI and INI claims against actual program code and tests; log inconsistencies.
+- Change `draft`, `accepted`, `implemented` statuses only with Owner/implementation evidence.
+- Rewrite README and docs navigation around newcomer reading flow, move historical detail into reference/changelog, keep DE/EN aligned.
+- [0.8.7 review plan](docs/plans/0.8.7-code-documentation-review.md): DRAFT, **start only after 0.8.6 acceptance**.
+
 

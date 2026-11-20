@@ -1,0 +1,66 @@
+# SPEC 0014 – tack v0.8.6 M2: Prozessausführung / Process execution
+
+**Stand:** 2026-11-19 (RC0.6 Clang-MSVC compatibility candidate; Windows RC0.5 PASS) | **Status:** Implementierungskandidat, NICHT abgenommen / implementation candidate, NOT accepted
+**Ausgangsbasis:** dev/v0.8.6 @ `39daf5047038dd88cfd7ca5521ceb97d951a929c`
+**Referenzen:** AGENTS.md, docs/adr/*, docs/plans/0.8.6-coverage.md, BA-STD-C89 v0.5 DRAFT (nicht ratifiziert).
+
+## Deutsch
+
+### RC0.6a – Windows Clang/MSVC `getcwd`-Testkompatibilität (noch NOT RUN)
+
+Die Owner-Einzelprobe `src/tack.c` mit strict Clang-C89 ist auf RC0.6 PASS, die anschließende erste Testübersetzung scheitert an `getcwd` (POSIX-Name als veraltet unter MSVC-UCRT). Der Cache-Test verwendet unter Windows nun `_getcwd` mit geprüftem `size_t`-zu-`int`-Cast und unter POSIX weiterhin `getcwd`. Kein globales `_CRT_NONSTDC_NO_WARNINGS`, keine Änderung an `-Werror` oder M2-Prozesslogik. RC0.6a Compiler-/Test-/Coverage-Gates noch NOT RUN; Ratchet-Genehmigungen erneut erforderlich.
+
+### RC0.6 – Zusatzcompiler Clang mit MSVC-UCRT (noch NOT RUN)
+
+Windows-Clang 23.1.5 hatte Target `x86_64-pc-windows-msvc`, nicht Linux, und scheiterte bereits bei C89-Standardbibliotheksfunktionen, die Microsofts UCRT mit vendor-only Deprecation-Attributen versieht. ADR 0004 erlaubt nur für `_WIN32 && _MSC_VER && __clang__` ein ausdrücklich dokumentiertes `_CRT_SECURE_NO_WARNINGS` vor CRT-Headern; C89, `-Werror` und Prozesslogik bleiben erhalten. Änderungen an Source-/Testfingerprints verlangen neue Owner-Ratchets. RC0.6 und echte Linux-Gates bleiben NOT RUN.
+
+### Geltung und Sicherheitsvertrag
+
+M2 ändert ausschließlich vorhandene Prozessaufrufe, Argumentübergabe und -begrenzung, Wait-/Spawn-Fehler, Compiler-Jobpool und Formatter-Workdir-Verwaltung. `fork/execvp/waitpid` (POSIX) bleibt die Architektur. Der allgemeine Windows-Prozessstart wechselt in RC0.4 nach dem RC0.3-Fehlernachweis von `_spawnvp/_cwait` auf `CreateProcessA`, `WaitForSingleObject` und `GetExitCodeProcess` und nutzt dieselbe Argumentkodierung wie der Formatter (ADR 0003). Kein Shell-Wrapper, keine neuen Abhängigkeiten, keine parallele Testausführung, kein M3-M8-Feature.
+
+- **P01-P08, P21:** Ungültige Programme werden vor dem Zugriff zurückgewiesen. C89-Argv hat ein überprüftes NULL-Ende, echte Empty-Argumente bleiben erhalten. Maximal 8192 Einträge einschließlich Terminator; `-j` wird vor der Pool-Allokation auf 1–256 begrenzt. Mehrere Argumente müssen als einzelne Werte bis ins Child gelangen; Metazeichen sind Daten.
+- **P09-P16:** POSIX nutzt einen vor `fork` angelegten close-on-exec-Errno-Kanal. Erfolgreiches `execvp` schließt die Pipe und meldet keinen Exec-Fehler; fehlgeschlagenes `execvp` liefert tatsächliches `errno`, Child wird eingesammelt. Regulärer Exit 127 bleibt unterscheidbar. `waitpid` wiederholt nur bei `EINTR` und meldet Signale. Windows nutzt ab RC0.4 den nativen Win32-Prozesspfad. Der Owner reproduzierte zuvor eine fehlerhafte allgemeine CRT-Argumentübergabe, während die echte CreateProcessA-Formatterprobe bestand. Win32-Prozess- und Thread-Handles werden auf Erfolg und Fehler kontrolliert freigegeben.
+- **P17-P20:** `compile_sources` lässt maximal `-j` Prozesse gleichzeitig laufen und wartet bei einem Fehler auch alle bereits gestarteten Geschwister ab. Keine erfolgreichen Cache-/Meta-Markierungen für abgebrochene Geschwister. Die bisherige FIFO-Semantik bleibt.
+- **P22-P29:** Die bisherige CreateProcessA-Quotierung wird einheitlich von generischem Prozessstarter und Formatter benutzt; vor jedem Formatter-Start wird ein angefordertes Arbeitsverzeichnis geprüft. Misslingt der Rückwechsel, wird der gesamte Aufruf als Fehler gewertet. Windows verwendet weiterhin ANSI-`CreateProcessA` mit bekannten Unicode- und Long-Path-Grenzen. Keine Wide-API-Migration.
+- **P31-P32:** Alte Regressionen, HWM-Dateien und das 27-Test-Inventar dürfen nicht abgeschwächt werden. Der neue Test blockiert die Test-Ratchet, bis der Owner seine Quellen-/Assertion-Änderungen ausdrücklich annimmt. Eine stärkere Coverage-Messung bleibt bis zur Owner-HWM-Annahme BLOCKED.
+
+### RC0.5 Regressionserweiterung P17/P19/P20 (Windows PASS, Linux NOT RUN)
+
+Die elternseitige Betriebssystem-Spawn-/Wait-Instrumentierung in `tests/process_execution_test.c` zählt exakt die gestarteten/eingesammelten Fake-Compiler-Kinder. P17 benutzt eine bounded Zwei-Kind-Barrier zur Unterscheidung echter Parallelität von bloßer Anzahl Slot-Einträge. P19 erzwingt durch echten Child-Output-/Completionmarker die erfolgreiche Fertigstellung des schnellen Kindprozesses vor der langsamen Compilerarbeit in beiden Inputreihenfolgen; OS-Exit-Reihenfolge wird nicht behauptet. P20 injiziert einen Spawn-Fehler beim zweiten Start erst nach einem echten Ready-Marker des ersten noch laufenden Child und prüft Drain, Prozesszähler und ausbleibende Erfolgsmetadaten. Nur die Testquelle ändert sich, nicht die bereits geprüfte Windows-RC0.4-Implementierung. Der Owner hat das RC0.5-Testinventar lokal angenommen und alle Windows-Tests mit 27 PASS / 0 FAIL / 1 SKIP in TinyCC Debug, GCC Release und GCC Coverage ausgeführt. Die neue Windows-Coverage von 3845/6075 ist noch nicht als HWM angenommen. Linux-Gesamtsuite und Linux-HWM-Gate bleiben NOT RUN.
+
+### Regressionen und Freigabe
+
+`tests/process_execution_test.c` startet die eigene Testbinärdatei als echtes Child. Positiv-, Fehler- und Boundary-Fälle prüfen empfangene Argumente sowie Exitcodes, POSIX-Exec-Errno und Signalbeendigung, EINTR/Wait-Fault-Injektion, -j-Sibling-Drain und Formatter-Workdir. Bestehende `tests/fmt_ini_parser_test.c` sichert weitere echte Windows-Quoting-Fälle. P16, P19 und P23-P26 sind im RC0.2-Testentwurf mit Windows-API-Injektionen, Grenzwerten und Reihenfolgeprüfungen ergänzt. **Das ist Testcode, noch kein Gate-PASS.** Windows RC0.3 zeigte einen wiederholbaren Fehler der genauen Child-Argument-Assertion ausschließlich im CRT-Launcher, nicht im Formatter. RC0.4 enthält die native Launcher-Korrektur und stärkere Create/Wait/Exit/Close-Fehlerproben; die vollständigen Compiler-/Plattform-Gates und der Fehler während aktiver Compile-Geschwister sind noch offen. Keine Requirement gilt allein wegen vorhandener Assertions als abgenommen. Jeder Status ist plattformbezogen. Erst nach Owner-Freigaben und gemessenen Windows-/Linux-Gates darf M2 als abgeschlossen gelten.
+
+## English
+
+M2 preserves POSIX fork/exec and the Windows formatter API. Windows RC0.3 owner tests exposed an argument-boundary error in the generic `_spawnvp` path. RC0.4 switches the generic launcher to native `CreateProcessA`, `WaitForSingleObject` and `GetExitCodeProcess` with the formatter's shared CRT-compatible commandline encoding, as documented in ADR 0003, hardening input validation, argument boundaries, exec error signaling, waits, bounded parallel compiler cleanup and formatter working directories. The POSIX close-on-exec error pipe distinguishes `execvp` failure from a successfully started program exiting with status 127. All already launched compiler children must be reaped on failure, without recording success metadata for abandoned jobs. The normal Windows formatter continues using `CreateProcessA` and its documented ANSI and path constraints. No shell, new build system, new dependencies, parallel test runner or early M3–M8 implementation is authorized.
+
+The requirement matrix is `docs/plans/M2-REQUIREMENTS.tsv`, the platform evidence record is `M2-VALIDATION.md`. The Owner approved the RC0.4 Windows test inventory and the newly measured Windows HWM (3844/6075), and `coverage check` returned PASS. Both approved ratchet files are versioned together; the Linux HWM (3604/5790) remains unchanged. M2 overall acceptance is still pending Linux gates and additional parallel-process checks. Owner Windows/Linux verification and explicit test/coverage ratchet acceptance are mandatory before milestone closure.
+
+### English: RC0.5 strictly scoped test-only extension
+
+P17 instruments actual OS spawn and wait calls in the test harness, validates the active/unreaped count against `-j 2` and uses two paired child start barriers to establish actual concurrency. P19 verifies successful compiler outputs with a forced fast-before-slow completion-marker dependency in both input orders, without pretending the marker is an OS-exit timestamp. P20 injects failure at the second child spawn only after the first child reports readiness, then verifies its release, reaping and absence of a success `.meta` record. Only the test source is modified. The existing accepted Windows/ Linux coverage HWMs and production code are untouched; new platform gates remain NOT RUN and the changed test inventory awaits fresh Owner approval.
+
+### English: RC0.5 Owner Windows gates, 2026-11-19
+
+TinyCC debug, GCC release and GCC coverage test assertions all passed 27, failed zero, skipped one across 28 compiled tests. P17/P19/P20 have passed in the Windows process test. The RC0.5 inventory change was owner-approved locally. The newly measured Windows coverage 3845/6075 exceeds the accepted 3844/6075 HWM by one covered production line and is BLOCKED until a separate HWM acceptance and joint ratchet commit. Linux tests are NOT RUN; M2 is pending.
+
+### English: RC0.5 accepted Windows HWM
+
+Owner approved the measured Windows HWM via `tack coverage accept --owner-approve`, then ran `coverage check`, yielding **PASS HWM retained: 3845/6075**. The updated 28-source inventory with `process_execution_test.c` fingerprint `53d637eb` was approved separately. Both ratchet artifacts are committed together. Linux full integrated gates remain NOT RUN; milestone closure is pending.
+
+### English: RC0.6 Windows Clang/MSVC candidate
+
+The additional compiler was Windows Clang with the MSVC/UCRT target; Microsoft's vendor deprecation annotations caused the first test compile to fail under `-Werror`. ADR 0004 specifies a narrowly scoped, documented pre-header CRT compatibility opt-out rather than non-C89 `_s` APIs or globally relaxed warnings. This is untested source, no accepted coverage change, and no substitute for true Linux GCC/Clang validation.
+
+
+## M2 RC0.8 Kandidat: paralleles Test-Kompilieren/Linken (19.11.2026, NOT RUN)
+
+Die bestehende normative M2-Prozessausführung bleibt unverändert. Ergänzend wird der bereits vorhandene native `proc_spawn_nowait`/`proc_wait`-Vertrag für Test-Compile-/Link-Aufträge mit `-j N` verwendet. Der CLI-Parser hatte `jobs` bisher nur angenommen, nicht in den Test-Runner geleitet. RC0.8 ergänzt den gebundenen, fail-closed Prozesspool (maximal `TACK_MAX_COMPILER_JOBS`), ohne Kindprozess-Shell, mit vollständigem Reap bei jedem Fehler. Testprogramme laufen weiterhin **in definierter Reihenfolge sequenziell**, da gemeinsame Fixtures noch nicht isoliert sind. GCC-Coverage baut eindeutige `.o/.gcno/.gcda` pro Test in `build/`, linkt separat und sammelt gcov erst nach der Runtime. Eindeutige Basenames werden vor parallelem Build erzwungen. Neues C89-E2E `tests/parallel_test_build_test.c` prüft `-j 1` gegenüber `-j 4`, Mehrfach-Spawn, Inkrementalverhalten, Compilerfehlersituation und isolierte GCC-Links. Source-Scope-ID-Pfade im gcov-Collector werden plattformübergreifend kanonisch verglichen, native OS-Pfade bleiben unangetastet.
+
+**Wichtig:** Dies ist ein **nicht getesteter** RC0.8-Kandidat innerhalb desselben M2-Milestones, kein bestandener Gate-/Coverage-Nachweis. Alte Owner-HWMs Windows 3845/6075 und Linux 3604/5790 und das Testinventar bleiben unverändert; geänderte Testquellen benötigen erneute ausdrückliche Owner-Annahme. Windows TinyCC/GCC/Clang und echte Linux GCC/Clang/gcov-Pflichtfreigaben stehen noch aus. Siehe `docs/plans/M2-RC08-TASK.md` und ADR 0006 (noch PROPOSED).
+
+## English – RC0.8 bounded native test build candidate (NOT RUN)
+
+The M2 spawn/wait invariants remain in force. The `test -j N` option now has a bounded compile/link pool candidate built on native process calls and deterministic child reaping, with serialized runtime tests until fixtures are isolated and unique GCC coverage object/note/data paths under build/. Test source basename collisions are rejected. A C89 regression compares -j1 and -j4 and checks incremental runs, failure draining and GCC dual-stage linking. Canonical source-ID comparison fixes Win32 gcov scope matching without rewriting filesystem paths. None of the RC0.8 compiler, test or gcov gates has run; Owner ratchet approval and actual Windows/Linux/Clang reference validation are pending.
